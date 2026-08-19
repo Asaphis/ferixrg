@@ -230,3 +230,9 @@
 - [x] Implement password visibility, requirements, validation, loading, generic account-protection errors, resend cooldown, session-expiry, and logout/unsaved-work confirmations.
 - [x] Keep the approved dashboard unchanged and protect application entry according to the selected authentication approach.
 - [x] Add authentication state tests, verify desktop/mobile routes, run checks, and save the completed flow.
+
+## Landing authentication entry points
+
+- [x] Audit every public landing sign-in, registration, and account-entry action for broken or outdated routes.
+- [x] Route public sign-in actions to `/auth/login` and account-creation actions to `/auth/register` without changing the approved landing visual system.
+- [x] Add regression coverage, verify desktop/mobile entry interactions, run checks, and save the corrected public authentication links.

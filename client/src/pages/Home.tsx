@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, Link2, Menu, Sparkles, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Link2, Menu, Sparkles } from "lucide-react";
 import React, { type MouseEvent, useState } from "react";
 import { useLocation } from "wouter";
 import { landingHealthMetrics, landingOutcomes, landingWorkflow, supportedPlatforms } from "@/lib/landingContent";
@@ -21,10 +21,11 @@ function PrimaryButton({ children, onClick, className = "" }: { children: React.
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const [authOpen, setAuthOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const goToWorkspace = () => navigate("/app");
+  const goToLogin = () => navigate("/auth/login");
+  const goToRegister = () => navigate("/auth/register");
   const setLayerParallax = (node: HTMLElement, x: number, y: number) => {
     node.style.setProperty("--parallax-x", `${x}px`);
     node.style.setProperty("--parallax-y", `${y}px`);
@@ -44,10 +45,10 @@ export default function Home() {
         <div className="landing-links">
           {["Product", "Solutions", "How It Works", "Platforms", "Resources", "Pricing"].map((item, index) => <a href={index === 2 ? "#workflow" : index === 3 ? "#platforms" : "#capabilities"} key={item}>{item}{![2, 5].includes(index) && <ChevronDown size={11} />}</a>)}
         </div>
-        <div className="landing-nav-actions"><button className="landing-signin" onClick={() => setAuthOpen(true)}>Sign In</button><PrimaryButton onClick={() => setAuthOpen(true)}>Get Started</PrimaryButton></div>
+        <div className="landing-nav-actions"><button className="landing-signin" onClick={goToLogin}>Sign In</button><PrimaryButton onClick={goToRegister}>Get Started</PrimaryButton></div>
         <button className="landing-menu" aria-label="Open navigation" onClick={() => setMobileMenu((open) => !open)}><Menu size={21} /></button>
       </nav>
-      {mobileMenu && <div className="landing-mobile-menu">{["Product", "Solutions", "How It Works", "Platforms", "Resources", "Pricing"].map((item) => <a href="#capabilities" key={item} onClick={() => setMobileMenu(false)}>{item}</a>)}<button onClick={() => setAuthOpen(true)}>Get Started</button></div>}
+      {mobileMenu && <div className="landing-mobile-menu">{["Product", "Solutions", "How It Works", "Platforms", "Resources", "Pricing"].map((item) => <a href="#capabilities" key={item} onClick={() => setMobileMenu(false)}>{item}</a>)}<button onClick={goToRegister}>Get Started</button></div>}
 
       <section className="rich-hero">
         <div className="hero-copy-rich">
@@ -78,9 +79,8 @@ export default function Home() {
       <section className="redesign-compare"><article className="before"><span>Before</span><b>72 <small>/100</small></b><img src={redesignAsset} alt="Before storefront design" /></article><article className="after"><span>After</span><b>94 <small>/100</small></b><img src={redesignAsset} alt="After storefront design" /></article></section>
       <section className="landing-section workflow-section" id="workflow"><div className="landing-eyebrow">PROVEN PROCESS</div><h2>From insight to impact.</h2><div className="workflow-cards">{landingWorkflow.map(([number, title, copy]) => <article key={number}><b>{number}</b><div><h3>{title}</h3><p>{copy}</p></div></article>)}</div></section>
       <section className="health-report"><header><b>Your Store Health Report</b><button onClick={goToWorkspace}>Download <ArrowRight size={13} /></button></header><img src={heroAsset} alt="Store health report evidence" /><div>{landingHealthMetrics.map((metric) => <article key={metric.name}><span>{metric.name}</span><b>{metric.value}</b><i className={metric.tone} /></article>)}</div></section>
-      <section className="landing-cta"><h2>Your store can be better.<br />Let’s find out how.</h2><div><PrimaryButton onClick={goToWorkspace}>Analyze My Store</PrimaryButton><button className="landing-secondary light" onClick={() => setAuthOpen(true)}>Create Free Account</button></div></section>
+      <section className="landing-cta"><h2>Your store can be better.<br />Let’s find out how.</h2><div><PrimaryButton onClick={goToWorkspace}>Analyze My Store</PrimaryButton><button className="landing-secondary light" onClick={goToRegister}>Create Free Account</button></div></section>
       <footer className="landing-footer"><Brand /><span>Product · Solutions · Platforms · Resources</span><span>© 2026 FerixRG</span></footer>
     </div>
-    {authOpen && <div className="landing-auth" role="dialog" aria-modal="true" aria-labelledby="landing-auth-title"><div><button className="close-auth" aria-label="Close sign in" onClick={() => setAuthOpen(false)}><X size={18} /></button><span className="landing-eyebrow">ENTER THE WORKSPACE</span><h2 id="landing-auth-title">Start with a real decision.</h2><p>This interactive prototype is simulated. Open the workspace to explore analysis, redesign, validation, and publishing paths.</p><PrimaryButton onClick={goToWorkspace}>Open demo workspace</PrimaryButton></div></div>}
   </main>;
 }

@@ -46,4 +46,17 @@ describe("Home hero montage motion", () => {
     fireEvent.mouseMove(hero.montage, { clientX: 400, clientY: 0 });
     expect(hero.phone.style.getPropertyValue("--parallax-x")).toBe("");
   });
+
+  it("routes public authentication actions to the simulated login and registration screens", () => {
+    setViewport(1440, false);
+    window.history.replaceState({}, "", "/");
+    let view = render(createElement(Home));
+    fireEvent.click(view.getByRole("button", { name: "Sign In" }));
+    expect(window.location.pathname).toBe("/auth/login");
+    cleanup();
+    window.history.replaceState({}, "", "/");
+    view = render(createElement(Home));
+    fireEvent.click(view.getByRole("button", { name: "Get Started" }));
+    expect(window.location.pathname).toBe("/auth/register");
+  });
 });
