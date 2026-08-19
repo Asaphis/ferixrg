@@ -198,3 +198,19 @@
 - [x] Rebuild the Stores, Tools, results, publishing, and More page surfaces to use the same dark dashboard card and state language on desktop and mobile.
 - [x] Verify Home dashboard content remains unchanged while every non-dashboard page has matching desktop/mobile dashboard-system treatment.
 - [x] Add or update visual-system tests, verify renders, run checks, and save the unified internal system.
+
+## Dashboard-native internal composition rebuild
+
+- [x] Map the approved dashboard’s greeting, summary, action, paired-panel, and 12-column composition rules to Stores, More, Tools, results, and publishing content.
+- [x] Rebuild Stores and More as modular dashboard workspaces with the approved action-led hierarchy and panel placement rather than full-width legacy lists.
+- [x] Rebuild Tools, results, and publishing as dashboard-native panels and grids while retaining their existing content and interaction states.
+- [x] Preserve the approved Home dashboard exactly while confirming desktop/mobile reflow follows the same composition system across every internal route.
+- [x] Add structural-layout regression coverage, verify responsive renders, run checks, and save the rebuilt system.
+
+## Clean internal dashboard content
+
+- [x] Remove redundant descriptions, filters, repeated options, and nonessential panels from internal dashboard pages.
+- [x] Simplify Stores and More into clean action-led boards with only essential status, controls, and next steps.
+- [x] Simplify Tools, results, and publishing into clear single-purpose decision boards while preserving all existing actions.
+- [x] Preserve the approved Home dashboard and verify concise desktop/mobile content hierarchy across internal routes.
+- [x] Add regression coverage, verify responsive renders, run checks, and save the simplified internal system.

@@ -42,20 +42,20 @@ describe("Workspace mobile behaviour", () => {
     window.history.replaceState({}, "", "/app/stores");
     const view = renderWorkspace();
     expect(view.getByRole("heading", { name: "Your Stores" })).toBeTruthy();
-    expect(view.getByText("FERIXRG WORKSPACE")).toBeTruthy();
+    expect(view.getByText("Connected storefronts")).toBeTruthy();
     expect(view.container.querySelector(".dashboard-system-main .approved-topbar")).toBeTruthy();
-    expect(view.container.querySelector(".dashboard-system-main .mobile-flow-page")).toBeTruthy();
+    expect(view.container.querySelector(".dashboard-system-main .concise-board")).toBeTruthy();
   });
 
   it("requires source selection before entering the tool setup journey", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
-    expect(view.getByRole("heading", { name: /Choose a tool by the work/i })).toBeTruthy();
-    expect((view.getByRole("button", { name: /Start simulated tool/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(view.getByRole("heading", { name: "Choose the next tool." })).toBeTruthy();
+    expect((view.getByRole("button", { name: "Start tool" }) as HTMLButtonElement).disabled).toBe(true);
     const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
     if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
     fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Connected store" }));
-    fireEvent.click(view.getByRole("button", { name: /Start simulated tool/i }));
+    fireEvent.click(view.getByRole("button", { name: "Start tool" }));
     expect(view.getByRole("heading", { name: /Set up/i })).toBeTruthy();
     expect(view.getByText("Select input")).toBeTruthy();
   });
