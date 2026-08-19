@@ -41,3 +41,7 @@ The redundant workspace bar that displayed **Overview** has been removed from th
 ## Unified Top-Bar Correction
 
 The FerixRG greeting, search, notification, and profile controls now occupy the actual top bar rather than an in-content heading. The mobile top bar has a deliberate two-row structure: the greeting and short context remain readable first, then the search and alert/profile controls sit on a dedicated action row. The dashboard content begins directly beneath this single header with no duplicated header treatment.
+
+## Corrected Header Order
+
+The command center now uses the intended order: a compact **Atelier Forma / Store workspace** top bar sits first, containing search, alerts, and profile controls. The **Good morning, Atelier Forma** greeting is restored below it as the first dashboard-content section. This hierarchy was confirmed on desktop and mobile, with the compact top bar remaining above the greeting on mobile.

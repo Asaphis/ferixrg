@@ -76,3 +76,9 @@
 - [x] Move the greeting, search, notification, and profile controls into the actual top bar of the command center.
 - [x] Remove the duplicate in-content command header below the top bar.
 - [x] Verify the unified top bar on desktop and mobile, then save the revised project version.
+
+## Top bar before greeting correction
+
+- [x] Restore a compact top bar above the command-center greeting.
+- [x] Keep the Good morning dashboard greeting below the top bar as the first content section.
+- [x] Verify the corrected top-bar-before-greeting order on desktop and mobile, then save the revised project version.
