@@ -128,10 +128,10 @@
 ## Entry-flow visual approval
 
 - [x] Read the full landing, authentication, verification, and onboarding specification and map its required screens and states.
-- [ ] Generate desktop visual mockups for the FerixRG landing experience and the connected account-entry flow.
-- [ ] Generate mobile visual mockups that preserve the same entry-flow screens, actions, and content in a mobile-first layout.
-- [ ] Attach the actual entry-flow visual files directly for user review before implementing any new screens.
-- [ ] Regenerate the FerixRG landing-page concept using the supplied rounded editorial hero reference as the compositional direction.
+- [x] Generate desktop visual mockups for the FerixRG landing experience and the connected account-entry flow.
+- [x] Generate mobile visual mockups that preserve the same entry-flow screens, actions, and content in a mobile-first layout.
+- [x] Attach the actual entry-flow visual files directly for user review before implementing any new screens.
+- [x] Regenerate the FerixRG landing-page concept using the supplied rounded editorial hero reference as the compositional direction.
 - [x] Show a moving supported-platform logo strip beneath the hero for Shopify, WooCommerce, BigCommerce, Shopware, and URL-based analysis support.
 - [x] Generate the reference-led mobile landing concept with every desktop hero action, platform marquee, problem/solution module, AI content, comparison, workflow, health report, and final CTA reflowed vertically.
 - [x] Redesign both landing concepts from one shared content model so every desktop visual treatment, module, proof section, image, and action has a clearly equivalent mobile version.
@@ -149,7 +149,7 @@
 - [x] Implement the matching mobile landing layout from the same components, with every desktop visual object and action preserved in a deliberate phone reflow.
 - [x] Add refined hero floating motion, desktop-only parallax, interactive CTA behavior, marquee motion, and reduced-motion support.
 - [x] Add or update unit tests for landing data, platform coverage, mobile parity, and motion configuration; verify desktop and mobile renders; run tests and type checks.
-- [ ] Save the final approved landing implementation checkpoint.
+- [x] Save the final approved landing implementation checkpoint.
 - [x] Record that the hero motion was approved directly for implementation without a separate motion-preview artifact.
 - [x] Replace generic marquee glyphs with recognisable Shopify, WooCommerce, BigCommerce, and Shopware logo treatments while retaining dedicated Custom / Headless and URL Analysis marks.
 - [x] Add desktop-only pointer parallax to the hero montage and ensure it is inactive on mobile and under reduced-motion preferences.
