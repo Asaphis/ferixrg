@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, Check, CircleCheck, Clock3, Eye, EyeOff, KeyRoun
 import React, { FormEvent, useState } from "react";
 import { useLocation } from "wouter";
 import { startSimulatedSession } from "@/lib/authSimulation";
+import { getSafeReturnPath, withAuthReturn } from "@/lib/authReturn";
 import "./auth.css";
 
 const passwordRules = ["At least 8 characters", "One uppercase letter", "One lowercase letter", "One number", "One special character"];
@@ -37,8 +38,9 @@ export default function Auth() {
   const [verified, setVerified] = useState(false);
   const query = new URLSearchParams(window.location.search);
   const route = location.split("?")[0].replace("/auth/", "") || "login";
-  const go = (next: string) => { setFormError(""); setEmailError(""); setNameError(""); setPasswordError(""); setConfirmError(""); setLocation(`/auth/${next}`); };
-  const beginSession = () => { startSimulatedSession(); setLocation("/app"); };
+  const returnPath = getSafeReturnPath(window.location.search);
+  const go = (next: string) => { const [nextRoute, nextQuery = ""] = next.split("?"); const params = Object.fromEntries(new URLSearchParams(nextQuery)); setFormError(""); setEmailError(""); setNameError(""); setPasswordError(""); setConfirmError(""); setLocation(withAuthReturn(nextRoute, returnPath, params)); };
+  const beginSession = () => { startSimulatedSession(); setLocation(returnPath); };
   const beginLoading = (next: () => void) => { setLoading(true); window.setTimeout(() => { setLoading(false); next(); }, 700); };
   const socialContinue = () => beginLoading(beginSession);
   const resend = () => { setResendSeconds(45); const timer = window.setInterval(() => setResendSeconds(current => { if (current <= 1) { window.clearInterval(timer); return 0; } return current - 1; }), 1000); };

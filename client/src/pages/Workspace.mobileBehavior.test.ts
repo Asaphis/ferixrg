@@ -61,6 +61,14 @@ describe("Workspace mobile behaviour", () => {
     expect(view.container.querySelector(".dashboard-system-main .concise-board")).toBeTruthy();
   });
 
+  it("restores the requested tool from a safe authentication return link", () => {
+    window.history.replaceState({}, "", "/app/tools?tool=responsive-redesign");
+    const view = renderWorkspace();
+    expect(view.getByRole("heading", { name: "Choose the next tool." })).toBeTruthy();
+    const selectedTool = view.container.querySelector<HTMLElement>(".tool-detail-panel");
+    expect(selectedTool?.textContent).toMatch(/Responsive redesign/i);
+  });
+
   it("requires source selection before entering the tool setup journey", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));

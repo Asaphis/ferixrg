@@ -45,12 +45,13 @@ export default function Workspace() {
   const initialView = useMemo(() => {
     if (location.includes("tools")) return "Tools Library"; if (location.includes("stores")) return "Stores"; if (location.includes("more")) return "More"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
   }, [location]);
+  const requestedTool = useMemo(() => new URLSearchParams(window.location.search).get("tool"), [location]);
   const [view, setView] = useState(() => new URLSearchParams(window.location.search).get("store") ? "Store workspace" : initialView);
   const [selectedIssue, setSelectedIssue] = useState(issues[0]);
   const [filter, setFilter] = useState("All");
   const [generated, setGenerated] = useState(false);
   const [scanRunning, setScanRunning] = useState(false);
-  const [toolIntent, setToolIntent] = useState("storefront-scan");
+  const [toolIntent, setToolIntent] = useState(() => requestedTool && toolCatalog.some(tool => tool.id === requestedTool) ? requestedTool : "storefront-scan");
   const [activeStoreId, setActiveStoreId] = useState(() => new URLSearchParams(window.location.search).get("store") ?? "atelier-forma");
   const [dashboardSearch, setDashboardSearch] = useState("");
   const [storeFlow, setStoreFlow] = useState<"list" | "add" | "connect" | "url" | "url-progress" | "detail" | "settings" | "disconnect">("list");

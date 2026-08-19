@@ -33,6 +33,17 @@ describe("simulated authentication", () => {
     expect(window.localStorage.getItem(AUTH_DEMO_SESSION_KEY)).toBe("active");
   });
 
+  it("returns to the requested safe tool after simulated sign-in", async () => {
+    vi.useFakeTimers();
+    const view = renderAuth("/auth/login?returnTo=%2Fapp%2Ftools%3Ftool%3Dresponsive-redesign");
+    fireEvent.change(view.getByRole("textbox", { name: "Email address" }), { target: { value: "maya@example.com" } });
+    fireEvent.change(view.getByLabelText("Password"), { target: { value: "Password1!" } });
+    fireEvent.click(view.getByRole("button", { name: "Sign In" }));
+    await act(async () => { vi.advanceTimersByTime(700); });
+    expect(window.location.pathname).toBe("/app/tools");
+    expect(new URLSearchParams(window.location.search).get("tool")).toBe("responsive-redesign");
+  });
+
   it("requires terms before a simulated account can enter verification", () => {
     const view = renderAuth("/auth/register");
     fireEvent.change(view.getByRole("textbox", { name: "Full name" }), { target: { value: "Maya Turner" } });

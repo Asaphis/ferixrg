@@ -236,3 +236,10 @@
 - [x] Audit every public landing sign-in, registration, and account-entry action for broken or outdated routes.
 - [x] Route public sign-in actions to `/auth/login` and account-creation actions to `/auth/register` without changing the approved landing visual system.
 - [x] Add regression coverage, verify desktop/mobile entry interactions, run checks, and save the corrected public authentication links.
+
+## Authentication return links
+
+- [x] Map supported public tool and workspace destinations to a safe local return parameter.
+- [x] Preserve the requested destination through simulated login, registration, verification, password recovery, reset, and onboarding paths.
+- [x] Return the user to the requested tool after successful authentication while rejecting invalid or external return paths.
+- [x] Add regression coverage, verify responsive journeys, run checks, and save the deep-link return behavior.

@@ -59,4 +59,14 @@ describe("Home hero montage motion", () => {
     fireEvent.click(view.getByRole("button", { name: "Get Started" }));
     expect(window.location.pathname).toBe("/auth/register");
   });
+
+  it("routes a public AI prompt through registration with its exact tool return link", () => {
+    setViewport(1440, false);
+    window.history.replaceState({}, "", "/");
+    const view = render(createElement(Home));
+    fireEvent.click(view.getByRole("button", { name: /Redesign with a modern look/i }));
+    expect(window.location.pathname).toBe("/auth/register");
+    const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+    expect(returnTo).toBe("/app/tools?tool=responsive-redesign");
+  });
 });
