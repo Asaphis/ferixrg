@@ -43,3 +43,9 @@
 - [x] Add prioritized quick actions for URL, screenshot, Shopify, WooCommerce, theme, and publishing-related workflows.
 - [x] Ensure all dashboard shortcuts navigate to the corresponding workspace tools or views.
 - [x] Verify the redesigned dashboard on desktop and mobile, then save the revised project version.
+
+## Dashboard connections and activity links
+
+- [x] Add a connected-store status widget showing platform, connection health, available access, and a simulated reconnect option.
+- [x] Make project activity timeline entries navigate directly to their relevant draft, issue, or tool.
+- [x] Verify connected-store and activity-link interactions across desktop and mobile, then save the revised project version.

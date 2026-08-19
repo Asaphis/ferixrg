@@ -15,3 +15,9 @@ An intentionally unmatched search displayed the dedicated no-results guidance wi
 ## Project Activity Dashboard Verification
 
 The redesigned dashboard was verified at desktop and mobile sizes. It presents the current focus, work-by-state record, direct quick actions, active drafts, recently used tools, and recorded project activity without relying on a generic score-card layout. The **Connect Shopify** dashboard shortcut correctly opened the Store change publisher in the Tools Library, where its Shopify, WooCommerce, and custom API requirements were visible before a simulated start.
+
+## Dashboard Connection and Activity-Link Verification
+
+The connected-store widget was verified in desktop and mobile layouts. It presents Atelier Forma’s simulated Shopify status, last sync, available catalogue/theme access, a visible preview-only safeguard, and a reconnect action. The project timeline now exposes **Open related work** on every entry; activating Alternative B opened the Visual Editor with the matching saved comparison context visible.
+
+At a simulated **390 px** browser width, the reconnect and completed contrast-record actions were both invoked successfully. The contrast activity link opened the Issue Center, confirming that the direct-link behavior also works in the mobile dashboard flow.

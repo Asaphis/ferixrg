@@ -17,6 +17,7 @@ export const dashboardQuickActions: DashboardQuickAction[] = [
 ];
 
 export const dashboardRecords = {
+  connection: { platform: "Shopify", store: "Atelier Forma", status: "Connected", sync: "Last synced 4 min ago", access: ["Catalogue reading", "Theme preview"], environment: "Preview connection" },
   focus: { title: "Purchase action hierarchy at 390px", status: "Fix in progress", issue: "The buy action competes with secondary detail after the product gallery.", owner: "Responsive redesign / Alternative B", next: "Compare draft against baseline" },
   queue: [
     { state: "Found", count: "3", title: "High-priority mobile issues", detail: "Purchase hierarchy, header overlap, and trust timing.", route: "Issues" },
@@ -35,8 +36,8 @@ export const dashboardRecords = {
     { name: "Storefront scan", activity: "Last scan completed", route: "Tools Library", toolId: "storefront-scan", state: "Complete" },
   ],
   history: [
-    { time: "4 min", title: "Mobile scan recorded", detail: "3 high-priority findings surfaced." },
-    { time: "18 min", title: "Alternative B opened", detail: "Conversion-led hierarchy is under review." },
-    { time: "Yesterday", title: "Contrast adjustment validated", detail: "Homepage body copy passed its target ratio." },
+    { time: "4 min", title: "Mobile scan recorded", detail: "3 high-priority findings surfaced.", route: "Tools Library", toolId: "mobile-journey" },
+    { time: "18 min", title: "Alternative B opened", detail: "Conversion-led hierarchy is under review.", route: "Visual editor" },
+    { time: "Yesterday", title: "Contrast adjustment validated", detail: "Homepage body copy passed its target ratio.", route: "Issues" },
   ],
 };

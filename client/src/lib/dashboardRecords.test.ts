@@ -12,4 +12,9 @@ describe("project activity dashboard records", () => {
     expect(dashboardQuickActions.map(action => action.cue)).toEqual(expect.arrayContaining(["url", "evidence", "draft", "shopify", "theme", "publish"]));
     expect(dashboardQuickActions.every(action => action.route.length > 0)).toBe(true);
   });
+
+  it("records a visible platform connection and navigable project-history destinations", () => {
+    expect(dashboardRecords.connection).toMatchObject({ platform: "Shopify", status: "Connected" });
+    expect(dashboardRecords.history.every(entry => entry.route.length > 0)).toBe(true);
+  });
 });
