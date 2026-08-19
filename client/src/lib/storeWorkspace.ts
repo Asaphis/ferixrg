@@ -24,6 +24,15 @@ export const storeQuickActions = [
   { id: "connect", title: "Connect a store", description: "Add Shopify, WooCommerce, or a custom store API.", toolId: "store-publisher", icon: "connect" },
 ];
 
+export const storePanelTools = [
+  { id: "inspect", label: "Inspect", title: "Inspect the storefront", description: "Review the customer journey using existing evidence, screenshots, or a responsive viewport.", toolId: "mobile-journey", sources: ["Existing evidence", "Screenshots", "Connected store"], requiresConnection: false },
+  { id: "analyse", label: "Analyse", title: "Analyse this store", description: "Run a storefront scan to find visible issues and build a focused work list.", toolId: "storefront-scan", sources: ["Connected store", "Public URL"], requiresConnection: false },
+  { id: "editor", label: "Editor", title: "Open the visual editor", description: "Work on saved redesign drafts and compare versions for this store.", route: "Visual editor", sources: ["Saved draft", "Existing evidence"], requiresConnection: false },
+  { id: "issues", label: "Issues", title: "Review issues", description: "Open the store’s findings and choose a repair, redesign, or handoff path.", route: "Issues", sources: ["Existing evidence"], requiresConnection: false },
+  { id: "validate", label: "Validate", title: "Validate release readiness", description: "Check an approved draft before beginning a controlled publishing workflow.", toolId: "publish-readiness", sources: ["Saved draft", "Connected store"], requiresConnection: true },
+  { id: "publish", label: "Publish", title: "Prepare a store update", description: "Use a connected store to stage an approved change. Nothing is released without a final confirmation.", toolId: "store-publisher", sources: ["Connected store"], requiresConnection: true },
+];
+
 export const storeActivities = [
   { id: "a1", storeId: "atelier-forma", title: "Responsive draft saved", description: "Alternative B is ready to compare.", status: "Draft", time: "18 min ago", route: "Visual editor" },
   { id: "a2", storeId: "atelier-forma", title: "Mobile issue found", description: "Purchase action needs clearer hierarchy at 390px.", status: "Needs review", time: "4 min ago", route: "Issues" },

@@ -92,3 +92,10 @@
 - [x] Verify the simplified workspace and store-panel flows on desktop and mobile, then save the revised project version.
 - [x] Apply the simple workspace background and top-bar treatment consistently to the individual store panel.
 - [x] Verify all individual store-panel core action routes at a mobile viewport.
+
+## Store-context tool workspace
+
+- [x] Add a clear tool picker inside each store panel for inspect, analyse, editor, issues, validate, and publishing workflows.
+- [x] Show whether each store tool can use existing evidence immediately or requires a connected-store capability.
+- [x] Keep selected tools in the active store context and provide guided source choices before launch.
+- [x] Verify the store tool picker and evidence/connection paths on desktop and mobile, then save the revised project version.

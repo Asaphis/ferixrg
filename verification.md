@@ -61,3 +61,9 @@ The mobile store panel’s **Review issues** action was verified to open the Iss
 The mobile store panel’s **Open drafts** action was verified to open the Visual Editor with saved browser preview versions available for comparison and restoration.
 
 The mobile store panel’s **Validate & publish** action was verified to open Publish readiness in the Tools Library. The requirement to connect a store is clearly shown before any release workflow can begin.
+
+## Store-context Tool Workspace Verification
+
+The StorePanel now exposes a six-option tool picker. The evidence-first **Inspect** selection showed Existing evidence, Screenshots, and Connected store choices with an immediate-ready explanation. The **Validate** selection showed Saved draft and Connected store choices with a clear connection-required-before-release explanation. Both states retain the active store name, Atelier Forma, in the selected-tool panel.
+
+Launching Validate opened the Tools Library with the context label **Working with Atelier Forma** and selected Publish readiness. Its connection requirement remained visible, confirming that a user can move from a store panel into a tool without losing which store they are working on.
