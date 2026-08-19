@@ -99,3 +99,28 @@
 - [x] Show whether each store tool can use existing evidence immediately or requires a connected-store capability.
 - [x] Keep selected tools in the active store context and provide guided source choices before launch.
 - [x] Verify the store tool picker and evidence/connection paths on desktop and mobile, then save the revised project version.
+
+## Dashboard visual approval
+
+- [x] Generate a desktop FerixRG dashboard mockup that applies the reference layout to the store workspace.
+- [x] Generate a mobile FerixRG dashboard mockup that preserves the same simple store-workspace priorities.
+- [x] Obtain user approval of the visual direction before changing the implemented dashboard.
+- [x] Deliver the actual desktop and mobile mockup image files directly for review, rather than a placeholder or inaccessible preview link.
+- [x] Verify both rendered mockups exist as local image files before attaching them directly in chat.
+- [x] Regenerate the mobile concept with every desktop dashboard action and module, including Connect Store, quick actions, analyses, publishing readiness, and activity, reflowed vertically without reducing capability.
+- [x] Deliver the corrected mobile concept as one coherent vertical dashboard screen, with all desktop content responsive in the same app view rather than split alongside a duplicate detail column.
+- [x] Audit the desktop concept against the mobile concept line by line and correct any missing metrics, sections, buttons, actions, status labels, or navigation before asking for approval.
+
+## Approved dashboard implementation
+
+- [x] Rebuild the desktop dashboard with the approved compact sidebar, utility header, action-led greeting, quick actions, store health, issues, recommendations, analysis, transformation, publishing, and activity modules.
+- [x] Implement the approved dark FerixRG dashboard visual system, including cobalt decision actions, health and status indicators, and readable desktop module hierarchy.
+- [x] Rebuild the mobile dashboard as one responsive vertical dashboard with every approved desktop action, score, section, and workflow state.
+- [x] Add responsive navigation behavior: desktop sidebar and mobile Home / Stores / Analyze / More bottom navigation.
+- [x] Add simulated interactive paths for search, store connection, store analysis, issue actions, reports, comparison, preview, and publish readiness.
+- [x] Extend the dashboard data and tests to enforce desktop-to-mobile feature parity, including all five Store Health category scores.
+- [x] Verify desktop and mobile renders, run tests and type checks, then save the approved dashboard implementation.
+- [x] Add an explicit publish-readiness launch from the approved dashboard and verify that it retains the active-store context.
+- [x] Make the approved dashboard search immediately launch the simulated Tools Library path rather than requiring a hidden keyboard-only action.
+- [x] Re-run verification and save the approved dashboard implementation checkpoint.
+- [ ] Save the verified approved-dashboard implementation as a new project checkpoint.

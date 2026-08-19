@@ -67,3 +67,35 @@ The mobile store panel’s **Validate & publish** action was verified to open Pu
 The StorePanel now exposes a six-option tool picker. The evidence-first **Inspect** selection showed Existing evidence, Screenshots, and Connected store choices with an immediate-ready explanation. The **Validate** selection showed Saved draft and Connected store choices with a clear connection-required-before-release explanation. Both states retain the active store name, Atelier Forma, in the selected-tool panel.
 
 Launching Validate opened the Tools Library with the context label **Working with Atelier Forma** and selected Publish readiness. Its connection requirement remained visible, confirming that a user can move from a store panel into a tool without losing which store they are working on.
+
+## Dashboard Visual-Concept Availability
+
+Two direct-review mockup files were rendered and visually checked: a **2752 × 1536** desktop FerixRG dashboard concept and a **1536 × 2752** mobile FerixRG dashboard concept. The desktop file presents the specified sidebar, search and profile controls, store/action summary, primary improve-store prompt, health, issues, AI recommendations, transformation, publishing, and activity modules. The mobile file presents the required focused action order—Analyze a store, active store, health, priority issue, AI recommendation, stores, transformation—and a four-item Home / Stores / Analyze / More navigation bar. These assets are for user approval only; no live dashboard change has been made from them.
+
+## Corrected Mobile Feature-Parity Concept Check
+
+The top two ordered tiles of the corrected 520 × 3130 mobile concept were checked. They show the required **Analyze a store** and **Connect store** actions, the **Analyze store URL** and **Connect Shopify** entry paths, all six quick actions, the four desktop-equivalent summary cards, and the connected-store hierarchy with Atelier Forma actions plus North Studio and Haven Goods status. The remaining sections are being reviewed in visual reading order before direct delivery.
+
+The next two tiles confirm mobile equivalents for the complete Store health card with Design, UX, Mobile, Performance, and SEO scores; all three Priority Issues and their action buttons; the AI recommendation and **Fix with AI** action; Recent analyses with report actions; and the transformation comparison with Before / After scores. These modules preserve the desktop dashboard’s actions and hierarchy in the same mobile scroll.
+
+The final two tiles show **Ready to publish** with both Preview and Publish actions, Recent activity, and the required four-item **Home / Stores / Analyze / More** bottom navigation. All six ordered tiles have been reviewed with overlap, completing the visual feature-parity check for the corrected mobile concept.
+
+## Audited Mobile Desktop-Parity Check
+
+The first two ordered tiles of the final high-resolution mobile render verify the desktop utility controls—search, help, notifications, and profile—alongside both top-level store actions. They also show the two input routes, all six quick actions, and the transition into the four summary cards. This is a new audited version intended to make desktop-equivalent controls explicit in the mobile layout.
+
+Tiles three and four confirm the connected-store actions and the complete Store Health breakdown. The card explicitly labels **All category scores** and visibly shows **Design 94**, **UX 91**, **Mobile 88**, **Performance 86**, and **SEO 92** beside the 91/100 score. This corrects the ambiguity in the earlier mobile concept.
+
+Tiles five and six verify all three issue actions, the AI recommendation and its action, both recent analyses with scores and report links, and the transformation-comparison module. These desktop modules are all present in the audited mobile interface rather than being omitted for the smaller layout.
+
+Tiles seven and eight verify the transformation score change, the Ready to publish module with both Preview and Publish controls, and all three activity records. The final navigation tile remains to be checked in reading order.
+
+The final tile confirms the complete **Home / Stores / Analyze / More** bottom navigation. All nine ordered tiles of the high-resolution mobile image have now been reviewed, including the overlap boundaries and final section.
+
+## Approved Dashboard Implementation Verification
+
+The first desktop implementation render exposed a stylesheet-boundary issue that removed the approved dashboard module styling. The layout was moved into a dedicated dashboard stylesheet and rechecked. The current desktop render visibly shows the compact FerixRG navigation, search, help, notifications, profile, greeting, Analyze a store and Connect store actions, four summary cards, the primary improve-store panel, all six quick actions, connected-store actions, and the Store Health module. The desktop shell now uses the approved dark command-center palette with cobalt decision controls and readable status accents.
+
+At **390 px** width, the mobile dashboard reflows the same content vertically: dual Analyze / Connect actions, URL and Shopify entry paths, six quick actions, four summary cards, connected stores, and the complete Store Health breakdown—**Design 94, UX 91, Mobile 88, Performance 86, SEO 92**. The same render continues through priority issues, AI recommendation, recent analyses, before/after comparison, Preview / Publish readiness, and recent activity. The fixed Home / Stores / Analyze / More navigation is implemented at the viewport edge; full-page capture intentionally excludes fixed bottom chrome.
+
+The final desktop and mobile renders include an explicit **Preview / Validate / Publish** sequence in the Ready to publish card. Validate opens the existing Publish readiness guided tool, preserving the simulated store context already used by the Tools Library. Dashboard search now launches that library immediately on focus rather than relying only on an undiscoverable keyboard action. The final automated verification passed **21 tests** across **8 test files**, and TypeScript completed without errors.
