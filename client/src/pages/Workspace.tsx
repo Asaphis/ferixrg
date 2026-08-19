@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import "./mobileBehavior.css";
 import "./mobileFeedback.css";
+import "./internalDashboardSystem.css";
 import { toast } from "sonner";
 
 const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
@@ -40,7 +41,7 @@ function Brand() { return <a className="brand" href="/"><img src={markAsset} alt
 export default function Workspace() {
   const [location] = useLocation();
   const initialView = useMemo(() => {
-    if (location.includes("tools")) return "Tools Library"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
+    if (location.includes("tools")) return "Tools Library"; if (location.includes("stores")) return "Stores"; if (location.includes("more")) return "More"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
   }, [location]);
   const [view, setView] = useState(() => new URLSearchParams(window.location.search).get("store") ? "Store workspace" : initialView);
   const [selectedIssue, setSelectedIssue] = useState(issues[0]);
@@ -90,9 +91,9 @@ export default function Workspace() {
       toast.success("URL analysis is ready", { description: "Visible storefront evidence and recommendations are available in Results." });
     }, 1100);
   };
-  return <div className="workspace">
+  return <div className="workspace dashboard-system">
     <aside className="app-sidebar approved-sidebar"><Brand /><span className="sidebar-tagline">AI storefront intelligence</span><nav className="app-nav approved-nav">{navItems.map(item => <button key={item.label} className={view === item.destination ? "active" : ""} onClick={() => changeView(item.destination)}><item.icon /> {item.label}</button>)}</nav><div className="store-mini"><div className="store-mini-top"><div className="store-orb">AF</div><div><strong>Atelier Forma</strong><span>Shopify · Connected</span></div></div><button onClick={() => openStore("atelier-forma")}>Open store</button></div></aside>
-    <main className={`app-main ${view === "Overview" || view === "Store workspace" ? "overview-mode" : ""}`}><header className={`app-topbar ${view === "Overview" ? "approved-topbar" : ""}`}>{view === "Overview" ? <><label className="approved-search"><Search /><input value={dashboardSearch} onFocus={() => changeView("Tools Library")} onChange={event => setDashboardSearch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") changeView("Tools Library"); }} placeholder="Search stores, projects, reports, or tools…" /><kbd>⌘ K</kbd></label><div className="approved-top-actions"><button onClick={() => changeView("Tools Library")} aria-label="Open help"><CircleHelp /></button><button onClick={() => changeView("Issues")} aria-label="Open notifications" className="approved-bell"><Bell /><i /></button><button className="approved-avatar" onClick={() => changeView("Overview")} aria-label="Open profile">MY</button></div></> : <><div className="top-context"><div className="store-dot" /><div><span className="crumb">Stores / Atelier Forma /</span><strong>{view}</strong></div></div><div className="top-actions"><button className="search-trigger" onClick={() => changeView("Analysis")}><Search size={14}/> Search anything <kbd>⌘ K</kbd></button><button className="round-icon" onClick={() => changeView("Issues")} aria-label="Open notifications"><Bell /></button><button className="app-button" onClick={() => {setScanRunning(true); changeView("Analysis");}}><RefreshCw size={14} className={scanRunning ? "animate-spin" : ""}/><span>{scanRunning ? "Scanning" : "Re-scan"}</span></button></div></>}</header><div className="app-content">{renderView()}</div></main>
+    <main className={`app-main dashboard-system-main ${view === "Overview" || view === "Store workspace" ? "overview-mode" : ""}`}><header className="app-topbar approved-topbar">{view === "Overview" ? <><label className="approved-search"><Search /><input value={dashboardSearch} onFocus={() => changeView("Tools Library")} onChange={event => setDashboardSearch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") changeView("Tools Library"); }} placeholder="Search stores, projects, reports, or tools…" /><kbd>⌘ K</kbd></label><div className="approved-top-actions"><button onClick={() => changeView("Tools Library")} aria-label="Open help"><CircleHelp /></button><button onClick={() => changeView("Issues")} aria-label="Open notifications" className="approved-bell"><Bell /><i /></button><button className="approved-avatar" onClick={() => changeView("Overview")} aria-label="Open profile">MY</button></div></> : <><div className="top-context"><div className="store-dot" /><div><span className="crumb">Workspace / {view} /</span><strong>{view}</strong></div></div><div className="top-actions"><button className="search-trigger" onClick={() => changeView("Tools Library")}><Search size={14}/> Search anything <kbd>⌘ K</kbd></button><button className="round-icon" onClick={() => changeView("Issues")} aria-label="Open notifications"><Bell /></button><button className="app-button" onClick={() => {setScanRunning(true); changeView("Analysis");}}><RefreshCw size={14} className={scanRunning ? "animate-spin" : ""}/><span>{scanRunning ? "Scanning" : "Re-scan"}</span></button></div></>}</header><div className="app-content">{renderView()}</div></main>
     <nav className="mobile-app-nav approved-mobile-nav" aria-label="Mobile workspace navigation">
       <button className={view==="Overview" ? "active" : ""} onClick={() => changeView("Overview")}><LayoutDashboard /><span>Home</span></button>
       <button className={view==="Stores" || view==="Store workspace" ? "active" : ""} onClick={() => { setStoreFlow("list"); changeView("Stores"); }}><Store /><span>Stores</span></button>
@@ -207,7 +208,7 @@ export default function Workspace() {
   }
 
   function FlowHeader({ back, title, copy, action }: { back?: () => void; title: string; copy: string; action?: React.ReactNode }) {
-    return <header className="mobile-flow-header"><div>{back && <button className="mobile-back" onClick={back}><ArrowRight /> Back</button>}<span className="flow-kicker">FERIXRG MOBILE</span><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
+    return <header className="mobile-flow-header"><div>{back && <button className="mobile-back" onClick={back}><ArrowRight /> Back</button>}<span className="flow-kicker">FERIXRG WORKSPACE</span><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
   }
 
   function StoresFlow() {

@@ -190,3 +190,11 @@
 - [x] Add clear loading animation and non-blocking progress feedback to the simulated URL-analysis journey.
 - [x] Add success and error toast notifications to URL-analysis outcomes, including retry guidance on an error state.
 - [x] Add feedback-flow tests, verify responsive rendering, run checks, and save the revised implementation.
+
+## Internal dashboard system consistency
+
+- [x] Audit Stores, Tools, results, publishing, and More against the approved dark dashboard system and identify all light legacy surfaces.
+- [x] Apply the approved dashboard shell, top bar, background, typography, Ferix Blue action system, and navigation treatment to all internal workspace routes.
+- [x] Rebuild the Stores, Tools, results, publishing, and More page surfaces to use the same dark dashboard card and state language on desktop and mobile.
+- [x] Verify Home dashboard content remains unchanged while every non-dashboard page has matching desktop/mobile dashboard-system treatment.
+- [x] Add or update visual-system tests, verify renders, run checks, and save the unified internal system.

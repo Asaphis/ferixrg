@@ -38,6 +38,15 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("button", { name: /analyze by URL/i })).toBeTruthy();
   });
 
+  it("renders the direct Stores route in the approved shared dashboard shell", () => {
+    window.history.replaceState({}, "", "/app/stores");
+    const view = renderWorkspace();
+    expect(view.getByRole("heading", { name: "Your Stores" })).toBeTruthy();
+    expect(view.getByText("FERIXRG WORKSPACE")).toBeTruthy();
+    expect(view.container.querySelector(".dashboard-system-main .approved-topbar")).toBeTruthy();
+    expect(view.container.querySelector(".dashboard-system-main .mobile-flow-page")).toBeTruthy();
+  });
+
   it("requires source selection before entering the tool setup journey", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
