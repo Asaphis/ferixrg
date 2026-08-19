@@ -19,3 +19,12 @@
 - [x] Seed the preview with illustrative draft alternatives and retain newly saved drafts across reloads.
 - [x] Verify simulated save, reload, comparison, and restoration without authentication.
 - [x] Include the simulated browser-draft unit tests in the standard test suite.
+
+## Tools Library
+
+- [x] Define a catalogue of discoverable FerixRG tools grouped by work type and access requirements.
+- [x] Add a dedicated Tools Library destination to the workspace navigation.
+- [x] Show each tool’s purpose, supported inputs, required connections, and availability status before launch.
+- [x] Provide simulated URL, screenshot, store-connection, and codebase setup choices based on the selected tool.
+- [x] Bring the selected tool’s requirement panel directly into view after a mobile selection.
+- [x] Verify desktop and mobile discoverability, then save the revised project version.

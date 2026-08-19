@@ -2,7 +2,8 @@
 import { Activity, ArrowRight, BarChart3, Bell, Bot, Check, ChevronRight, Code2, Eye, FileBarChart, LayoutDashboard, Layers3, Lightbulb, Monitor, MoreHorizontal, PanelRightOpen, Play, Plus, RefreshCw, ScanLine, Search, Settings, ShieldCheck, Sparkles, TabletSmartphone, Wand2 } from "lucide-react";
 import { parseEditorDraftState } from "@/lib/editorDraftState";
 import { loadSimulatedDrafts, persistSimulatedDrafts, type SimulatedDraft } from "@/lib/simulatedDrafts";
-import { useEffect, useMemo, useState } from "react";
+import { toolCatalog, toolCategories, type ToolDefinition } from "@/lib/toolCatalog";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
@@ -10,7 +11,7 @@ const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
 const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
 
 const navItems = [
-  { label: "Overview", icon: LayoutDashboard }, { label: "Analysis", icon: ScanLine }, { label: "Issues", icon: ShieldCheck }, { label: "Redesign", icon: Sparkles }, { label: "Visual editor", icon: Layers3 }, { label: "Preview & validate", icon: Monitor }, { label: "Versions", icon: Activity }, { label: "Reports", icon: FileBarChart }, { label: "Developer tools", icon: Code2 },
+  { label: "Overview", icon: LayoutDashboard }, { label: "Tools Library", icon: Bot }, { label: "Analysis", icon: ScanLine }, { label: "Issues", icon: ShieldCheck }, { label: "Redesign", icon: Sparkles }, { label: "Visual editor", icon: Layers3 }, { label: "Preview & validate", icon: Monitor }, { label: "Versions", icon: Activity }, { label: "Reports", icon: FileBarChart }, { label: "Developer tools", icon: Code2 },
 ];
 const metrics = [["Design", "88", "+4.2"], ["Responsive", "71", "3 issues"], ["UX", "84", "+2.1"], ["Conversion", "79", "+5.0"], ["Accessibility", "92", "+1.6"], ["Performance", "76", "2 assets"]];
 const analyzers = [["Design", "88", "Structure and hierarchy are clear across core pages."], ["Responsive", "71", "Three collisions interrupt the mobile purchase path."], ["UX", "84", "Navigation and decision flow are steady."], ["Conversion", "79", "Trust signals can arrive sooner on product pages."], ["SEO", "86", "Two product pages need a stronger meta description."], ["Accessibility", "92", "One contrast improvement remains."]];
@@ -26,7 +27,7 @@ function Brand() { return <a className="brand" href="/"><img src={markAsset} alt
 export default function Workspace() {
   const [location] = useLocation();
   const initialView = useMemo(() => {
-    if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
+    if (location.includes("tools")) return "Tools Library"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
   }, [location]);
   const [view, setView] = useState(initialView);
   const [selectedIssue, setSelectedIssue] = useState(issues[0]);
@@ -36,14 +37,14 @@ export default function Workspace() {
 
   const changeView = (next: string) => { setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); };
   return <div className="workspace">
-    <aside className="app-sidebar"><Brand /><div className="workspace-pill">Store workspace</div><nav className="app-nav">{navItems.slice(0,7).map(item => <button key={item.label} className={view===item.label ? "active" : ""} onClick={() => changeView(item.label)}><item.icon /> {item.label}</button>)}</nav><div className="workspace-pill">Operate</div><nav className="app-nav">{navItems.slice(7).map(item => <button key={item.label} className={view===item.label ? "active" : ""} onClick={() => changeView(item.label)}><item.icon /> {item.label}</button>)}<button><Settings /> Settings</button></nav><div className="store-mini"><div className="store-mini-top"><div className="store-orb">AT</div><div><strong>Atelier Forma</strong><span>Full control · Production</span></div></div><button onClick={() => changeView("Overview")}>Switch store</button></div></aside>
+    <aside className="app-sidebar"><Brand /><div className="workspace-pill">Store workspace</div><nav className="app-nav">{navItems.slice(0,8).map(item => <button key={item.label} className={view===item.label ? "active" : ""} onClick={() => changeView(item.label)}><item.icon /> {item.label}</button>)}</nav><div className="workspace-pill">Operate</div><nav className="app-nav">{navItems.slice(8).map(item => <button key={item.label} className={view===item.label ? "active" : ""} onClick={() => changeView(item.label)}><item.icon /> {item.label}</button>)}<button><Settings /> Settings</button></nav><div className="store-mini"><div className="store-mini-top"><div className="store-orb">AT</div><div><strong>Atelier Forma</strong><span>Full control · Production</span></div></div><button onClick={() => changeView("Overview")}>Switch store</button></div></aside>
     <main className="app-main"><header className="app-topbar"><div className="top-context"><div className="store-dot" /><div><span className="crumb">Stores / Atelier Forma /</span><strong>{view}</strong></div></div><div className="top-actions"><button className="search-trigger" onClick={() => changeView("Analysis")}><Search size={14}/> Search anything <kbd>⌘ K</kbd></button><button className="round-icon" onClick={() => changeView("Issues")} aria-label="Open notifications"><Bell /></button><button className="app-button" onClick={() => {setScanRunning(true); changeView("Analysis");}}><RefreshCw size={14} className={scanRunning ? "animate-spin" : ""}/><span>{scanRunning ? "Scanning" : "Re-scan"}</span></button></div></header><div className="app-content">{renderView()}</div></main>
     <nav className="mobile-app-nav" aria-label="Mobile workspace navigation">
       <button className={view==="Overview" ? "active" : ""} onClick={() => changeView("Overview")}><LayoutDashboard /><span>Home</span></button>
       <button className={view==="Analysis" ? "active" : ""} onClick={() => changeView("Analysis")}><ScanLine /><span>Analyze</span></button>
       <button className={view==="Issues" ? "active" : ""} onClick={() => changeView("Issues")}><ShieldCheck /><span>Issues</span></button>
       <button className={view==="Redesign" ? "active" : ""} onClick={() => changeView("Redesign")}><Sparkles /><span>Create</span></button>
-      <button className={view==="Reports" ? "active" : ""} onClick={() => changeView("Reports")}><MoreHorizontal /><span>More</span></button>
+      <button className={view==="Tools Library" ? "active" : ""} onClick={() => changeView("Tools Library")}><Bot /><span>Tools</span></button>
     </nav>
   </div>;
 
@@ -51,6 +52,7 @@ export default function Workspace() {
 
   function renderView() {
     if (view === "Overview") return <Overview />;
+    if (view === "Tools Library") return <ToolsLibrary />;
     if (view === "Analysis") return <Analysis />;
     if (view === "Issues") return <Issues />;
     if (view === "Redesign") return <Redesign />;
@@ -60,6 +62,36 @@ export default function Workspace() {
     if (view === "Reports") return <Placeholder title="Make the audit easy to act on." copy="Turn the current score, issue evidence, fixes, and before/after outcomes into a structured store report for the wider team." icon={<FileBarChart />} action="Prepare audit report" />;
     return <Placeholder title="A technical answer should include the context." copy="Use the Developer Tools to scan a URL, inspect responsive evidence, and create a concise implementation handoff." icon={<Code2 />} action="Start a URL diagnostic" />;
   }
+
+  function ToolsLibrary() {
+    const [category, setCategory] = useState<(typeof toolCategories)[number]>("All tools");
+    const [query, setQuery] = useState("");
+    const [selectedId, setSelectedId] = useState(toolCatalog[0].id);
+    const [startChoice, setStartChoice] = useState("");
+    const [launchNote, setLaunchNote] = useState("");
+    const toolDetailRef = useRef<HTMLElement | null>(null);
+    const visibleTools = toolCatalog.filter(tool => (category === "All tools" || tool.category === category) && `${tool.name} ${tool.description}`.toLowerCase().includes(query.toLowerCase()));
+    const selectedTool = toolCatalog.find(tool => tool.id === selectedId) ?? toolCatalog[0];
+    const iconFor = (tool: ToolDefinition) => tool.category === "Observe" ? ScanLine : tool.category === "Diagnose" ? Activity : tool.category === "Create" ? Sparkles : Check;
+    const chooseStart = (choice: string) => { setStartChoice(choice); setLaunchNote(""); };
+    const selectTool = (id: string) => { setSelectedId(id); setStartChoice(""); setLaunchNote(""); if (window.innerWidth <= 820) window.setTimeout(() => toolDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); };
+    const launchPreview = () => setLaunchNote(`${selectedTool.name} is ready in preview mode using ${startChoice || selectedTool.sources[0]}. No live store data will be changed.`);
+    return <>
+      <PageHeading label="Tools Library / 23 guided capabilities" title="Choose a tool by the work—not by guesswork." copy="Every tool explains what it does, which inputs it can use, and whether a store, codebase, or analytics connection is required before you begin." action={<button className="app-button" onClick={() => setSelectedId("storefront-scan")}><Bot /> Browse starting points</button>} />
+      <section className="tool-library-shell">
+        <aside className="tool-library-rail">
+          <span className="card-eyebrow" style={{color:'#155eef'}}>Find the right tool</span>
+          <label className="tool-search"><Search size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search tools" /></label>
+          <div className="tool-category-list">{toolCategories.map(item => <button className={category === item ? "active" : ""} onClick={() => setCategory(item)} key={item}><span>{item}</span><b>{item === "All tools" ? toolCatalog.length : toolCatalog.filter(tool => tool.category === item).length}</b></button>)}</div>
+          <div className="tool-key"><span><i className="key-dot open"/> Can start with URL or files</span><span><i className="key-dot linked"/> Needs a connection for full action</span></div>
+        </aside>
+        <section className="tool-results"><div className="tool-results-heading"><div><span className="card-eyebrow" style={{color:'#155eef'}}>{category}</span><h2>{visibleTools.length} tools, with the setup made visible.</h2></div><p>Inspect freely with URLs or screenshots. Connect only when the selected tool needs private data, theme access, or permission to prepare a store change.</p></div><div className="tool-card-grid">{visibleTools.map(tool => { const ToolIcon = iconFor(tool); return <button className={`tool-library-card ${selectedTool.id === tool.id ? "selected" : ""}`} onClick={() => selectTool(tool.id)} key={tool.id}><div className="tool-card-top"><span className={`tool-icon ${tool.category.toLowerCase().replaceAll(" ", "-").replace("&", "and")}`}><ToolIcon /></span><span className={tool.requiresConnection ? "connection-badge required" : "connection-badge open"}>{tool.requiresConnection ? "Connection needed" : "No connection needed"}</span></div><h3>{tool.name}</h3><p>{tool.description}</p><div className="tool-card-inputs">{tool.sources.slice(0,3).map(source => <span key={source}>{source}</span>)}</div></button> })}</div></section>
+        <aside className="tool-detail-panel" ref={toolDetailRef}><span className="card-eyebrow" style={{color:'#8fb2ff'}}>Selected tool</span><h2>{selectedTool.name}</h2><p className="tool-detail-copy">{selectedTool.description}</p><div className="tool-detail-section"><span>What you get</span><b>{selectedTool.outcome}</b></div><div className="tool-detail-section"><span>It can start from</span><div className="requirement-chips">{selectedTool.sources.map(source => <button className={startChoice === source ? "chosen" : ""} onClick={() => chooseStart(source)} key={source}>{source === "Public URL" ? <ScanLine/> : source === "Screenshots" ? <Eye/> : source === "Connected store" ? <Bot/> : source === "Theme files" ? <Code2/> : <Layers3/>}{source}</button>)}</div></div><div className={`connection-brief ${selectedTool.requiresConnection ? "needed" : "optional"}`}><strong>{selectedTool.requiresConnection ? "This tool needs a connection" : "No connection is required"}</strong><p>{selectedTool.requiresConnection ? "You can inspect the requirement now, but this tool needs the listed connection before it can access private data, prepare code, or release an approved change." : "A URL, screenshots, or a saved preview is enough to use this tool. Connecting a store remains optional when you need private context."}</p>{selectedTool.connections.length > 0 && <div className="connection-options">{selectedTool.connections.map(connection => <button className={startChoice === connection ? "chosen" : ""} onClick={() => chooseStart(connection)} key={connection}><Bot /> Connect {connection}</button>)}</div>}</div><div className="tool-start-box"><span className="card-eyebrow" style={{color:'#8fb2ff'}}>Choose how to start</span>{startChoice === "Public URL" && <label className="preview-input">Public URL<input defaultValue="https://atelier-forma.example/product" /></label>}{startChoice === "Screenshots" && <div className="preview-drop"><UploadIcon /><span>Drop screenshots here</span><small>Preview-only upload</small></div>}{startChoice === "Theme files" && <div className="preview-drop"><Code2 /><span>Select theme files</span><small>Preview-only file scan</small></div>}{startChoice === "Saved draft" && <div className="preview-drop"><Layers3 /><span>Use current editor draft</span><small>Draft v3 is available</small></div>}{startChoice === "Connected store" && <div className="preview-drop"><Bot /><span>Choose a store connection</span><small>Shopify · WooCommerce · Custom API</small></div>}{selectedTool.connections.includes(startChoice) && <div className="preview-drop"><Bot /><span>{startChoice}</span><small>Simulated connection choice</small></div>}{!startChoice && <p>Select one of the input or connection options above. The library will never hide a connection requirement after you begin.</p>}<button className="app-button" disabled={!startChoice} onClick={launchPreview}><Play /> Start simulated tool</button>{launchNote && <div className="tool-launch-note"><Check /> {launchNote}</div>}</div></aside>
+      </section>
+    </>;
+  }
+
+  function UploadIcon() { return <PanelRightOpen />; }
 
   function Overview() { return <>
     <PageHeading label="Store intelligence / Last scan 4 min ago" title="A clear read on Atelier Forma." copy="The selected storefront is healthy enough to improve with intent — 7 issues are worth attention." action={<button className="app-button" onClick={() => changeView("Redesign")}><Sparkles /> Start redesign</button>} />
