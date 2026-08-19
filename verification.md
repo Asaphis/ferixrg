@@ -21,3 +21,15 @@ The redesigned dashboard was verified at desktop and mobile sizes. It presents t
 The connected-store widget was verified in desktop and mobile layouts. It presents Atelier Forma’s simulated Shopify status, last sync, available catalogue/theme access, a visible preview-only safeguard, and a reconnect action. The project timeline now exposes **Open related work** on every entry; activating Alternative B opened the Visual Editor with the matching saved comparison context visible.
 
 At a simulated **390 px** browser width, the reconnect and completed contrast-record actions were both invoked successfully. The contrast activity link opened the Issue Center, confirming that the direct-link behavior also works in the mobile dashboard flow.
+
+## Command-Center Dashboard Verification
+
+The command-center dashboard was verified in desktop and mobile layouts. The mobile structure intentionally sequences the greeting and search, horizontal work actions, signal, queue, active decision, drafts, connection, recent work, and activity trail. The **Continue a draft** quick action successfully opened the Visual Editor after the command-center redesign.
+
+The rebuilt **Manage access** control also correctly opened the Store change publisher in the Tools Library, where the user can see its Shopify, WooCommerce, and custom API connection choices before any simulated action begins.
+
+The **Scan a public URL** command was also verified after the dashboard redesign: it opened the Storefront scan tool with its Public URL and optional connected-store paths clearly exposed, confirming that this workflow can begin without a store connection.
+
+The **Review screenshots** command was verified as well. It opened the Screenshot reviewer with its single screenshot input and evidence-board outcome, again without requiring a store connection.
+
+The redesigned **Alternative B opened** record in the project trail was invoked directly and opened the Visual Editor, where the saved version-history comparison remained visible. This confirms that command-center activity records continue to route to the correct working context.

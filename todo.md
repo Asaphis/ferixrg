@@ -49,3 +49,14 @@
 - [x] Add a connected-store status widget showing platform, connection health, available access, and a simulated reconnect option.
 - [x] Make project activity timeline entries navigate directly to their relevant draft, issue, or tool.
 - [x] Verify connected-store and activity-link interactions across desktop and mobile, then save the revised project version.
+
+## Command-center dashboard redesign
+
+- [x] Translate the dark dashboard reference into FerixRG-specific panels for active work, diagnostics, drafts, store health, and connections.
+- [x] Recompose the desktop dashboard into a dense dark command-center grid with immediately actionable tools.
+- [x] Design the mobile dashboard as a deliberate single-column command sequence rather than a reduced desktop layout.
+- [x] Re-anchor the dark command-center accents in Ferix Blue while retaining orange only for risk and exception signals.
+- [x] Verify all dashboard shortcuts, connection states, and activity links after the redesign, then save the revised project version.
+- [x] Verify the URL scan, screenshot review, draft, and connection command shortcuts after the redesign.
+- [x] Verify a command-center activity timeline entry routes directly to its related work.
+- [x] Save the fully verified command-center dashboard as a new project version.

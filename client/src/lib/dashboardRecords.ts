@@ -17,6 +17,7 @@ export const dashboardQuickActions: DashboardQuickAction[] = [
 ];
 
 export const dashboardRecords = {
+  signal: { health: 82, delta: "+11", baseline: 71, focus: "Mobile purchase path", lenses: ["Design 88", "Responsive 71", "Conversion 79", "Accessibility 92"] },
   connection: { platform: "Shopify", store: "Atelier Forma", status: "Connected", sync: "Last synced 4 min ago", access: ["Catalogue reading", "Theme preview"], environment: "Preview connection" },
   focus: { title: "Purchase action hierarchy at 390px", status: "Fix in progress", issue: "The buy action competes with secondary detail after the product gallery.", owner: "Responsive redesign / Alternative B", next: "Compare draft against baseline" },
   queue: [

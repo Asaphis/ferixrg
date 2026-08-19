@@ -17,4 +17,9 @@ describe("project activity dashboard records", () => {
     expect(dashboardRecords.connection).toMatchObject({ platform: "Shopify", status: "Connected" });
     expect(dashboardRecords.history.every(entry => entry.route.length > 0)).toBe(true);
   });
+
+  it("provides a concrete storefront signal and four diagnostic lenses for the command center", () => {
+    expect(dashboardRecords.signal).toMatchObject({ health: 82, baseline: 71, focus: "Mobile purchase path" });
+    expect(dashboardRecords.signal.lenses).toHaveLength(4);
+  });
 });
