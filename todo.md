@@ -159,3 +159,26 @@
 - [x] Add a component-level test that verifies Home hero pointer movement updates montage CSS variables only on desktop, while mobile and reduced-motion paths leave them unchanged.
 - [x] Add a rendered Home UI test that simulates pointer movement over the live `.hero-montage` and verifies desktop CSS-variable updates plus mobile and reduced-motion no-op behavior.
 - [x] Fix the Home DOM-test runtime import so the rendered landing component can execute under the project’s jsdom test environment.
+
+## Mobile behaviour flow visual approval
+
+- [x] Read both mobile navigation specifications in full and reconcile the stated correction without altering the approved Home dashboard.
+- [x] Map Stores, Add Store, platform choice, connection, URL analysis, store details, capabilities, connection settings, Tools, setup, execution, results, publishing, and More into screen-by-screen state transitions.
+- [x] Generate direct mobile UI/UX behaviour mockups that show what each tap opens, which navigation item becomes active, and which state changes at every step.
+- [x] Attach all screen-flow image files directly for approval before implementing the new mobile behaviour.
+- [x] Add a dedicated Stores → Analyze by URL screen showing public URL input, analysis CTA, and the next processing/result state.
+- [x] Add a dedicated Stores → Connection Settings screen with reconnect, permissions refresh, access management, connection detail, and disconnect confirmation states.
+- [x] Regenerate the Stores flow board so every specified store-management path is visible as an explicit state transition.
+
+## Tools-only behaviour visual approval
+
+- [x] Generate a concise Tools-only mobile flow from the active Tools tab through tool selection, source setup, execution, results, issue action, AI fix, preview, and publish or export.
+- [x] Attach the focused Tools-only visual boards directly before implementing the mobile Tools behaviour.
+
+## Approved mobile behaviour implementation
+
+- [x] Replace the current mobile bottom navigation with the approved fixed Home · Stores · Tools · More design, using a refined icon-and-label active state while leaving Home content untouched.
+- [x] Implement Stores list, Add Store, platform selection, connection, URL analysis, store detail, capabilities, connection settings, and disconnect confirmation behaviour.
+- [x] Implement Tools Library, tool setup, source selection, visible execution progress, results workspace, issue action, AI-fix, editor/preview, save, and publish/export behaviour.
+- [x] Implement More as workspace, account, platform, resource, and support management without duplicating Home, Tools, or store-level work.
+- [x] Add mobile behaviour state tests, verify responsive desktop/mobile rendering, run tests and type checks, then save the approved implementation.
