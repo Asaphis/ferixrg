@@ -28,6 +28,20 @@ describe("Workspace mobile behaviour", () => {
     expect(within(mobileNav).queryByRole("button", { name: "Analyze" })).toBeNull();
   });
 
+  it("gives desktop the complete grouped workspace navigation without expanding mobile", () => {
+    const view = renderWorkspace();
+    const desktopNav = view.getByRole("navigation", { name: "Desktop workspace navigation" });
+    expect(within(desktopNav).getByText("Workspace")).toBeTruthy();
+    expect(within(desktopNav).getByText("Intelligence")).toBeTruthy();
+    expect(within(desktopNav).getByText("Create & ship")).toBeTruthy();
+    expect(within(desktopNav).getByRole("button", { name: "Issues" })).toBeTruthy();
+    expect(within(desktopNav).getByRole("button", { name: "Versions" })).toBeTruthy();
+    fireEvent.click(within(desktopNav).getByRole("button", { name: "Tools" }));
+    expect(view.getByRole("heading", { name: "Choose the next tool." })).toBeTruthy();
+    const mobileNav = view.getByRole("navigation", { name: "Mobile workspace navigation" });
+    expect(within(mobileNav).queryByRole("button", { name: "Versions" })).toBeNull();
+  });
+
   it("opens the Stores flow and exposes the Add Store platform decision", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));

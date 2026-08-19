@@ -14,21 +14,18 @@ import "./internalDashboardSystem.css";
 import "./internalConciseBoards.css";
 import "./internalConciseTools.css";
 import "./internalJourneyBoards.css";
+import "./desktopWorkspaceNav.css";
 import { toast } from "sonner";
 
 const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
 const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
 
-const navItems = [
-  { label: "Dashboard", destination: "Overview", icon: LayoutDashboard },
-  { label: "Stores", destination: "Stores", icon: Store },
-  { label: "Analyze", destination: "Analysis", icon: ScanLine },
-  { label: "Design Studio", destination: "Visual editor", icon: Layers3 },
-  { label: "AI Assistant", destination: "Redesign", icon: Sparkles },
-  { label: "Reports", destination: "Reports", icon: FileBarChart },
-  { label: "Tools", destination: "Tools Library", icon: Wand2 },
-  { label: "More", destination: "More", icon: MoreHorizontal },
+const desktopNavGroups = [
+  { label: "Workspace", items: [{ label: "Dashboard", destination: "Overview", icon: LayoutDashboard }, { label: "Stores", destination: "Stores", icon: Store }] },
+  { label: "Intelligence", items: [{ label: "Analyze", destination: "Analysis", icon: ScanLine }, { label: "Issues", destination: "Issues", icon: ShieldCheck }, { label: "Reports", destination: "Reports", icon: FileBarChart }] },
+  { label: "Create & ship", items: [{ label: "Tools", destination: "Tools Library", icon: Wand2 }, { label: "AI Redesign", destination: "Redesign", icon: Sparkles }, { label: "Design Studio", destination: "Visual editor", icon: Layers3 }, { label: "Validate", destination: "Preview & validate", icon: Monitor }, { label: "Versions", destination: "Versions", icon: Activity }] },
+  { label: "Workspace settings", items: [{ label: "More", destination: "More", icon: MoreHorizontal }] },
 ] as const;
 const metrics = [["Design", "88", "+4.2"], ["Responsive", "71", "3 issues"], ["UX", "84", "+2.1"], ["Conversion", "79", "+5.0"], ["Accessibility", "92", "+1.6"], ["Performance", "76", "2 assets"]];
 const analyzers = [["Design", "88", "Structure and hierarchy are clear across core pages."], ["Responsive", "71", "Three collisions interrupt the mobile purchase path."], ["UX", "84", "Navigation and decision flow are steady."], ["Conversion", "79", "Trust signals can arrive sooner on product pages."], ["SEO", "86", "Two product pages need a stronger meta description."], ["Accessibility", "92", "One contrast improvement remains."]];
@@ -63,6 +60,12 @@ export default function Workspace() {
   const [storeUrl, setStoreUrl] = useState("https://yourstore.com");
 
   const changeView = (next: string) => { if (next === "Overview" && window.location.search) window.history.replaceState({}, "", "/app"); setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const openDesktopView = (next: string) => {
+    if (next === "Stores") setStoreFlow("list");
+    if (next === "Tools Library") setToolFlow("library");
+    if (next === "More") setMoreFlow("home");
+    changeView(next);
+  };
   const openTool = (toolId: string) => { setToolIntent(toolId); setToolFlow("library"); changeView("Tools Library"); };
   const openStore = (storeId: string) => { window.history.replaceState({}, "", `/app?store=${storeId}`); setActiveStoreId(storeId); changeView("Store workspace"); };
   const beginStoreConnection = () => {
@@ -95,7 +98,7 @@ export default function Workspace() {
     }, 1100);
   };
   return <div className="workspace dashboard-system">
-    <aside className="app-sidebar approved-sidebar"><Brand /><span className="sidebar-tagline">AI storefront intelligence</span><nav className="app-nav approved-nav">{navItems.map(item => <button key={item.label} className={view === item.destination ? "active" : ""} onClick={() => changeView(item.destination)}><item.icon /> {item.label}</button>)}</nav><div className="store-mini"><div className="store-mini-top"><div className="store-orb">AF</div><div><strong>Atelier Forma</strong><span>Shopify · Connected</span></div></div><button onClick={() => openStore("atelier-forma")}>Open store</button></div></aside>
+    <aside className="app-sidebar approved-sidebar desktop-workspace-sidebar"><Brand /><span className="sidebar-tagline">AI storefront intelligence</span><nav className="app-nav approved-nav desktop-workspace-nav" aria-label="Desktop workspace navigation">{desktopNavGroups.map(group => <section className="desktop-nav-group" key={group.label}><span>{group.label}</span>{group.items.map(item => <button key={item.label} className={view === item.destination ? "active" : ""} onClick={() => openDesktopView(item.destination)}><item.icon /> {item.label}</button>)}</section>)}</nav><div className="store-mini"><div className="store-mini-top"><div className="store-orb">AF</div><div><strong>Atelier Forma</strong><span>Shopify · Connected</span></div></div><button onClick={() => openStore("atelier-forma")}>Open store</button></div></aside>
     <main className={`app-main dashboard-system-main ${view === "Overview" || view === "Store workspace" ? "overview-mode" : ""}`}><header className="app-topbar approved-topbar">{view === "Overview" ? <><label className="approved-search"><Search /><input value={dashboardSearch} onFocus={() => changeView("Tools Library")} onChange={event => setDashboardSearch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") changeView("Tools Library"); }} placeholder="Search stores, projects, reports, or tools…" /><kbd>⌘ K</kbd></label><div className="approved-top-actions"><button onClick={() => changeView("Tools Library")} aria-label="Open help"><CircleHelp /></button><button onClick={() => changeView("Issues")} aria-label="Open notifications" className="approved-bell"><Bell /><i /></button><button className="approved-avatar" onClick={() => changeView("Overview")} aria-label="Open profile">MY</button></div></> : <><div className="top-context"><div className="store-dot" /><div><span className="crumb">Workspace / {view} /</span><strong>{view}</strong></div></div><div className="top-actions"><button className="search-trigger" onClick={() => changeView("Tools Library")}><Search size={14}/> Search anything <kbd>⌘ K</kbd></button><button className="round-icon" onClick={() => changeView("Issues")} aria-label="Open notifications"><Bell /></button><button className="app-button" onClick={() => {setScanRunning(true); changeView("Analysis");}}><RefreshCw size={14} className={scanRunning ? "animate-spin" : ""}/><span>{scanRunning ? "Scanning" : "Re-scan"}</span></button></div></>}</header><div className="app-content">{renderView()}</div></main>
     <nav className="mobile-app-nav approved-mobile-nav" aria-label="Mobile workspace navigation">
       <button className={view==="Overview" ? "active" : ""} onClick={() => changeView("Overview")}><LayoutDashboard /><span>Home</span></button>

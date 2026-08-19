@@ -214,3 +214,11 @@
 - [x] Simplify Tools, results, and publishing into clear single-purpose decision boards while preserving all existing actions.
 - [x] Preserve the approved Home dashboard and verify concise desktop/mobile content hierarchy across internal routes.
 - [x] Add regression coverage, verify responsive renders, run checks, and save the simplified internal system.
+
+## Expanded desktop workspace navigation
+
+- [x] Audit the desktop workspace routes and map a sidebar structure that carries more desktop-specific destinations than the four-item mobile navigation.
+- [x] Rebuild the desktop sidebar with grouped workspace, intelligence, creation, and account destinations while preserving the approved mobile Home · Stores · Tools · More menu.
+- [x] Align desktop top-bar context, active-route labels, quick actions, and shortcut destinations with the expanded sidebar architecture.
+- [x] Verify the desktop dashboard, Stores, Tools, results, publishing, and More routes use the revised navigation and clean board system consistently.
+- [x] Add navigation regression coverage, verify desktop/mobile renders, run checks, and save the expanded desktop workspace.
