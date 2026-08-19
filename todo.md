@@ -123,4 +123,4 @@
 - [x] Add an explicit publish-readiness launch from the approved dashboard and verify that it retains the active-store context.
 - [x] Make the approved dashboard search immediately launch the simulated Tools Library path rather than requiring a hidden keyboard-only action.
 - [x] Re-run verification and save the approved dashboard implementation checkpoint.
-- [ ] Save the verified approved-dashboard implementation as a new project checkpoint.
+- [x] Save the verified approved-dashboard implementation as a new project checkpoint.
