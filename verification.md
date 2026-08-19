@@ -45,3 +45,19 @@ The FerixRG greeting, search, notification, and profile controls now occupy the 
 ## Corrected Header Order
 
 The command center now uses the intended order: a compact **Atelier Forma / Store workspace** top bar sits first, containing search, alerts, and profile controls. The **Good morning, Atelier Forma** greeting is restored below it as the first dashboard-content section. This hierarchy was confirmed on desktop and mobile, with the compact top bar remaining above the greeting on mobile.
+
+## Simple Store Workspace Verification
+
+The dashboard has been replaced with a simpler store workspace: four direct quick actions, a readable connected-stores list, and recent work records that can be opened. Selecting **Atelier Forma** opens its own store-specific panel with analysis, issue review, draft, validation, publish-readiness, work summary, and recent store activity. The individual panel now uses the same readable dark workspace surface as the dashboard.
+
+The dedicated Atelier Forma panel was opened directly at a mobile viewport. Its store identity, health, connection state, management action, four core work actions, and current-work section all remained clear without requiring the user to navigate through the larger desktop-style dashboard.
+
+The **Analyse a storefront** quick action was also verified: it opens the Tools Library with **Storefront scan** selected, where Public URL or Connected store can be chosen before starting.
+
+From the direct mobile store panel, **Analyse this store** was also verified to open the Storefront scan tool with its input options visible.
+
+The mobile store panel’s **Review issues** action was verified to open the Issue Center with the selected store’s actionable finding context visible.
+
+The mobile store panel’s **Open drafts** action was verified to open the Visual Editor with saved browser preview versions available for comparison and restoration.
+
+The mobile store panel’s **Validate & publish** action was verified to open Publish readiness in the Tools Library. The requirement to connect a store is clearly shown before any release workflow can begin.

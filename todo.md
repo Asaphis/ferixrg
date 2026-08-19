@@ -82,3 +82,13 @@
 - [x] Restore a compact top bar above the command-center greeting.
 - [x] Keep the Good morning dashboard greeting below the top bar as the first content section.
 - [x] Verify the corrected top-bar-before-greeting order on desktop and mobile, then save the revised project version.
+
+## Simple store workspace dashboard
+
+- [x] Replace the dense command-center dashboard with a clear user workspace focused on quick actions, activity, and stores.
+- [x] Add a connected-stores list that makes each store’s connection, current work, draft count, and last activity understandable.
+- [x] Add an individual store panel where users can analyse, fix, draft, validate, or prepare a publish workflow for that store.
+- [x] Preserve direct navigation from quick actions, activity records, and store cards to their relevant panels or tools.
+- [x] Verify the simplified workspace and store-panel flows on desktop and mobile, then save the revised project version.
+- [x] Apply the simple workspace background and top-bar treatment consistently to the individual store panel.
+- [x] Verify all individual store-panel core action routes at a mobile viewport.
