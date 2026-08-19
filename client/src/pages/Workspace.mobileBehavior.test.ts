@@ -82,6 +82,16 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("button", { name: "Save preferences" })).toBeTruthy();
   });
 
+  it("requires a simulated unsaved-work decision before signing out", () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(view.getByRole("button", { name: /Support/i }));
+    fireEvent.click(view.getByRole("button", { name: "Sign out" }));
+    expect(view.getByRole("dialog").textContent).toMatch(/You have unsaved changes/i);
+    expect(view.getByRole("button", { name: "Save & Sign Out" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Sign Out Without Saving" })).toBeTruthy();
+  });
+
   it("shows Store connection loading feedback before confirming a successful connection", async () => {
     vi.useFakeTimers();
     const view = renderWorkspace();

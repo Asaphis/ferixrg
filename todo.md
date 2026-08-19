@@ -222,3 +222,11 @@
 - [x] Align desktop top-bar context, active-route labels, quick actions, and shortcut destinations with the expanded sidebar architecture.
 - [x] Verify the desktop dashboard, Stores, Tools, results, publishing, and More routes use the revised navigation and clean board system consistently.
 - [x] Add navigation regression coverage, verify desktop/mobile renders, run checks, and save the expanded desktop workspace.
+
+## Authentication system
+
+- [x] Confirm whether the requested authentication flow is a full production credential system or a simulated prototype flow alongside the existing Manus OAuth integration.
+- [x] Add responsive routes for login, registration, verification, changing email, password recovery, password reset, and their specified success, expired, and invalid states.
+- [x] Implement password visibility, requirements, validation, loading, generic account-protection errors, resend cooldown, session-expiry, and logout/unsaved-work confirmations.
+- [x] Keep the approved dashboard unchanged and protect application entry according to the selected authentication approach.
+- [x] Add authentication state tests, verify desktop/mobile routes, run checks, and save the completed flow.
