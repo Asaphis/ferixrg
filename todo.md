@@ -182,3 +182,11 @@
 - [x] Implement Tools Library, tool setup, source selection, visible execution progress, results workspace, issue action, AI-fix, editor/preview, save, and publish/export behaviour.
 - [x] Implement More as workspace, account, platform, resource, and support management without duplicating Home, Tools, or store-level work.
 - [x] Add mobile behaviour state tests, verify responsive desktop/mobile rendering, run tests and type checks, then save the approved implementation.
+
+## Store workflow feedback
+
+- [x] Add clear loading animation and non-blocking progress feedback to the simulated Store connection journey.
+- [x] Add success and error toast notifications to the Store connection outcome, including retry guidance on an error state.
+- [x] Add clear loading animation and non-blocking progress feedback to the simulated URL-analysis journey.
+- [x] Add success and error toast notifications to URL-analysis outcomes, including retry guidance on an error state.
+- [x] Add feedback-flow tests, verify responsive rendering, run checks, and save the revised implementation.

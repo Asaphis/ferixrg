@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
+
+const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast: toastMocks }));
+
 import Workspace from "./Workspace";
 
 const renderWorkspace = () => render(createElement(Workspace));
@@ -11,7 +15,7 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/app");
 });
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
 describe("Workspace mobile behaviour", () => {
   it("keeps the approved Home, Stores, Tools, and More bottom navigation", () => {
@@ -53,5 +57,39 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(view.getByRole("button", { name: "Profile" }));
     expect(view.getByRole("heading", { name: "Account" })).toBeTruthy();
     expect(view.getByRole("button", { name: "Save preferences" })).toBeTruthy();
+  });
+
+  it("shows Store connection loading feedback before confirming a successful connection", async () => {
+    vi.useFakeTimers();
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
+    fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
+    fireEvent.click(view.getByRole("button", { name: /Shopify/i }));
+    fireEvent.click(view.getByRole("button", { name: "Connect Store" }));
+    expect(view.getByRole("button", { name: /Connecting securely/i })).toBeTruthy();
+    expect(view.getByText(/Verifying store access/i)).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(900); });
+    expect(view.getByRole("heading", { name: "Atelier Forma" })).toBeTruthy();
+    expect(toastMocks.success).toHaveBeenCalledWith("Store connected", expect.any(Object));
+  });
+
+  it("gives URL-analysis validation errors, then shows active progress and a success notification", async () => {
+    vi.useFakeTimers();
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
+    fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
+    fireEvent.click(view.getByRole("button", { name: /analyze by URL/i }));
+    const urlField = view.getByRole("textbox", { name: "Storefront URL" });
+    fireEvent.change(urlField, { target: { value: "not-a-url" } });
+    fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
+    expect(view.getByRole("alert").textContent).toMatch(/can’t be analyzed yet/i);
+    expect(toastMocks.error).toHaveBeenCalledWith("Enter a valid storefront URL", expect.any(Object));
+    fireEvent.change(view.getByRole("textbox", { name: "Storefront URL" }), { target: { value: "https://atelier-forma.example" } });
+    fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
+    expect(view.getByRole("heading", { name: "Analyzing store…" })).toBeTruthy();
+    expect(view.getByText(/Results will open automatically/i)).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(1100); });
+    expect(view.getByRole("heading", { name: "Results workspace" })).toBeTruthy();
+    expect(toastMocks.success).toHaveBeenCalledWith("URL analysis is ready", expect.any(Object));
   });
 });
