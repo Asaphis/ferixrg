@@ -60,3 +60,9 @@
 - [x] Verify the URL scan, screenshot review, draft, and connection command shortcuts after the redesign.
 - [x] Verify a command-center activity timeline entry routes directly to its related work.
 - [x] Save the fully verified command-center dashboard as a new project version.
+
+## Single command-center header
+
+- [x] Remove the redundant workspace top bar from the command-center overview.
+- [x] Retain and refine the command-center greeting, search, notification, and profile header as the only dashboard header.
+- [x] Verify the single-header dashboard on desktop and mobile, then save the revised project version.

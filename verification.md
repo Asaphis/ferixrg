@@ -33,3 +33,7 @@ The **Scan a public URL** command was also verified after the dashboard redesign
 The **Review screenshots** command was verified as well. It opened the Screenshot reviewer with its single screenshot input and evidence-board outcome, again without requiring a store connection.
 
 The redesigned **Alternative B opened** record in the project trail was invoked directly and opened the Visual Editor, where the saved version-history comparison remained visible. This confirms that command-center activity records continue to route to the correct working context.
+
+## Single Command-Center Header Verification
+
+The redundant workspace bar that displayed **Overview** has been removed from the command-center route. Desktop now begins directly with the command-center greeting, tool search, notification, and profile controls. On mobile, the greeting, search, and alert/profile controls are the first dashboard surface above the action strip and signal panel; no duplicate Overview header remains.
