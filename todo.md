@@ -124,3 +124,38 @@
 - [x] Make the approved dashboard search immediately launch the simulated Tools Library path rather than requiring a hidden keyboard-only action.
 - [x] Re-run verification and save the approved dashboard implementation checkpoint.
 - [x] Save the verified approved-dashboard implementation as a new project checkpoint.
+
+## Entry-flow visual approval
+
+- [x] Read the full landing, authentication, verification, and onboarding specification and map its required screens and states.
+- [ ] Generate desktop visual mockups for the FerixRG landing experience and the connected account-entry flow.
+- [ ] Generate mobile visual mockups that preserve the same entry-flow screens, actions, and content in a mobile-first layout.
+- [ ] Attach the actual entry-flow visual files directly for user review before implementing any new screens.
+- [ ] Regenerate the FerixRG landing-page concept using the supplied rounded editorial hero reference as the compositional direction.
+- [x] Show a moving supported-platform logo strip beneath the hero for Shopify, WooCommerce, BigCommerce, Shopware, and URL-based analysis support.
+- [x] Generate the reference-led mobile landing concept with every desktop hero action, platform marquee, problem/solution module, AI content, comparison, workflow, health report, and final CTA reflowed vertically.
+- [x] Redesign both landing concepts from one shared content model so every desktop visual treatment, module, proof section, image, and action has a clearly equivalent mobile version.
+- [x] Convert the new reference’s editorial proof-and-outcomes rhythm into FerixRG sections for store results, platform support, analysis outcomes, redesign evidence, and report-ready improvements.
+- [x] Audit and reproduce every desktop landing visual element in mobile: hero montage, storefront images, phone preview, analysis panels, platform marks, dividers, proof icons, evidence images, before/after imagery, report graphics, and all actions.
+- [x] Rebuild the mobile visual as real responsive components matching the desktop’s individual sections and columns; do not use a cropped desktop page image as a section background or substitute for component layout.
+- [x] Redesign desktop and mobile from one shared art-direction system: identical hero montage objects, platform-logo treatment, card shapes, typography, dividers, micro-badges, and supporting visual details, with only responsive reflow changing.
+- [x] Restore rich visual storytelling to both shared landing concepts: recognisable supported-platform logos, hero and product montage layers, floating insight cards, storefront imagery, proof graphics, comparison visuals, and report details.
+- [x] Add an approval-stage hero motion concept with independently floating workspace, browser, phone, score, AI insight, redesign-impact, connector, badge, and decorative detail layers on both desktop and mobile.
+
+## Approved landing implementation
+
+- [x] Replace the public landing page with the approved rich FerixRG shared design system, including the desktop hero montage, analysis input, proof modules, storefront imagery, evidence cards, comparison, workflow, report, and final CTA.
+- [x] Implement the recognisable moving supported-platform logo marquee for Shopify, WooCommerce, BigCommerce, Shopware, Custom / Headless, and URL Analysis.
+- [x] Implement the matching mobile landing layout from the same components, with every desktop visual object and action preserved in a deliberate phone reflow.
+- [x] Add refined hero floating motion, desktop-only parallax, interactive CTA behavior, marquee motion, and reduced-motion support.
+- [x] Add or update unit tests for landing data, platform coverage, mobile parity, and motion configuration; verify desktop and mobile renders; run tests and type checks.
+- [ ] Save the final approved landing implementation checkpoint.
+- [x] Record that the hero motion was approved directly for implementation without a separate motion-preview artifact.
+- [x] Replace generic marquee glyphs with recognisable Shopify, WooCommerce, BigCommerce, and Shopware logo treatments while retaining dedicated Custom / Headless and URL Analysis marks.
+- [x] Add desktop-only pointer parallax to the hero montage and ensure it is inactive on mobile and under reduced-motion preferences.
+- [x] Extend landing tests to cover motion-layer configuration, desktop-only parallax behavior, and shared desktop/mobile visual-module parity data.
+- [x] Add component-level tests for desktop parallax updates and mobile/reduced-motion parallax disablement.
+- [x] Add an explicit shared landing-module parity contract covering every required hero, platform, evidence, report, workflow, and CTA section.
+- [x] Add a component-level test that verifies Home hero pointer movement updates montage CSS variables only on desktop, while mobile and reduced-motion paths leave them unchanged.
+- [x] Add a rendered Home UI test that simulates pointer movement over the live `.hero-montage` and verifies desktop CSS-variable updates plus mobile and reduced-motion no-op behavior.
+- [x] Fix the Home DOM-test runtime import so the rendered landing component can execute under the project’s jsdom test environment.

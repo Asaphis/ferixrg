@@ -1,7 +1,10 @@
-/* FerixRG — Quiet Instrument Panel: asymmetric editorial storytelling, cobalt decisions, and visible storefront evidence. */
-import { ArrowRight, Check, ChevronRight, Compass, Eye, ScanLine, ShieldCheck, Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, ChevronDown, Link2, Menu, Sparkles, X } from "lucide-react";
+import React, { type MouseEvent, useState } from "react";
 import { useLocation } from "wouter";
+import { landingHealthMetrics, landingOutcomes, landingWorkflow, supportedPlatforms } from "@/lib/landingContent";
+import { applyLandingParallaxToMontage } from "@/lib/landingMotion";
+import "./landing.css";
+import "./landingMotion.css";
 
 const heroAsset = "/manus-storage/ferixrg-hero-workspace_790b5fe6.png";
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
@@ -9,87 +12,75 @@ const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
 const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
 
 function Brand() {
-  return <a className="brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>;
+  return <a className="landing-brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>;
+}
+
+function PrimaryButton({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+  return <button className={`landing-primary ${className}`} onClick={onClick}>{children} <ArrowRight size={14} /></button>;
 }
 
 export default function Home() {
   const [, navigate] = useLocation();
   const [authOpen, setAuthOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const goToWorkspace = () => navigate("/app");
+  const setLayerParallax = (node: HTMLElement, x: number, y: number) => {
+    node.style.setProperty("--parallax-x", `${x}px`);
+    node.style.setProperty("--parallax-y", `${y}px`);
+  };
+  const handleMontageMove = (event: MouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    applyLandingParallaxToMontage(event.currentTarget, { viewportWidth: window.innerWidth, prefersReducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches }, (event.clientX - bounds.left) / bounds.width, (event.clientY - bounds.top) / bounds.height);
+  };
+  const resetMontageParallax = (event: MouseEvent<HTMLDivElement>) => {
+    event.currentTarget.querySelectorAll<HTMLElement>("[data-motion-layer]").forEach((node) => setLayerParallax(node, 0, 0));
+  };
 
-  return (
-    <main className="ferix-public grain">
-      <nav className="public-nav">
+  return <main className="landing-shell">
+    <div className="landing-canvas">
+      <nav className="landing-nav">
         <Brand />
-        <div className="nav-links">
-          <a href="#capabilities">Capabilities</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#redesign">Redesign</a>
-          <a href="#trust">Trust</a>
+        <div className="landing-links">
+          {["Product", "Solutions", "How It Works", "Platforms", "Resources", "Pricing"].map((item, index) => <a href={index === 2 ? "#workflow" : index === 3 ? "#platforms" : "#capabilities"} key={item}>{item}{![2, 5].includes(index) && <ChevronDown size={11} />}</a>)}
         </div>
-        <div className="nav-actions">
-          <button className="text-button" onClick={() => setAuthOpen(true)}>Sign in</button>
-          <button className="primary-button" onClick={() => setAuthOpen(true)}>Start free <ArrowRight size={14} /></button>
-        </div>
+        <div className="landing-nav-actions"><button className="landing-signin" onClick={() => setAuthOpen(true)}>Sign In</button><PrimaryButton onClick={() => setAuthOpen(true)}>Get Started</PrimaryButton></div>
+        <button className="landing-menu" aria-label="Open navigation" onClick={() => setMobileMenu((open) => !open)}><Menu size={21} /></button>
       </nav>
+      {mobileMenu && <div className="landing-mobile-menu">{["Product", "Solutions", "How It Works", "Platforms", "Resources", "Pricing"].map((item) => <a href="#capabilities" key={item} onClick={() => setMobileMenu(false)}>{item}</a>)}<button onClick={() => setAuthOpen(true)}>Get Started</button></div>}
 
-      <section className="hero">
-        <div className="hero-field" />
-        <span className="calibration-mark">CALIBRATED FOR COMMERCE / 01</span>
-        <div className="hero-grid">
-          <div className="hero-copy">
-            <span className="eyebrow">Storefront intelligence, made tangible</span>
-            <h1>Make every storefront <em>move with intent.</em></h1>
-            <p>FerixRG shows the precise storefront experience your customers meet, turns evidence into a clear improvement path, and keeps the final decision in your hands.</p>
-            <div className="hero-ctas">
-              <button className="primary-button" onClick={() => setAuthOpen(true)}>Analyze a storefront <ArrowRight size={14} /></button>
-              <button className="outline-button" onClick={() => document.getElementById("workflow")?.scrollIntoView()}>See the workflow</button>
-            </div>
-            <div className="hero-meta">
-              <span><strong>URL or screenshot</strong>Begin with what you can access.</span>
-              <span><strong>Every viewport</strong>See the real mobile experience.</span>
-              <span><strong>Truthful publishing</strong>Apply only where control exists.</span>
-            </div>
-          </div>
-          <div className="hero-media">
-            <div className="hero-image-wrap"><img src={heroAsset} alt="FerixRG storefront intelligence workspace" /></div>
-            <div className="floating-proof"><span className="mini-label">Latest evidence</span><strong>+18</strong><p>points available by fixing the mobile purchase path.</p></div>
-          </div>
+      <section className="rich-hero">
+        <div className="hero-copy-rich">
+          <div className="landing-eyebrow">AI-POWERED STOREFRONT INTELLIGENCE</div>
+          <h1>Build a Better Store.<br /><span>Automatically.</span></h1>
+          <p>FerixRG analyzes your storefront, uncovers hidden issues, and turns evidence into an improved experience—optimized, redesigned, and ready to publish.</p>
+          <div className="hero-actions"><PrimaryButton onClick={goToWorkspace}>Analyze Your Store</PrimaryButton><button className="landing-secondary" onClick={() => document.getElementById("workflow")?.scrollIntoView()}>Explore Platform</button></div>
+          <form className="landing-url" onSubmit={(event) => { event.preventDefault(); goToWorkspace(); }}><label>Paste your store URL</label><div><Link2 size={14} /><input aria-label="Store URL" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://yourstore.com" /><button>Analyze Store</button></div><small>Analyze any public storefront without connecting your store.</small></form>
+        </div>
+        <div className="hero-montage" aria-label="Animated storefront intelligence preview" onMouseMove={handleMontageMove} onMouseLeave={resetMontageParallax}>
+          <div className="montage-workspace" data-motion-layer><img src={heroAsset} alt="FerixRG storefront analysis workspace" /><span>STORE HEALTH · 82 / 100</span></div>
+          <div className="montage-browser" data-motion-layer><div className="browser-chrome"><i /><i /><i /><span>YOURSTORE · Shop · Collections</span></div><div className="browser-store"><b>Timeless living.<br />thoughtfully curated.</b><small>Shop the collection</small></div><div className="browser-products"><i /><i /><i /></div></div>
+          <div className="montage-phone" data-motion-layer><img src={heroAsset} alt="Storefront phone preview" /></div><div className="montage-connector" data-motion-layer />
+          <div className="montage-insight" data-motion-layer><div className="landing-eyebrow"><Sparkles size={10} /> AI INSIGHT</div><strong>91 <small>/100</small></strong><p>Your store is strong. We found 18 opportunities to improve.</p></div>
+          <div className="montage-impact" data-motion-layer><span>REDESIGN IMPACT</span><b>72 <em>→</em> 94</b><small>Before &nbsp;&nbsp;&nbsp;&nbsp; After</small></div><div className="montage-badge" data-motion-layer><Sparkles size={13} /> AI redesign ready</div>
         </div>
       </section>
 
-      <section className="trust-strip" id="trust">
-        <strong>For the decisions behind a better storefront.</strong>
-        <div className="trust-points"><span><i /> Evidence-led findings</span><span><i /> AI proposals, never silent changes</span><span><i /> Capability-aware publishing</span></div>
-      </section>
+      <section className="platform-band" id="platforms"><header><span>SUPPORTED PLATFORMS</span><ArrowRight size={18} /></header><div className="platform-track"><div>{[...supportedPlatforms, ...supportedPlatforms].map((platform, index) => <span className={`platform-logo ${platform.tone}`} key={`${platform.name}-${index}`}><b>{platform.mark}</b>{platform.name}</span>)}</div></div></section>
+      <p className="platform-note">◉ Analyze any public store URL instantly, or connect your store for deeper insights, monitoring, and publishing.</p>
+      <section className="outcome-strip">{landingOutcomes.map((outcome) => <div className="outcome" key={outcome.label}><i>{outcome.icon}</i><p><b>{outcome.value}<small>{outcome.suffix}</small></b><span>{outcome.label}</span></p></div>)}</section>
 
-      <section className="section" id="capabilities">
-        <div className="section-inner capability-layout">
-          <div>
-            <div className="section-label">01 / Observe with context</div>
-            <h2 className="section-heading">Not another score. <span className="serif">A calibrated point of view.</span></h2>
-            <p className="section-intro">A rating only matters when it directs the next move. FerixRG connects each score to the exact page, viewport, evidence, and design decision that can change it.</p>
-            <div className="capability-list">
-              {[['01','Render what shoppers see','Scan a public URL, an authorized store, or screenshots at every relevant device.'],['02','Find the friction','Connect visual, responsive, UX, performance, accessibility, and conversion evidence.'],['03','Choose the response','Open a safe fix, a redesign direction, or a developer-ready handoff from the same finding.']].map(([n,title,text]) => <div className="capability-row" key={n}><span className="number">{n}</span><div><strong>{title}</strong><p>{text}</p></div><ChevronRight size={17} /></div>)}
-            </div>
-          </div>
-          <div style={{ position: "relative" }}><div className="evidence-figure"><img src={evidenceAsset} alt="Annotated storefront evidence visual" /></div><div className="signal-note"><strong>Visible at 390px</strong>Primary purchase action loses hierarchy after image gallery.</div></div>
-        </div>
-      </section>
+      <section className="landing-section finding-section" id="capabilities"><div className="finding-main"><div className="landing-eyebrow">WHAT WE FIND</div><h2>Your store may have problems you can’t see.</h2><div className="issue-cards">{[["Design", "Hierarchy and brand consistency."], ["Mobile", "Small-screen friction."], ["UX", "Journey and CTA issues."], ["Performance", "Slow loading paths."], ["Conversion", "Missed opportunities."]].map(([title, copy], index) => <article key={title}><img src={evidenceAsset} alt={`${title} storefront evidence`} /><div><b><i />{title}</b><p>{copy}</p></div></article>)}</div></div><aside className="change-story"><img src={heroAsset} alt="Storefront findings overview" /><ul><li>Below-the-fold content not optimized</li><li>Slow Largest Contentful Paint</li><li>Weak product section hierarchy</li><li>Low contrast on key CTAs</li></ul><button onClick={goToWorkspace}>View full analysis <ArrowRight size={13} /></button></aside></section>
 
-      <section className="section score-area">
-        <div className="section-inner score-layout">
-          <div><div className="section-label">02 / Make the next move clear</div><h2 className="section-heading">One health signal. <span className="serif">Eleven useful lenses.</span></h2><p className="section-intro">FerixRG gives teams a common view of health without flattening the nuance inside design, experience, and technical performance.</p><div className="score-ring-large"><b>82</b><span>Store health</span></div></div>
-          <div className="score-cards">{[['Design','88','A hero that has room to sell.'],['Responsive','71','3 mobile collisions need review.'],['Conversion','79','Trust context can arrive earlier.'],['Accessibility','92','Clear, actionable improvement path.']].map(([name,score,copy]) => <div className="score-card" key={name}><div className="score-top"><span>{name}</span><b>{score}</b></div><p>{copy}</p></div>)}</div>
-        </div>
-      </section>
+      <section className="ai-band"><div><div className="landing-eyebrow">ASK FERIXRG AI</div><h2>Don’t just find the problem.<br />Fix it.</h2><p>FerixRG AI turns insight into action—instantly.</p></div><div className="prompt-grid">{["Improve product page conversion", "Speed up my store", "Redesign with a modern look", "Improve mobile checkout"].map((prompt) => <button onClick={goToWorkspace} key={prompt}>{prompt} <ArrowRight size={12} /></button>)}</div></section>
 
-      <section className="section process" id="workflow"><div className="section-inner"><div className="process-header"><div><div className="section-label">03 / A connected workflow</div><h2 className="section-heading">Observe. Decide. <span className="serif">Improve responsibly.</span></h2></div><p className="section-intro">The workspace opens advanced capabilities only when they are useful, but never hides the path forward.</p></div><div className="process-track">{[['01','Inspect','Choose a URL, connected store, or a set of screenshots.'],['02','Understand','Review issue evidence across each page and viewport.'],['03','Create','Compare an AI direction, a manual change, or implementation guidance.'],['04','Validate','Re-scan, approve, version, and publish only where support exists.']].map(([n,title,text]) => <div className="process-step" key={n}><span className="step-index">{n}</span><h3>{title}</h3><p>{text}</p></div>)}</div></div></section>
-
-      <section className="section redesign-spotlight" id="redesign"><div className="section-inner redesign-layout"><div className="redesign-proof"><img src={redesignAsset} alt="Before and after storefront redesign comparison" /></div><div><div className="section-label">04 / Design with a traceable rationale</div><h2 className="section-heading">Redesign is a proposal, <span className="serif">not a leap of faith.</span></h2><p className="section-intro">Preserve the brand elements that matter. Generate alternatives that respond to the current evidence. Preview them at every viewport before a change becomes a version.</p><div className="quote-block"><p>“A better storefront is one the whole team can explain, measure, and stand behind.”</p><span>Built for store owners, product teams, designers, agencies, and developers.</span></div><button className="primary-button" style={{marginTop: 31}} onClick={() => navigate("/app")}>Open the sample workspace <ArrowRight size={14} /></button></div></div></section>
-
-      <footer className="public-footer"><div className="footer-top"><div><span className="eyebrow" style={{color:'#a9c5ff'}}>FERIXRG / ECOMMERCE INTELLIGENCE</span><h2 className="footer-heading">Your storefront already has a story. See the part your customers are living.</h2></div><div className="footer-side"><p>Bring a public URL, a screenshot, or an authorized storefront. FerixRG will make the next responsible move visible.</p><button className="primary-button" onClick={() => setAuthOpen(true)}>Start a first analysis <ArrowRight size={14} /></button></div></div><div className="footer-bottom"><span>© 2026 Ferixas / AsaPhis ORG</span><span>Privacy · Security · Terms</span></div></footer>
-
-      {authOpen && <div className="auth-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div className="auth-panel"><aside className="auth-aside"><Brand /><h2>Your evidence-led workspace is ready.</h2><p>Use the interactive demo to scan, prioritize issues, compare redesign directions, and validate a controlled change.</p></aside><div className="auth-main"><button className="close-auth" aria-label="Close sign-in dialog" onClick={() => setAuthOpen(false)}><X size={19}/></button><span className="eyebrow">Enter the workspace</span><h3 id="auth-title">Start with a real decision.</h3><p>Use the prototype account or continue into the sample workspace.</p><label className="input-label">Email</label><input defaultValue="demo@ferixrg.com" type="email" /><label className="input-label">Password</label><input defaultValue="ferixrg-demo" type="password" /><button className="primary-button" onClick={() => navigate('/app')}><Compass size={15}/> Open demo workspace</button><p className="demo-note"><b>Prototype note:</b> authentication and all integration outcomes are simulated. The workspace keeps capability limits visible throughout.</p></div></div></div>}
-    </main>
-  );
+      <section className="landing-section evidence-section"><div className="landing-eyebrow">EVIDENCE READY</div><h2>Every improvement has proof.</h2><div className="evidence-cards"><article><b>01 &nbsp; Responsive test</b><img src={evidenceAsset} alt="Responsive storefront test" /><small>Desktop 98 / Tablet 93 / Mobile 88</small></article><article><b>02 &nbsp; AI redesign alternative</b><img src={redesignAsset} alt="AI redesign alternative" /><small>Compare directions before publishing.</small></article><article><b>03 &nbsp; Report-ready improvements</b><img src={heroAsset} alt="Report ready storefront improvements" /><small>18 total improvements · Download report</small></article></div></section>
+      <section className="redesign-compare"><article className="before"><span>Before</span><b>72 <small>/100</small></b><img src={redesignAsset} alt="Before storefront design" /></article><article className="after"><span>After</span><b>94 <small>/100</small></b><img src={redesignAsset} alt="After storefront design" /></article></section>
+      <section className="landing-section workflow-section" id="workflow"><div className="landing-eyebrow">PROVEN PROCESS</div><h2>From insight to impact.</h2><div className="workflow-cards">{landingWorkflow.map(([number, title, copy]) => <article key={number}><b>{number}</b><div><h3>{title}</h3><p>{copy}</p></div></article>)}</div></section>
+      <section className="health-report"><header><b>Your Store Health Report</b><button onClick={goToWorkspace}>Download <ArrowRight size={13} /></button></header><img src={heroAsset} alt="Store health report evidence" /><div>{landingHealthMetrics.map((metric) => <article key={metric.name}><span>{metric.name}</span><b>{metric.value}</b><i className={metric.tone} /></article>)}</div></section>
+      <section className="landing-cta"><h2>Your store can be better.<br />Let’s find out how.</h2><div><PrimaryButton onClick={goToWorkspace}>Analyze My Store</PrimaryButton><button className="landing-secondary light" onClick={() => setAuthOpen(true)}>Create Free Account</button></div></section>
+      <footer className="landing-footer"><Brand /><span>Product · Solutions · Platforms · Resources</span><span>© 2026 FerixRG</span></footer>
+    </div>
+    {authOpen && <div className="landing-auth" role="dialog" aria-modal="true" aria-labelledby="landing-auth-title"><div><button className="close-auth" aria-label="Close sign in" onClick={() => setAuthOpen(false)}><X size={18} /></button><span className="landing-eyebrow">ENTER THE WORKSPACE</span><h2 id="landing-auth-title">Start with a real decision.</h2><p>This interactive prototype is simulated. Open the workspace to explore analysis, redesign, validation, and publishing paths.</p><PrimaryButton onClick={goToWorkspace}>Open demo workspace</PrimaryButton></div></div>}
+  </main>;
 }

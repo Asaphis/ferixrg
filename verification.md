@@ -99,3 +99,29 @@ The first desktop implementation render exposed a stylesheet-boundary issue that
 At **390 px** width, the mobile dashboard reflows the same content vertically: dual Analyze / Connect actions, URL and Shopify entry paths, six quick actions, four summary cards, connected stores, and the complete Store Health breakdown—**Design 94, UX 91, Mobile 88, Performance 86, SEO 92**. The same render continues through priority issues, AI recommendation, recent analyses, before/after comparison, Preview / Publish readiness, and recent activity. The fixed Home / Stores / Analyze / More navigation is implemented at the viewport edge; full-page capture intentionally excludes fixed bottom chrome.
 
 The final desktop and mobile renders include an explicit **Preview / Validate / Publish** sequence in the Ready to publish card. Validate opens the existing Publish readiness guided tool, preserving the simulated store context already used by the Tools Library. Dashboard search now launches that library immediately on focus rather than relying only on an undiscoverable keyboard action. The final automated verification passed **21 tests** across **8 test files**, and TypeScript completed without errors.
+
+## Entry-Flow Visual Concept Verification
+
+The approval-only desktop concept includes the public landing header, URL analyzer, current-store to improved-store product transformation, platform strip, problem and solution modules, AI assistant, Store Health sample report, workflow, account entry, verification/onboarding flow, and final CTA. The mobile concept retains the same acquisition path, URL analyzer, storefront preview, health breakdown, account fields, verification actions, four onboarding steps, connection/URL alternatives, and completion state in a single vertical layout. Both source compositions were reviewed before direct image delivery; only unused blank canvas after the footer is being removed.
+
+## Shared Landing Art-Direction Verification
+
+The current desktop and mobile concepts are rendered from a single responsive composition rather than separate visual systems. Both visibly share the same pale-mineral canvas, white rounded cards, blue decision controls, hero montage objects (analysis panel, browser frame, phone, insight card, redesign impact, connector, and AI-ready badge), platform-chip band, outcomes strip, issue cards, feature-story panel, dark AI band, evidence cards, comparison, workflow, and health-report component language. The mobile render requires only a taller capture to include the already-rendered final CTA and footer below the report.
+
+## Enriched Shared Landing Verification
+
+The enriched renders preserve responsive parity and restore the missing visual richness. Desktop and mobile now include the same layered dark workspace, browser storefront, phone preview, score card, AI insight, redesign impact, connector line, and AI-ready badge in the hero. Both retain the animated platform treatment with Shopify, WooCommerce, BigCommerce, Shopware, Custom / Headless, and URL Analysis logo tokens; evidence cards with real FerixRG visual surfaces; separate redesign comparison imagery; diagnostic card thumbnails; report imagery and metrics; fine dividers; colored status markers; and the final acquisition actions.
+
+## Approved Landing Implementation Verification
+
+The live public landing page was verified at 1440px desktop and 430px mobile widths. Both layouts now use the same live React component system: full hero copy and URL analyzer, layered analysis/browser/phone montage, AI insight, redesign impact, badge, supported-platform marquee, outcomes, diagnostic cards, story panel, AI prompts, evidence surfaces, comparison, workflow, health report, and CTA. The montage layers float independently via transform-only animations, the platform band moves continuously, and reduced-motion preferences disable non-essential animation. The desktop and mobile implementation preserves the same visual objects and interaction paths; mobile only changes their arrangement. The complete automated suite passes with 23 tests, and TypeScript checks are clean.
+
+## Final Motion and Platform Verification
+
+The final desktop capture confirms the enriched platform band now contains stylised, recognisable logo treatments for Shopify, WooCommerce, BigCommerce, and Shopware, alongside the dedicated Custom / Headless and URL Analysis marks. The final mobile capture retains those same mark treatments and hero layers. Desktop hero pointer movement applies bounded parallax offsets to each montage layer at a different depth; mobile and reduced-motion settings do not run parallax. The motion system was explicitly approved by the user directly for implementation, so no separate preview artifact was required. The expanded automated suite now passes with 24 tests, and TypeScript remains clean.
+
+The final motion contract is covered by 26 automated tests. It verifies the complete shared desktop/mobile landing module sequence and the real desktop parallax calculation: pointer offsets are layered by depth, are bounded to a four-pixel maximum per axis, and are disabled at mobile width or whenever reduced motion is preferred.
+
+The final suite now passes with 27 tests. Its component-oriented montage test exercises the same DOM application helper used by the live Home hero: desktop pointer movement writes the expected per-layer CSS variables, while mobile-width and reduced-motion paths make no CSS-variable changes.
+
+The rendered Home component is now tested in jsdom as well. The final suite passes with 29 tests across 10 files: it renders the live landing component, dispatches desktop pointer movement over `.hero-montage`, confirms the phone layer receives the expected CSS variables, and confirms mobile-width and reduced-motion scenarios leave those variables unchanged. TypeScript checks remain clean.
