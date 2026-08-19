@@ -39,3 +39,12 @@ export const toolCatalog: ToolDefinition[] = [
 ];
 
 export const toolCategories: Array<ToolCategory | "All tools"> = ["All tools", "Observe", "Diagnose", "Create", "Validate & ship"];
+
+export function filterTools(query: string, category: ToolCategory | "All tools") {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return toolCatalog.filter(tool => {
+    const matchesCategory = category === "All tools" || tool.category === category;
+    const haystack = [tool.name, tool.category, tool.description, tool.outcome, ...tool.sources, ...tool.connections].join(" ").toLowerCase();
+    return matchesCategory && terms.every(term => haystack.includes(term));
+  });
+}

@@ -28,3 +28,10 @@
 - [x] Provide simulated URL, screenshot, store-connection, and codebase setup choices based on the selected tool.
 - [x] Bring the selected tool’s requirement panel directly into view after a mobile selection.
 - [x] Verify desktop and mobile discoverability, then save the revised project version.
+
+## Tools Library discovery
+
+- [x] Strengthen search to match tool names, functions, inputs, and outcomes.
+- [x] Add visible category-filter chips with result counts and a clear all-filters control.
+- [x] Keep the selected tool details synchronized with filtered search results.
+- [x] Add useful empty-state guidance and verify responsive tool discovery.
