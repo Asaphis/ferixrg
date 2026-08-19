@@ -35,3 +35,11 @@
 - [x] Add visible category-filter chips with result counts and a clear all-filters control.
 - [x] Keep the selected tool details synchronized with filtered search results.
 - [x] Add useful empty-state guidance and verify responsive tool discovery.
+
+## Project activity dashboard
+
+- [x] Define and present the project’s current focus, issue queue, fixes in progress, and completed implementation record.
+- [x] Surface active drafts, recent tools, and recent project actions as the dashboard’s working context.
+- [x] Add prioritized quick actions for URL, screenshot, Shopify, WooCommerce, theme, and publishing-related workflows.
+- [x] Ensure all dashboard shortcuts navigate to the corresponding workspace tools or views.
+- [x] Verify the redesigned dashboard on desktop and mobile, then save the revised project version.

@@ -11,3 +11,7 @@ The browser-confirmed Tools Library lists **23** capabilities under Observe, Dia
 The enhanced search matches function and connection metadata rather than names alone: searching **GitHub** reduced the catalogue to the single Theme sync & release tool and synchronized the selected-tool panel to that result. Both the rail filters and the central category chips updated their live counts and exposed reset controls.
 
 An intentionally unmatched search displayed the dedicated no-results guidance with an immediate **Clear search and filters** action. Activating it restored all 23 tools and the live category counts in one interaction.
+
+## Project Activity Dashboard Verification
+
+The redesigned dashboard was verified at desktop and mobile sizes. It presents the current focus, work-by-state record, direct quick actions, active drafts, recently used tools, and recorded project activity without relying on a generic score-card layout. The **Connect Shopify** dashboard shortcut correctly opened the Store change publisher in the Tools Library, where its Shopify, WooCommerce, and custom API requirements were visible before a simulated start.
