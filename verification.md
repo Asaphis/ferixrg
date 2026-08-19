@@ -37,3 +37,7 @@ The redesigned **Alternative B opened** record in the project trail was invoked 
 ## Single Command-Center Header Verification
 
 The redundant workspace bar that displayed **Overview** has been removed from the command-center route. Desktop now begins directly with the command-center greeting, tool search, notification, and profile controls. On mobile, the greeting, search, and alert/profile controls are the first dashboard surface above the action strip and signal panel; no duplicate Overview header remains.
+
+## Unified Top-Bar Correction
+
+The FerixRG greeting, search, notification, and profile controls now occupy the actual top bar rather than an in-content heading. The mobile top bar has a deliberate two-row structure: the greeting and short context remain readable first, then the search and alert/profile controls sit on a dedicated action row. The dashboard content begins directly beneath this single header with no duplicated header treatment.

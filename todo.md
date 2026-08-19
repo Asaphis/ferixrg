@@ -66,3 +66,13 @@
 - [x] Remove the redundant workspace top bar from the command-center overview.
 - [x] Retain and refine the command-center greeting, search, notification, and profile header as the only dashboard header.
 - [x] Verify the single-header dashboard on desktop and mobile, then save the revised project version.
+
+## Unified top bar correction
+
+- [x] Prevent the unified top bar from compressing the greeting and search controls on mobile.
+
+## Unified top bar correction
+
+- [x] Move the greeting, search, notification, and profile controls into the actual top bar of the command center.
+- [x] Remove the duplicate in-content command header below the top bar.
+- [x] Verify the unified top bar on desktop and mobile, then save the revised project version.
