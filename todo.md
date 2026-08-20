@@ -354,3 +354,10 @@
 - [x] Implement a simulated invite-member flow with member email, role selection, invitation confirmation, and pending-invitation state.
 - [x] Implement member role-management actions and clear safe removal or invitation-cancellation confirmation states.
 - [x] Add Team-management regression tests and verify desktop/mobile interaction before saving a checkpoint.
+
+## Complete More nested interaction system
+
+- [x] Audit every nested item in Team, Billing & Usage, Profile, Preferences, Platform, Resources, and Support for dead ends or generic placeholder behavior.
+- [x] Implement a consistent nested detail/action pattern so each listed More item opens a specific simulated panel, form, confirmation, or contextual destination.
+- [x] Complete the Billing & Usage, Profile, Preferences, Platform, Resources, and Support subflows, including every currently listed action.
+- [x] Add complete regression coverage and verify all nested More interactions on desktop and mobile before saving a checkpoint.

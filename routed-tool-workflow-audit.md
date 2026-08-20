@@ -139,3 +139,7 @@ Team, Billing, Profile, and Preferences now use the same aligned workspace struc
 ## Interactive Team management verification
 
 The Team destination now provides a dedicated management workspace. Desktop and mobile both show active members, current roles, a role guide, pending invitations, role selectors, invite entry points, and safe remove or cancel actions. The invite dialog validates email addresses, assigns Editor or Viewer access, creates a pending invitation, and supports later role adjustment or cancellation without affecting the Owner.
+
+## Complete More nested-action verification
+
+Every non-Team item in Billing & Usage, Profile, Preferences, Platform, Resources, and Support now has a named nested destination with metrics, relevant settings or information, a clear primary action, and a safe preview completion state. Desktop review confirmed Usage limits presents threshold controls and capacity detail. Mobile review confirmed Contact support presents its contextual request form and completion route in the focused workspace layout.

@@ -124,6 +124,25 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("button", { name: /Save preferences/i })).toBeTruthy();
   });
 
+  it("opens specific nested Billing and Support actions instead of generic notices", () => {
+    const billingView = renderWorkspace();
+    fireEvent.click(within(billingView.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(billingView.getByRole("button", { name: "Usage" }));
+    fireEvent.click(billingView.getByRole("button", { name: /Usage limits/i }));
+    expect(billingView.getByRole("heading", { name: "Usage limits" })).toBeTruthy();
+    expect(billingView.getByRole("combobox", { name: "Usage alert threshold" })).toBeTruthy();
+    expect(billingView.getByRole("button", { name: "Save usage alert" })).toBeTruthy();
+    billingView.unmount();
+
+    const supportView = renderWorkspace();
+    fireEvent.click(within(supportView.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(supportView.getByRole("button", { name: /Support/i }));
+    fireEvent.click(supportView.getAllByRole("button", { name: /Contact support/i })[1]);
+    expect(supportView.getByRole("heading", { name: "Contact support" })).toBeTruthy();
+    expect(supportView.getByRole("textbox", { name: "Subject" })).toBeTruthy();
+    expect(supportView.getByRole("button", { name: "Send support request" })).toBeTruthy();
+  });
+
   it("invites teammates, manages pending roles, and safely cancels an invitation", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
