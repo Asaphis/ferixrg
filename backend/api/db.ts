@@ -6,6 +6,8 @@ import {
   accountTokens,
   authIdentities,
   drafts,
+  draftAssets,
+  draftVersions,
   editorDrafts,
   InsertEditorDraft,
   InsertUser,
@@ -443,6 +445,85 @@ export async function listWorkspaceDrafts(workspaceId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(drafts).where(eq(drafts.workspaceId, workspaceId)).orderBy(desc(drafts.updatedAt));
+}
+
+export async function createWorkspaceDraft(input: { workspaceId: number; storeId?: number; title: string; source: "manual" | "tool" | "ai" | "import"; createdByUserId: number; label: string; note?: string; designState: string; createdByType?: "user" | "ai" | "system" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const created = await tx.insert(drafts).values({ workspaceId: input.workspaceId, storeId: input.storeId, title: input.title, source: input.source, createdByUserId: input.createdByUserId });
+    const draftId = Number(created[0].insertId);
+    const version = await tx.insert(draftVersions).values({ draftId, versionNumber: 1, createdByUserId: input.createdByUserId, createdByType: input.createdByType ?? "user", label: input.label, note: input.note, designState: input.designState });
+    const versionId = Number(version[0].insertId);
+    await tx.update(drafts).set({ currentVersionId: versionId }).where(eq(drafts.id, draftId));
+    await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "draft.created", entityType: "draft", entityId: String(draftId), details: { source: input.source, versionId } });
+    const draftRows = await tx.select().from(drafts).where(eq(drafts.id, draftId)).limit(1);
+    const versionRows = await tx.select().from(draftVersions).where(eq(draftVersions.id, versionId)).limit(1);
+    return { draft: draftRows[0], version: versionRows[0] };
+  });
+}
+
+export async function listWorkspaceDraftVersions(workspaceId: number, draftId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const draftRows = await db.select().from(drafts).where(and(eq(drafts.id, draftId), eq(drafts.workspaceId, workspaceId))).limit(1);
+  if (!draftRows[0]) return undefined;
+  const versions = await db.select().from(draftVersions).where(eq(draftVersions.draftId, draftId)).orderBy(desc(draftVersions.versionNumber));
+  return { draft: draftRows[0], versions };
+}
+
+export async function saveWorkspaceDraftVersion(input: { workspaceId: number; draftId: number; createdByUserId: number; label: string; note?: string; designState: string; createdByType?: "user" | "ai" | "system"; previewStorageKey?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const draftRows = await tx.select().from(drafts).where(and(eq(drafts.id, input.draftId), eq(drafts.workspaceId, input.workspaceId))).limit(1);
+    if (!draftRows[0]) return undefined;
+    const prior = await tx.select().from(draftVersions).where(eq(draftVersions.draftId, input.draftId)).orderBy(desc(draftVersions.versionNumber)).limit(1);
+    const versionNumber = (prior[0]?.versionNumber ?? 0) + 1;
+    const created = await tx.insert(draftVersions).values({ draftId: input.draftId, versionNumber, createdByUserId: input.createdByUserId, createdByType: input.createdByType ?? "user", label: input.label, note: input.note, designState: input.designState, previewStorageKey: input.previewStorageKey });
+    const versionId = Number(created[0].insertId);
+    await tx.update(drafts).set({ currentVersionId: versionId, updatedAt: new Date() }).where(eq(drafts.id, input.draftId));
+    await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "draft.version_saved", entityType: "draft_version", entityId: String(versionId), details: { draftId: input.draftId, versionNumber } });
+    const rows = await tx.select().from(draftVersions).where(eq(draftVersions.id, versionId)).limit(1);
+    return rows[0];
+  });
+}
+
+export async function restoreWorkspaceDraftVersion(input: { workspaceId: number; draftId: number; versionId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const versions = await tx.select().from(draftVersions).where(and(eq(draftVersions.id, input.versionId), eq(draftVersions.draftId, input.draftId))).limit(1);
+    const version = versions[0];
+    const draftRows = await tx.select().from(drafts).where(and(eq(drafts.id, input.draftId), eq(drafts.workspaceId, input.workspaceId))).limit(1);
+    if (!version || !draftRows[0]) return undefined;
+    await tx.update(drafts).set({ currentVersionId: input.versionId, updatedAt: new Date() }).where(eq(drafts.id, input.draftId));
+    await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "draft.version_restored", entityType: "draft_version", entityId: String(input.versionId), details: { draftId: input.draftId } });
+    return version;
+  });
+}
+
+export async function listWorkspaceDraftAssets(workspaceId: number, draftId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const owned = await db.select().from(drafts).where(and(eq(drafts.id, draftId), eq(drafts.workspaceId, workspaceId))).limit(1);
+  if (!owned[0]) return undefined;
+  return db.select().from(draftAssets).where(eq(draftAssets.draftId, draftId)).orderBy(desc(draftAssets.createdAt));
+}
+
+export async function createWorkspaceDraftAsset(input: { workspaceId: number; draftId: number; draftVersionId?: number; kind: "reference" | "screenshot" | "theme_export" | "preview" | "manual_upload"; storageKey: string; fileName: string; mimeType: string; createdByUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const owned = await db.select().from(drafts).where(and(eq(drafts.id, input.draftId), eq(drafts.workspaceId, input.workspaceId))).limit(1);
+  if (!owned[0]) return undefined;
+  if (input.draftVersionId) {
+    const version = await db.select().from(draftVersions).where(and(eq(draftVersions.id, input.draftVersionId), eq(draftVersions.draftId, input.draftId))).limit(1);
+    if (!version[0]) return undefined;
+  }
+  const created = await db.insert(draftAssets).values({ draftId: input.draftId, draftVersionId: input.draftVersionId, kind: input.kind, storageKey: input.storageKey, fileName: input.fileName, mimeType: input.mimeType, createdByUserId: input.createdByUserId });
+  const rows = await db.select().from(draftAssets).where(eq(draftAssets.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "draft.asset_uploaded", entityType: "draft_asset", entityId: String(rows[0]?.id ?? input.draftId), details: { draftId: input.draftId, kind: input.kind, fileName: input.fileName } });
+  return rows[0];
 }
 
 export async function getAccountProfile(userId: number) {

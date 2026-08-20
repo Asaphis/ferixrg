@@ -19,6 +19,8 @@ const sessionMocks = vi.hoisted(() => ({
   invitations: [{ id: 3, workspaceId: 1, email: "jules@example.com", role: "viewer", status: "pending" }],
   activity: [{ id: 8, eventType: "workspace.created" }],
   stores: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91, url: "https://atelier.example", updatedAt: new Date() }],
+  drafts: [],
+  draftVersions: { draft: null, versions: [] },
   updateProfile: vi.fn().mockResolvedValue({ id: 1, name: "Maya Turner" }),
   updatePreferences: vi.fn().mockResolvedValue({ id: 1, userId: 1, defaultPreview: "mobile" }),
   requestEmailChange: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
@@ -31,6 +33,9 @@ const sessionMocks = vi.hoisted(() => ({
   removeMember: vi.fn().mockResolvedValue({ success: true }),
   cancelInvitation: vi.fn().mockResolvedValue({ success: true }),
   createPublicUrlSource: vi.fn().mockResolvedValue({ store: { id: 11, name: "yourstore.com" }, snapshot: { id: 12, sourceType: "url_scan" } }),
+  createDraft: vi.fn().mockResolvedValue({ draft: { id: 21 }, version: { id: 31 } }),
+  saveDraftVersion: vi.fn().mockResolvedValue({ id: 32, designState: "{}" }),
+  restoreDraftVersion: vi.fn().mockResolvedValue({ id: 31, designState: "{}" }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/lib/trpc", () => ({
@@ -53,6 +58,11 @@ vi.mock("@/lib/trpc", () => ({
         list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
       },
+      drafts: { useQuery: () => ({ data: sessionMocks.drafts, isLoading: false }) },
+      draftVersions: { useQuery: () => ({ data: sessionMocks.draftVersions, isLoading: false }) },
+      createDraft: { useMutation: () => ({ mutateAsync: sessionMocks.createDraft }) },
+      saveDraftVersion: { useMutation: () => ({ mutateAsync: sessionMocks.saveDraftVersion }) },
+      restoreDraftVersion: { useMutation: () => ({ mutateAsync: sessionMocks.restoreDraftVersion }) },
     },
     account: {
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
@@ -65,7 +75,7 @@ vi.mock("@/lib/trpc", () => ({
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate } } }),
   },
 }));
 

@@ -3,7 +3,7 @@ import { Activity, ArrowRight, BarChart3, Bell, Bot, Check, ChevronRight, Circle
 import { approvedDashboard, type ApprovedDashboardAction } from "@/lib/approvedDashboard";
 import "@/approvedDashboard.css";
 import { parseEditorDraftState } from "@/lib/editorDraftState";
-import { loadSimulatedDrafts, persistSimulatedDrafts, type SimulatedDraft } from "@/lib/simulatedDrafts";
+import type { SimulatedDraft } from "@/lib/simulatedDrafts";
 import { filterTools, toolCatalog, toolCategories, type ToolCategory, type ToolDefinition } from "@/lib/toolCatalog";
 import { connectedStores, storeActivities, storePanelTools, storeQuickActions } from "@/lib/storeWorkspace";
 import { ApprovedToolWorkflow } from "@/components/ApprovedToolWorkflow";
@@ -58,6 +58,10 @@ export default function Workspace() {
   const workspaceInvitationsQuery = trpc.workspace.invitations.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceActivityQuery = trpc.workspace.activity.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 12 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceStoresQuery = trpc.workspace.stores.list.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceDraftsQuery = trpc.workspace.drafts.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const [activeEditorDraftId, setActiveEditorDraftId] = useState<number | null>(null);
+  const resolvedEditorDraftId = activeEditorDraftId ?? workspaceDraftsQuery.data?.[0]?.id ?? null;
+  const workspaceDraftVersionsQuery = trpc.workspace.draftVersions.useQuery({ workspaceId: activeWorkspaceId ?? 0, draftId: resolvedEditorDraftId ?? 0 }, { enabled: Boolean(activeWorkspaceId && resolvedEditorDraftId), retry: false, refetchOnWindowFocus: false });
   const authUtils = trpc.useUtils();
   const logoutMutation = trpc.auth.logout.useMutation();
   const updateProfileMutation = trpc.account.updateProfile.useMutation();
@@ -72,6 +76,9 @@ export default function Workspace() {
   const removeWorkspaceMemberMutation = trpc.workspace.removeMember.useMutation();
   const cancelWorkspaceInvitationMutation = trpc.workspace.cancelInvitation.useMutation();
   const createPublicUrlSourceMutation = trpc.workspace.stores.createPublicUrlSource.useMutation();
+  const createWorkspaceDraftMutation = trpc.workspace.createDraft.useMutation();
+  const saveWorkspaceDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
+  const restoreWorkspaceDraftVersionMutation = trpc.workspace.restoreDraftVersion.useMutation();
   useEffect(() => {
     if (authQuery.isLoading || authQuery.data) return;
     const returnTo = `${window.location.pathname}${window.location.search}`;
@@ -411,14 +418,31 @@ export default function Workspace() {
   function Editor() {
     const [device, setDevice] = useState("Mobile");
     const [historyOpen, setHistoryOpen] = useState(true);
-    const [leftVersion, setLeftVersion] = useState("sim-conversion");
-    const [rightVersion, setRightVersion] = useState("sim-current");
-    const [activeDraftId, setActiveDraftId] = useState("sim-current");
+    const [leftVersion, setLeftVersion] = useState<string | null>(null);
+    const [rightVersion, setRightVersion] = useState<string | null>(null);
     const [selectedElement, setSelectedElement] = useState("Price & purchase");
     const [spacing, setSpacing] = useState({ top: 24, bottom: 16 });
     const [accentColor, setAccentColor] = useState("#155eef");
-    const [versions, setVersions] = useState<SimulatedDraft[]>(loadSimulatedDrafts);
-    useEffect(() => { persistSimulatedDrafts(versions); }, [versions]);
+    const versions = useMemo<SimulatedDraft[]>(() => {
+      const draft = workspaceDraftVersionsQuery.data?.draft;
+      return (workspaceDraftVersionsQuery.data?.versions ?? []).map(version => ({
+        id: String(version.id),
+        title: `${draft?.title ?? "Draft"} v${version.versionNumber}`,
+        label: version.label,
+        score: 82,
+        scoreDelta: version.versionNumber > 1 ? 4 : 0,
+        time: version.createdAt ? new Date(version.createdAt).toLocaleString() : "Saved now",
+        note: version.note ?? "Saved editor state for this workspace.",
+        tone: version.id === draft?.currentVersionId ? "current" : "baseline",
+        designState: version.designState,
+        isCurrent: version.id === draft?.currentVersionId,
+      }));
+    }, [workspaceDraftVersionsQuery.data]);
+    useEffect(() => {
+      if (!versions.length) return;
+      setRightVersion(current => current && versions.some(version => version.id === current) ? current : versions[0].id);
+      setLeftVersion(current => current && versions.some(version => version.id === current) ? current : versions[1]?.id ?? versions[0].id);
+    }, [versions]);
     const rehydrateDesignState = (designState: string) => {
       const restored = parseEditorDraftState(designState);
       if (!restored) return;
@@ -427,24 +451,41 @@ export default function Workspace() {
       setSpacing(restored.spacing);
       setAccentColor(restored.accentColor);
     };
-    const left = versions.find(version => version.id === leftVersion) ?? versions[0];
-    const right = versions.find(version => version.id === rightVersion) ?? versions[1] ?? versions[0];
-    const saveCurrentDraft = () => {
-      const id = `sim-${Date.now()}`;
-      const saved: SimulatedDraft = { id, title: `Draft v${versions.length}`, label: "Saved browser preview", score: 82, scoreDelta: 4, time: "Just now", note: `Preserves the ${selectedElement.toLowerCase()} adjustment in this browser preview.`, tone: "current", designState: JSON.stringify({ device, selectedElement, spacing, accentColor }), isCurrent: true };
-      setVersions([saved, ...versions.map(version => ({ ...version, isCurrent: false }))]);
-      setActiveDraftId(id);
-      setRightVersion(id);
+    const left = versions.find(version => version.id === leftVersion) ?? versions[1] ?? versions[0];
+    const right = versions.find(version => version.id === rightVersion) ?? versions[0];
+    const saveCurrentDraft = async () => {
+      const designState = JSON.stringify({ device, selectedElement, spacing, accentColor });
+      try {
+        if (!activeWorkspaceId) throw new Error("Workspace is not ready");
+        if (resolvedEditorDraftId) {
+          const version = await saveWorkspaceDraftVersionMutation.mutateAsync({ workspaceId: activeWorkspaceId, draftId: resolvedEditorDraftId, label: `Manual adjustment · ${selectedElement}`, note: `Preserves the ${selectedElement.toLowerCase()} adjustment.`, designState });
+          setRightVersion(String(version.id));
+        } else {
+          const created = await createWorkspaceDraftMutation.mutateAsync({ workspaceId: activeWorkspaceId, title: "Product page redesign", source: "manual", label: "Initial editor state", note: `Started with the ${selectedElement.toLowerCase()} adjustment.`, designState });
+          setActiveEditorDraftId(created.draft.id);
+          setRightVersion(String(created.version.id));
+        }
+        await authUtils.workspace.drafts.invalidate();
+        await authUtils.workspace.draftVersions.invalidate();
+        await authUtils.workspace.activity.invalidate();
+        toast.success("Draft version saved", { description: "Your editor state is now stored in this workspace." });
+      } catch { toast.error("We couldn’t save this draft", { description: "Your current editor controls remain unchanged. Please try again." }); }
     };
-    const restoreSelectedDraft = () => {
+    const restoreSelectedDraft = async () => {
       if (!right) return;
-      rehydrateDesignState(right.designState);
-      setActiveDraftId(right.id);
-      setVersions(versions.map(version => ({ ...version, isCurrent: version.id === right.id })));
+      try {
+        if (!activeWorkspaceId || !resolvedEditorDraftId) throw new Error("Draft is not ready");
+        const version = await restoreWorkspaceDraftVersionMutation.mutateAsync({ workspaceId: activeWorkspaceId, draftId: resolvedEditorDraftId, versionId: Number(right.id) });
+        rehydrateDesignState(version.designState);
+        await authUtils.workspace.drafts.invalidate();
+        await authUtils.workspace.draftVersions.invalidate();
+        await authUtils.workspace.activity.invalidate();
+        toast.success("Version restored", { description: "The selected saved editor state is active again." });
+      } catch { toast.error("We couldn’t restore that version", { description: "Please try again." }); }
     };
     const renderVersionSurface = (version: SimulatedDraft, side: "left" | "right") => <article className={`comparison-surface ${side}`} key={side}><header><span>{side === "left" ? "LEFT REFERENCE" : "RIGHT REFERENCE"}</span><b>{version.title}</b><small>{version.label} · {version.time}</small></header><div className={`version-render ${version.tone}`}><img src={redesignAsset} alt={`${version.title} storefront render`} /><div className="version-annotation"><span>Health</span><b>{version.score}</b><small>{version.scoreDelta > 0 ? `+${version.scoreDelta}` : version.scoreDelta} potential movement</small></div></div><p>{version.note}</p></article>;
     return <>
-      <PageHeading label={`Visual editor / ${activeDraftId ? "saved preview state" : "preview state"}`} title="Refine the selected decision." copy="This simulated preview saves version history only in this browser. No sign-in, store connection, or publishing action is involved." action={<span className="editor-heading-actions"><button className="app-button ghost" onClick={() => setHistoryOpen(!historyOpen)}><Activity /> {historyOpen ? "Close history" : "Version history"}</button><button className="app-button" onClick={() => changeView("Preview & validate")}><Eye /> Preview changes</button></span>} />
+      <PageHeading label={`Visual editor / ${resolvedEditorDraftId ? "saved workspace state" : "new workspace draft"}`} title="Refine the selected decision." copy="Save a version to keep the current editor state in this workspace. Connected-store publishing remains available only when the store connection and permission support it." action={<span className="editor-heading-actions"><button className="app-button ghost" onClick={() => setHistoryOpen(!historyOpen)}><Activity /> {historyOpen ? "Close history" : "Version history"}</button><button className="app-button" onClick={() => changeView("Preview & validate")}><Eye /> Preview changes</button></span>} />
       <section className="editor-shell"><aside className="editor-pane"><span className="card-eyebrow" style={{color:'#155eef'}}>Layers</span><h3>Product page</h3>{["Header","Product media","Product content","Heading","Price & purchase","Trust row","Description"].map((layer,i)=><button className={`layer-item ${layer===selectedElement?"active":""} ${i>2?"layer-indent":""}`} onClick={() => setSelectedElement(layer)} key={layer}><i className="layer-node" /> {layer}</button>)}</aside><div className="editor-canvas"><div className="viewport-toolbar">{["Desktop","Tablet","Mobile"].map(item=><button className={device===item?"active":""} onClick={() => setDevice(item)} key={item}>{item}</button>)}</div><div className="store-preview"><img src={evidenceAsset} alt="Editable storefront canvas"/><div className="selection-box" style={{borderColor:accentColor}}><span style={{background:accentColor}}>{selectedElement}</span><i style={{borderColor:accentColor}} /><i style={{borderColor:accentColor}} /></div></div></div><aside className="editor-pane right"><span className="card-eyebrow" style={{color:'#155eef'}}>Properties</span><h3>{selectedElement}</h3><div className="prop-group"><span>Spacing</span><div className="prop-controls"><div className="prop-control">Top<b>{spacing.top} px</b></div><div className="prop-control">Bottom<b>{spacing.bottom} px</b></div></div></div><div className="prop-group"><span>Typography</span><div className="prop-controls"><div className="prop-control">Weight<b>700</b></div><div className="prop-control">Size<b>16 px</b></div></div></div><div className="prop-group"><span>Appearance</span><div className="prop-control">Accent color<div className="color-swatch" style={{background:accentColor}}/></div></div><button className="app-button" onClick={saveCurrentDraft}><Check /> Save browser draft</button></aside></section>
       {historyOpen && <section className="version-history-panel" aria-label="Version history and comparison"><aside className="history-rail"><div className="history-rail-heading"><span className="card-eyebrow" style={{color:'#155eef'}}>Simulated version history</span><h2>Compare the thinking, not just the pixels.</h2><p>These preview entries are retained in this browser only, so you can save, reload, compare, and restore without signing in.</p></div><div className="history-list">{versions.map((version, index) => <article className={`history-item ${version.id === rightVersion ? "selected" : ""}`} key={version.id}><div className="history-index"><span>{String(versions.length - index).padStart(2, "0")}</span><i /></div><div><b>{version.title}</b><p>{version.label} · {version.time}</p><small>Health {version.score} · {version.scoreDelta > 0 ? `+${version.scoreDelta}` : version.scoreDelta}</small></div><div className="history-select-actions"><button className={leftVersion === version.id ? "active" : ""} onClick={() => setLeftVersion(version.id)}>L</button><button className={rightVersion === version.id ? "active" : ""} onClick={() => setRightVersion(version.id)}>R</button></div></article>)}</div></aside><div className="comparison-stage">{left && right ? <><div className="comparison-stage-heading"><div><span className="card-eyebrow" style={{color:'#8fb2ff'}}>Side-by-side evidence</span><h2>{left.title} <span>vs.</span> {right.title}</h2></div><span className="viewport-tag"><TabletSmartphone /> {device} viewport</span></div><div className="comparison-surfaces">{renderVersionSurface(left, "left")}{renderVersionSurface(right, "right")}</div><div className="comparison-summary"><span><b>{right.score - left.score >= 0 ? "+" : ""}{right.score - left.score}</b> health-point difference</span><span>Product page · 390px target · Browser preview</span><button className="app-button ghost" onClick={restoreSelectedDraft}><Layers3 /> Restore {right.title}</button></div></> : <div className="comparison-empty"><Activity /><h2>Your saved comparison will appear here.</h2><p>Save at least one draft, then use the L and R controls to set the references you want to compare.</p></div>}</div></section>}
     </>;

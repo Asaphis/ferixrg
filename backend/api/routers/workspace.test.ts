@@ -25,13 +25,19 @@ vi.mock("../db", () => ({
   listWorkspaceUsage: vi.fn(),
   listWorkspaceToolRuns: vi.fn(),
   listWorkspaceDrafts: vi.fn(),
+  listWorkspaceDraftVersions: vi.fn(),
+  createWorkspaceDraft: vi.fn(),
+  saveWorkspaceDraftVersion: vi.fn(),
+  restoreWorkspaceDraftVersion: vi.fn(),
+  listWorkspaceDraftAssets: vi.fn(),
+  createWorkspaceDraftAsset: vi.fn(),
   listWorkspaceReleases: vi.fn(),
   getWorkspaceSubscription: vi.fn(),
   queueWorkspaceToolRun: vi.fn(),
   getWorkspaceAccess: vi.fn(),
 }));
 
-import { acceptWorkspaceInvitation, beginStoreConnection, createStoreSnapshot, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceStore, listStoreSnapshots, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, updateWorkspaceInvitationRole, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, beginStoreConnection, createStoreSnapshot, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceStore, listStoreSnapshots, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, updateWorkspaceInvitationRole, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
@@ -163,5 +169,34 @@ describe("workspace router", () => {
     expect(storagePut).toHaveBeenCalledWith(expect.stringContaining("workspace-9/store-31/sources/reference.png"), expect.any(Buffer), "image/png");
     expect(createStoreSnapshot).toHaveBeenCalledWith(expect.objectContaining({ storeId: 31, sourceType: "screenshot", storageKey: "workspace-9/store-31/sources/reference_123.png" }));
     expect(result.storage.url).toContain("/manus-storage/");
+  });
+
+  it("persists and restores editor versions only within an editor-accessible workspace", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(createWorkspaceDraft).mockResolvedValue({ draft: { id: 41, workspaceId: 9 }, version: { id: 51, draftId: 41, versionNumber: 1 } } as never);
+    vi.mocked(saveWorkspaceDraftVersion).mockResolvedValue({ id: 52, draftId: 41, versionNumber: 2 } as never);
+    vi.mocked(listWorkspaceDraftVersions).mockResolvedValue({ draft: { id: 41 }, versions: [{ id: 52, versionNumber: 2 }] } as never);
+    vi.mocked(restoreWorkspaceDraftVersion).mockResolvedValue({ id: 51, draftId: 41, versionNumber: 1, designState: "{}" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.createDraft({ workspaceId: 9, title: "Product page", label: "Initial editor state", designState: "{}" })).resolves.toMatchObject({ draft: { id: 41 }, version: { id: 51 } });
+    await expect(caller.workspace.saveDraftVersion({ workspaceId: 9, draftId: 41, label: "Purchase spacing", designState: "{\"device\":\"Mobile\"}" })).resolves.toMatchObject({ id: 52, versionNumber: 2 });
+    await expect(caller.workspace.draftVersions({ workspaceId: 9, draftId: 41 })).resolves.toMatchObject({ versions: [{ id: 52 }] });
+    await expect(caller.workspace.restoreDraftVersion({ workspaceId: 9, draftId: 41, versionId: 51 })).resolves.toMatchObject({ id: 51, draftId: 41 });
+    expect(createWorkspaceDraft).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, createdByUserId: 42, source: "manual" }));
+    expect(saveWorkspaceDraftVersion).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, draftId: 41, createdByUserId: 42 }));
+  });
+
+  it("stores a draft asset only for an editor-authorized workspace draft", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/draft-41/assets/reference_123.png", url: "/manus-storage/workspace-9/draft-41/assets/reference_123.png" });
+    vi.mocked(createWorkspaceDraftAsset).mockResolvedValue({ id: 61, draftId: 41, kind: "reference" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.uploadDraftAsset({ workspaceId: 9, draftId: 41, kind: "reference", fileName: "reference.png", mimeType: "image/png", contentBase64: Buffer.from("asset").toString("base64") });
+
+    expect(storagePut).toHaveBeenCalledWith(expect.stringContaining("workspace-9/draft-41/assets/reference.png"), expect.any(Buffer), "image/png");
+    expect(createWorkspaceDraftAsset).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, draftId: 41, createdByUserId: 42, kind: "reference" }));
+    expect(result.asset).toMatchObject({ id: 61, draftId: 41 });
   });
 });

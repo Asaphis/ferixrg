@@ -6,6 +6,8 @@ import {
   cancelWorkspaceInvitation,
   beginStoreConnection,
   createStoreSnapshot,
+  createWorkspaceDraft,
+  createWorkspaceDraftAsset,
   createWorkspaceInvitation,
   createWorkspaceStore,
   ensurePersonalWorkspace,
@@ -14,6 +16,8 @@ import {
   listUserWorkspaces,
   listWorkspaceActivity,
   listWorkspaceDrafts,
+  listWorkspaceDraftAssets,
+  listWorkspaceDraftVersions,
   listWorkspaceInvitations,
   listWorkspaceMembers,
   listWorkspaceReleases,
@@ -25,6 +29,8 @@ import {
   queueWorkspaceToolRun,
   recordWorkspaceActivity,
   removeWorkspaceMember,
+  restoreWorkspaceDraftVersion,
+  saveWorkspaceDraftVersion,
   updateWorkspaceInvitationRole,
   updateWorkspaceMemberRole,
 } from "../db";
@@ -261,6 +267,69 @@ export const workspaceRouter = router({
     try {
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
       return listWorkspaceDrafts(input.workspaceId);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  draftVersions: protectedProcedure.input(workspaceInput.extend({ draftId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      const result = await listWorkspaceDraftVersions(input.workspaceId, input.draftId);
+      if (!result) throw new Error("workspace permission denied");
+      return result;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  createDraft: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive().optional(), title: z.string().trim().min(1).max(160), source: z.enum(["manual", "tool", "ai", "import"]).default("manual"), label: z.string().trim().min(1).max(160), note: z.string().max(20_000).optional(), designState: z.string().min(2).max(100_000), createdByType: z.enum(["user", "ai", "system"]).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      if (input.storeId && !(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
+      return createWorkspaceDraft({ ...input, createdByUserId: ctx.user.id });
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  saveDraftVersion: protectedProcedure.input(workspaceInput.extend({ draftId: z.number().int().positive(), label: z.string().trim().min(1).max(160), note: z.string().max(20_000).optional(), designState: z.string().min(2).max(100_000), createdByType: z.enum(["user", "ai", "system"]).optional(), previewStorageKey: z.string().max(512).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const version = await saveWorkspaceDraftVersion({ ...input, createdByUserId: ctx.user.id });
+      if (!version) throw new Error("workspace permission denied");
+      return version;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  restoreDraftVersion: protectedProcedure.input(workspaceInput.extend({ draftId: z.number().int().positive(), versionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const version = await restoreWorkspaceDraftVersion({ ...input, actorUserId: ctx.user.id });
+      if (!version) throw new Error("workspace permission denied");
+      return version;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  draftAssets: protectedProcedure.input(workspaceInput.extend({ draftId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      const assets = await listWorkspaceDraftAssets(input.workspaceId, input.draftId);
+      if (!assets) throw new Error("workspace permission denied");
+      return assets;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  uploadDraftAsset: protectedProcedure.input(workspaceInput.extend({ draftId: z.number().int().positive(), draftVersionId: z.number().int().positive().optional(), kind: z.enum(["reference", "screenshot", "theme_export", "preview", "manual_upload"]), fileName: z.string().trim().min(1).max(255), mimeType: z.string().trim().min(3).max(120), contentBase64: z.string().min(4).max(11_000_000) })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const bytes = Buffer.from(input.contentBase64, "base64");
+      if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new TRPCError({ code: "BAD_REQUEST", message: "Upload a valid file up to 8 MB." });
+      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const upload = await storagePut(`workspace-${input.workspaceId}/draft-${input.draftId}/assets/${safeName}`, bytes, input.mimeType);
+      const asset = await createWorkspaceDraftAsset({ workspaceId: input.workspaceId, draftId: input.draftId, draftVersionId: input.draftVersionId, kind: input.kind, storageKey: upload.key, fileName: safeName, mimeType: input.mimeType, createdByUserId: ctx.user.id });
+      if (!asset) throw new Error("workspace permission denied");
+      return { asset, storage: { key: upload.key, url: upload.url } };
     } catch (error) {
       return toForbidden(error);
     }

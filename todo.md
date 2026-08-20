@@ -495,7 +495,7 @@
 - [ ] Finish remaining account security controls: two-step-verification configuration, security-alert persistence, and session-list/revocation UI wiring. Verification resend, password recovery/reset, email change, durable session records, backend revocation, and honest delivery-status handling are implemented.
 - [ ] Replace remaining simulated workspace summary records with scoped live backend contracts. Team membership, invitations, role changes, removals, acceptance, and dashboard workspace activity now use live scoped backend contracts.
 - [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
-- [ ] Replace all simulated editor projects, draft persistence, version history, comparisons, restores, assets, manual controls, and unsaved-work handling with live backend contracts.
+- [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Implement real source setup, request validation, queued execution, run state, evidence, issues, metrics, reports, export packages, and developer handoff for every exact tool in the 57-tool catalogue.
 - [ ] Replace the static dashboard, analysis, issues, reports, release, and usage records with workspace- and store-scoped backend read models.
 - [ ] Implement validation records, release plans, explicit approvals, eligible publish actions, rollback records, and honest unsupported-action boundaries.
@@ -516,3 +516,9 @@
 - [x] Add protected screenshot, theme-export, and manual-upload source storage through server-side S3 helpers; persist only file metadata keys in the database.
 - [x] Add pending store connection lifecycle records and safe connection/status read contracts without storing provider credentials in frontend code.
 - [ ] Add individual Shopify, WooCommerce, Magento, and custom provider authorization adapters after their server-side deployment configuration is available.
+
+## Blueprint Step 4 — persistent editor projects and versions
+- [x] Add canonical workspace draft creation, durable version save/list, restore, current-version tracking, and activity audit contracts.
+- [x] Connect the approved editor save, version history, left/right comparison, and restore behavior to real workspace draft and version APIs.
+- [x] Add version-linked draft asset metadata and protected server-side S3 uploads for references, screenshots, theme exports, previews, and manual files.
+- [ ] Replace remaining browser-preview copy and add explicit dirty-state navigation/sign-out protection tied to live save state.

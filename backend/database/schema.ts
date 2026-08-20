@@ -231,6 +231,25 @@ export const draftVersions = mysqlTable(
   }),
 );
 
+export const draftAssets = mysqlTable(
+  "draftAssets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    draftId: int("draftId").notNull().references(() => drafts.id, { onDelete: "cascade" }),
+    draftVersionId: int("draftVersionId").references(() => draftVersions.id, { onDelete: "set null" }),
+    kind: mysqlEnum("kind", ["reference", "screenshot", "theme_export", "preview", "manual_upload"]).notNull(),
+    storageKey: varchar("storageKey", { length: 512 }).notNull(),
+    fileName: varchar("fileName", { length: 255 }).notNull(),
+    mimeType: varchar("mimeType", { length: 120 }).notNull(),
+    createdByUserId: int("createdByUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    draftIndex: index("draft_assets_draft_index").on(table.draftId),
+    versionIndex: index("draft_assets_version_index").on(table.draftVersionId),
+  }),
+);
+
 export const toolRuns = mysqlTable(
   "toolRuns",
   {
