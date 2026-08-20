@@ -380,4 +380,4 @@
 - [x] Remove retired root application folders only after confirming the migrated workspace runs, tests, types, and builds successfully.
 
 ## GitHub delivery
-- [ ] Create a private FerixRG repository under the connected GitHub account, then commit and push the complete verified workspace.
+- [x] Create a private FerixRG repository under the connected GitHub account, then commit and push the complete verified workspace.
