@@ -47,6 +47,44 @@ export const accountTokens = mysqlTable(
   }),
 );
 
+export const userPreferences = mysqlTable(
+  "userPreferences",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    defaultPreview: mysqlEnum("defaultPreview", ["desktop", "tablet", "mobile"]).default("mobile").notNull(),
+    analysisReadyNotifications: int("analysisReadyNotifications").default(1).notNull(),
+    draftReviewNotifications: int("draftReviewNotifications").default(1).notNull(),
+    publishingReadinessNotifications: int("publishingReadinessNotifications").default(1).notNull(),
+    releaseNotes: int("releaseNotes").default(1).notNull(),
+    productResearch: int("productResearch").default(0).notNull(),
+    reduceMotion: int("reduceMotion").default(0).notNull(),
+    increaseContrast: int("increaseContrast").default(0).notNull(),
+    visibleKeyboardFocus: int("visibleKeyboardFocus").default(1).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    userUnique: uniqueIndex("user_preferences_user_unique").on(table.userId),
+  }),
+);
+
+export const accountEmailChanges = mysqlTable(
+  "accountEmailChanges",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    newEmail: varchar("newEmail", { length: 320 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    completedAt: timestamp("completedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    userUnique: uniqueIndex("account_email_changes_user_unique").on(table.userId),
+  }),
+);
+
 export const workspaces = mysqlTable(
   "workspaces",
   {

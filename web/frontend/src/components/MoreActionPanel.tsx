@@ -1,8 +1,20 @@
 import { ArrowLeft, Check, ChevronRight, FileBarChart, Save, ShieldCheck } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./moreActionPanel.css";
 
 type Field = { label: string; value: string; type?: "text" | "email" | "select"; options?: string[] };
+type AccountProfile = { name: string | null; email: string | null };
+type AccountPreferences = {
+  defaultPreview: "desktop" | "tablet" | "mobile";
+  analysisReadyNotifications: number;
+  draftReviewNotifications: number;
+  publishingReadinessNotifications: number;
+  releaseNotes: number;
+  productResearch: number;
+  reduceMotion: number;
+  increaseContrast: number;
+  visibleKeyboardFocus: number;
+};
 type Detail = {
   eyebrow: string;
   title: string;
@@ -46,10 +58,51 @@ export const moreActionDetails: Record<string, Detail> = {
   "support:Feature requests": { eyebrow: "Help and feedback", title: "Feature requests", copy: "Describe the job you want FerixRG to make easier for your storefront workflow.", metrics: [["Open", "Request status"], ["More", "Context attached"]], fields: [{ label: "Feature request", value: "" }, { label: "Why would this help?", value: "" }], primary: "Submit feature request", completion: "Feature request submitted for review." },
 };
 
-export function MoreActionPanel({ section, action, onBack }: { section: string; action: string; onBack: () => void }) {
+export function MoreActionPanel({ section, action, onBack, profile, preferences, onSaveProfile, onSavePreferences, onRequestEmailChange }: { section: string; action: string; onBack: () => void; profile?: AccountProfile; preferences?: AccountPreferences; onSaveProfile?: (input: { name?: string }) => Promise<void>; onSavePreferences?: (input: Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean }>) => Promise<void>; onRequestEmailChange?: (input: { email: string }) => Promise<{ delivery: string }> }) {
   const detail = moreActionDetails[`${section}:${action}`];
   const [selectedChoice, setSelectedChoice] = useState(detail?.choices?.[0] ?? "");
   const [saved, setSaved] = useState("");
+  const [saving, setSaving] = useState(false);
+  const resolveFieldValue = (field: Field) => {
+    if (section === "profile" && action === "Personal details" && field.label === "Full name") return profile?.name ?? field.value;
+    if (section === "profile" && action === "Email address" && field.label === "New email address") return profile?.email ?? field.value;
+    if (section === "preferences" && action === "Workspace defaults" && field.label === "Default preview") return preferences?.defaultPreview ? preferences.defaultPreview[0].toUpperCase() + preferences.defaultPreview.slice(1) : field.value;
+    return field.value;
+  };
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => Object.fromEntries(detail?.fields?.map(field => [field.label, resolveFieldValue(field)]) ?? []));
+  const preferenceKey = (label: string): keyof AccountPreferences | undefined => ({ "Analysis ready": "analysisReadyNotifications", "Draft review": "draftReviewNotifications", "Publishing readiness": "publishingReadinessNotifications", "Release notes": "releaseNotes", "Product research": "productResearch", "Reduce motion": "reduceMotion", "Increase contrast": "increaseContrast", "Visible keyboard focus": "visibleKeyboardFocus" })[label] as keyof AccountPreferences | undefined;
+  const [toggleValues, setToggleValues] = useState<Record<string, boolean>>(() => Object.fromEntries(detail?.toggles?.map(toggle => [toggle.label, Boolean(preferences?.[preferenceKey(toggle.label) ?? "analysisReadyNotifications"] ?? toggle.enabled)]) ?? []));
+  useEffect(() => {
+    setSelectedChoice(detail?.choices?.[0] ?? "");
+    setSaved("");
+    setFieldValues(Object.fromEntries(detail?.fields?.map(field => [field.label, resolveFieldValue(field)]) ?? []));
+    setToggleValues(Object.fromEntries(detail?.toggles?.map(toggle => [toggle.label, Boolean(preferences?.[preferenceKey(toggle.label) ?? "analysisReadyNotifications"] ?? toggle.enabled)]) ?? []));
+  }, [action, profile?.email, profile?.name, preferences, section]);
   if (!detail) return null;
-  return <section className="more-action-page"><header className="more-action-header"><button className="more-action-back" onClick={onBack}><ArrowLeft /> Back to {section === "billing" ? "Billing & Usage" : section[0].toUpperCase() + section.slice(1)}</button><span className="approved-eyebrow">{detail.eyebrow}</span><h1>{detail.title}</h1><p>{detail.copy}</p></header><section className="more-action-metrics">{detail.metrics.map(([value, label]) => <article key={label}><b>{value}</b><span>{label}</span></article>)}</section><section className="more-action-grid"><article className="approved-panel more-action-main">{detail.choices && <div className="more-action-choice-group"><span className="approved-eyebrow">Available options</span><div>{detail.choices.map(choice => <button className={selectedChoice === choice ? "selected" : ""} onClick={() => setSelectedChoice(choice)} key={choice}><b>{choice}</b><ChevronRight /></button>)}</div></div>}{detail.fields && <div className="more-action-form"><span className="approved-eyebrow">Update details</span>{detail.fields.map(field => <label key={field.label}>{field.label}{field.type === "select" ? <select defaultValue={field.value}>{field.options?.map(option => <option key={option}>{option}</option>)}</select> : <input type={field.type ?? "text"} defaultValue={field.value} placeholder={field.label} />}</label>)}</div>}{detail.toggles && <div className="more-action-toggle-list"><span className="approved-eyebrow">Controls</span>{detail.toggles.map(toggle => <label key={toggle.label}><span><b>{toggle.label}</b><small>{toggle.copy}</small></span><input type="checkbox" defaultChecked={toggle.enabled} /></label>)}</div>}{detail.rows && <div className="more-action-row-list"><span className="approved-eyebrow">Available details</span>{detail.rows.map(row => <button onClick={() => setSaved(`${row} is ready in this preview.`)} key={row}><span>{row}</span><ChevronRight /></button>)}</div>}<button className="approved-primary more-action-primary" onClick={() => setSaved(detail.completion)}>{detail.destructive ? <ShieldCheck /> : <Save />}{detail.primary}</button></article><aside className="approved-panel more-action-side"><FileBarChart /><span className="approved-eyebrow">Workspace context</span><h2>Keep settings separate from storefront work.</h2><p>Changes here apply only to this simulated workspace setting. Store analyses, editor drafts, and release decisions remain unchanged.</p><div><Check /> <span>Safe preview state</span></div></aside></section>{saved && <section className="more-action-notice"><Check /><div><b>Preview updated</b><p>{saved}</p></div><button onClick={() => setSaved("")}>Dismiss</button></section>}</section>;
+  const persist = async () => {
+    setSaving(true);
+    setSaved("");
+    try {
+      if (section === "profile" && action === "Personal details" && onSaveProfile) {
+        await onSaveProfile({ name: fieldValues["Full name"]?.trim() });
+        setSaved("Personal details saved to your account.");
+      } else if (section === "preferences" && onSavePreferences) {
+        const preferenceUpdate = Object.fromEntries(Object.entries(toggleValues).map(([label, value]) => [preferenceKey(label), value]).filter(([key]) => Boolean(key))) as Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean }>;
+        if (action === "Workspace defaults") preferenceUpdate.defaultPreview = (fieldValues["Default preview"]?.toLowerCase() || "mobile") as "desktop" | "tablet" | "mobile";
+        await onSavePreferences(preferenceUpdate);
+        setSaved("Your preferences are saved to your account.");
+      } else if (section === "profile" && action === "Email address" && onRequestEmailChange) {
+        const result = await onRequestEmailChange({ email: fieldValues["New email address"]?.trim() ?? "" });
+        setSaved(result.delivery === "sent" ? "A confirmation email was sent to the new address." : "Email delivery is not configured in this environment yet. No confirmation message was sent.");
+      } else {
+        setSaved(detail.completion);
+      }
+    } catch {
+      setSaved("We couldn’t save that account setting. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const accountSetting = section === "profile" || section === "preferences";
+  return <section className="more-action-page"><header className="more-action-header"><button className="more-action-back" onClick={onBack}><ArrowLeft /> Back to {section === "billing" ? "Billing & Usage" : section[0].toUpperCase() + section.slice(1)}</button><span className="approved-eyebrow">{detail.eyebrow}</span><h1>{detail.title}</h1><p>{detail.copy}</p></header><section className="more-action-metrics">{detail.metrics.map(([value, label]) => <article key={label}><b>{value}</b><span>{label}</span></article>)}</section><section className="more-action-grid"><article className="approved-panel more-action-main">{detail.choices && <div className="more-action-choice-group"><span className="approved-eyebrow">Available options</span><div>{detail.choices.map(choice => <button className={selectedChoice === choice ? "selected" : ""} onClick={() => setSelectedChoice(choice)} key={choice}><b>{choice}</b><ChevronRight /></button>)}</div></div>}{detail.fields && <div className="more-action-form"><span className="approved-eyebrow">Update details</span>{detail.fields.map(field => <label key={field.label}>{field.label}{field.type === "select" ? <select value={fieldValues[field.label] ?? ""} onChange={event => setFieldValues(current => ({ ...current, [field.label]: event.target.value }))}>{field.options?.map(option => <option key={option}>{option}</option>)}</select> : <input type={field.type ?? "text"} value={fieldValues[field.label] ?? ""} onChange={event => setFieldValues(current => ({ ...current, [field.label]: event.target.value }))} placeholder={field.label} />}</label>)}</div>}{detail.toggles && <div className="more-action-toggle-list"><span className="approved-eyebrow">Controls</span>{detail.toggles.map(toggle => <label key={toggle.label}><span><b>{toggle.label}</b><small>{toggle.copy}</small></span><input type="checkbox" checked={Boolean(toggleValues[toggle.label])} onChange={event => setToggleValues(current => ({ ...current, [toggle.label]: event.target.checked }))} /></label>)}</div>}{detail.rows && <div className="more-action-row-list"><span className="approved-eyebrow">Available details</span>{detail.rows.map(row => <button onClick={() => setSaved(`${row} is ready in this preview.`)} key={row}><span>{row}</span><ChevronRight /></button>)}</div>}<button className="approved-primary more-action-primary" disabled={saving} onClick={persist}>{detail.destructive ? <ShieldCheck /> : <Save />}{saving ? "Saving…" : detail.primary}</button></article><aside className="approved-panel more-action-side"><FileBarChart /><span className="approved-eyebrow">Workspace context</span><h2>Keep settings separate from storefront work.</h2><p>{accountSetting ? "Changes here apply only to your account. Store analyses, editor drafts, and release decisions remain unchanged." : "Changes here apply only to this simulated workspace setting. Store analyses, editor drafts, and release decisions remain unchanged."}</p><div><Check /> <span>{accountSetting ? "Account-scoped setting" : "Safe preview state"}</span></div></aside></section>{saved && <section className="more-action-notice"><Check /><div><b>{accountSetting ? "Account updated" : "Preview updated"}</b><p>{saved}</p></div><button onClick={() => setSaved("")}>Dismiss</button></section>}</section>;
 }

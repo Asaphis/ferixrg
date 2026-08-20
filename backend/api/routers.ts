@@ -6,6 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { accountRouter } from "./routers/account";
 import { workspaceRouter } from "./routers/workspace";
+import { sdk } from "./_core/sdk";
 
 const editorTarget = z.object({
   storeId: z.string().min(1).max(128),
@@ -29,7 +30,8 @@ export const appRouter = router({
   account: accountRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      await sdk.revokeSessionFromRequest(ctx.req, ctx.user?.id);
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return {

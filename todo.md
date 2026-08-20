@@ -473,7 +473,7 @@
 
 ## Account identity backend
 - [x] Add protected account profile, authentication-identity, and account-status contracts on top of the existing secure identity session.
-- [ ] Connect the approved authentication screen to real identity status only after its account behavior is verified without changing its visual design.
+- [x] Connect the approved authentication screen to real identity status without changing its visual design.
 
 ## Local account authentication foundation
 - [x] Add secure local account registration, password hashing, sign-in, and sign-out session routes without changing the approved authentication UI.
@@ -484,3 +484,22 @@
 - [x] Map every frontend feature to its required backend data, authentication, roles, permissions, services, integrations, audit records, and failure states.
 - [x] Create one complete backend implementation sequence for accounts, workspaces, teams, billing, stores, tools, editor drafts, reports, release, settings, support, and platform operations.
 - [ ] Build all remaining backend work from the approved complete frontend-to-backend blueprint without changing the approved frontend design.
+
+## Blueprint Step 1 — identity completion
+- [x] Connect the approved registration, sign-in, verification, recovery, reset, and session-expiry screens to real local-account APIs without changing their visual design.
+- [x] Replace browser-local simulated session creation and clearing with real authenticated session state, logout, and workspace bootstrap.
+- [x] Connect approved Profile and Preferences panels to the protected account profile contracts.
+- [x] Add a server-only transactional email adapter for verification, password-reset, and email-change messages; it truthfully reports unavailable delivery until deployment configuration is supplied.
+
+## Complete frontend-derived backend implementation
+- [ ] Finish remaining account security controls: two-step-verification configuration, security-alert persistence, and session-list/revocation UI wiring. Verification resend, password recovery/reset, email change, durable session records, backend revocation, and honest delivery-status handling are implemented.
+- [ ] Replace all simulated workspace, team, invitation, role, member-removal, activity, and account-summary records with scoped live backend contracts.
+- [ ] Replace all simulated store records, URL analysis input, source uploads, store connection states, store workspaces, and platform-permission states with live backend contracts.
+- [ ] Replace all simulated editor projects, draft persistence, version history, comparisons, restores, assets, manual controls, and unsaved-work handling with live backend contracts.
+- [ ] Implement real source setup, request validation, queued execution, run state, evidence, issues, metrics, reports, export packages, and developer handoff for every exact tool in the 57-tool catalogue.
+- [ ] Replace the static dashboard, analysis, issues, reports, release, and usage records with workspace- and store-scoped backend read models.
+- [ ] Implement validation records, release plans, explicit approvals, eligible publish actions, rollback records, and honest unsupported-action boundaries.
+- [ ] Implement billing, subscription, plan, usage, and entitlement contracts without embedding or requesting payment-provider credentials.
+- [ ] Implement the remaining Platform, Resources, Support, legal-version, feedback, and system-operation contracts behind every approved More action.
+- [ ] Add Cloudflare Workers AI orchestration only after real source, permissions, drafts, tool runs, usage, and audit foundations are complete.
+- [ ] Add integration tests, migration checks, authorization coverage, responsive UI verification, and deployment configuration documentation for the fully implemented system.

@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityEvents,
+  accountEmailChanges,
   accountTokens,
   authIdentities,
   drafts,
@@ -14,6 +15,7 @@ import {
   toolRuns,
   usageLedger,
   users,
+  userPreferences,
   workspaces,
   workspaceInvitations,
   workspaceMembers,
@@ -373,6 +375,31 @@ export async function updateAccountProfile(userId: number, input: { name?: strin
   return getAccountProfile(userId);
 }
 
+export async function beginAccountEmailChange(input: { userId: number; newEmail: string; tokenHash: string; expiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(accountEmailChanges).values(input).onDuplicateKeyUpdate({
+    set: { newEmail: input.newEmail, tokenHash: input.tokenHash, expiresAt: input.expiresAt, completedAt: null },
+  });
+}
+
+export async function confirmAccountEmailChange(tokenHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const rows = await tx.select().from(accountEmailChanges).where(eq(accountEmailChanges.tokenHash, tokenHash)).limit(1);
+    const change = rows[0];
+    if (!change || change.completedAt || change.expiresAt.getTime() < Date.now()) return undefined;
+    const existing = await tx.select({ userId: authIdentities.userId }).from(authIdentities).where(and(eq(authIdentities.provider, "email"), eq(authIdentities.providerAccountId, change.newEmail))).limit(1);
+    if (existing[0] && existing[0].userId !== change.userId) return undefined;
+    await tx.update(accountEmailChanges).set({ completedAt: new Date() }).where(eq(accountEmailChanges.id, change.id));
+    await tx.update(users).set({ email: change.newEmail, emailVerifiedAt: new Date(), accountStatus: "active" }).where(eq(users.id, change.userId));
+    await tx.update(authIdentities).set({ providerAccountId: change.newEmail }).where(and(eq(authIdentities.userId, change.userId), eq(authIdentities.provider, "email")));
+    const account = await tx.select().from(users).where(eq(users.id, change.userId)).limit(1);
+    return account[0];
+  });
+}
+
 export async function listAccountIdentities(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -381,6 +408,37 @@ export async function listAccountIdentities(userId: number) {
     .from(authIdentities)
     .where(eq(authIdentities.userId, userId))
     .orderBy(authIdentities.createdAt);
+}
+
+export async function getUserPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+  if (rows[0]) return rows[0];
+  await db.insert(userPreferences).values({ userId });
+  const created = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+  return created[0];
+}
+
+export type UserPreferenceUpdate = Partial<{
+  defaultPreview: "desktop" | "tablet" | "mobile";
+  analysisReadyNotifications: boolean;
+  draftReviewNotifications: boolean;
+  publishingReadinessNotifications: boolean;
+  releaseNotes: boolean;
+  productResearch: boolean;
+  reduceMotion: boolean;
+  increaseContrast: boolean;
+  visibleKeyboardFocus: boolean;
+}>;
+
+export async function updateUserPreferences(userId: number, input: UserPreferenceUpdate) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await getUserPreferences(userId);
+  const changes = Object.fromEntries(Object.entries(input).map(([key, value]) => [key, typeof value === "boolean" ? Number(value) : value]));
+  if (Object.keys(changes).length) await db.update(userPreferences).set(changes).where(eq(userPreferences.userId, userId));
+  return getUserPreferences(userId);
 }
 
 export async function getLocalAccountByEmail(email: string) {
@@ -441,6 +499,70 @@ export async function verifyLocalAccount(tokenHash: string) {
     const rows = await tx.select().from(users).where(eq(users.id, token.userId)).limit(1);
     return rows[0];
   });
+}
+
+export async function issueAccountToken(input: { userId: number; purpose: "email_verification" | "password_reset"; tokenHash: string; expiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.transaction(async tx => {
+    await tx.update(accountTokens).set({ usedAt: new Date() }).where(and(eq(accountTokens.userId, input.userId), eq(accountTokens.purpose, input.purpose)));
+    await tx.insert(accountTokens).values(input);
+  });
+}
+
+export async function resetLocalPassword(input: { tokenHash: string; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const tokens = await tx.select().from(accountTokens).where(and(eq(accountTokens.tokenHash, input.tokenHash), eq(accountTokens.purpose, "password_reset"))).limit(1);
+    const token = tokens[0];
+    if (!token || token.usedAt || token.expiresAt.getTime() < Date.now()) return undefined;
+    await tx.update(accountTokens).set({ usedAt: new Date() }).where(eq(accountTokens.id, token.id));
+    await tx.update(authIdentities).set({ passwordHash: input.passwordHash }).where(and(eq(authIdentities.userId, token.userId), eq(authIdentities.provider, "email")));
+    const rows = await tx.select().from(users).where(eq(users.id, token.userId)).limit(1);
+    return rows[0];
+  });
+}
+
+export async function createAccountSession(input: { userId: number; tokenHash: string; expiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(accountTokens).values({ ...input, purpose: "session" });
+}
+
+export async function isAccountSessionActive(userId: number, tokenHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(accountTokens).where(and(eq(accountTokens.userId, userId), eq(accountTokens.purpose, "session"), eq(accountTokens.tokenHash, tokenHash))).limit(1);
+  const session = rows[0];
+  return Boolean(session && !session.usedAt && session.expiresAt.getTime() > Date.now());
+}
+
+export async function listAccountSessions(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select({ id: accountTokens.id, tokenHash: accountTokens.tokenHash, expiresAt: accountTokens.expiresAt, usedAt: accountTokens.usedAt, createdAt: accountTokens.createdAt }).from(accountTokens).where(and(eq(accountTokens.userId, userId), eq(accountTokens.purpose, "session"))).orderBy(desc(accountTokens.createdAt));
+}
+
+export async function revokeAccountSession(userId: number, sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(accountTokens).set({ usedAt: new Date() }).where(and(eq(accountTokens.id, sessionId), eq(accountTokens.userId, userId), eq(accountTokens.purpose, "session")));
+}
+
+export async function revokeAccountSessionByTokenHash(userId: number, tokenHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(accountTokens).set({ usedAt: new Date() }).where(and(eq(accountTokens.userId, userId), eq(accountTokens.purpose, "session"), eq(accountTokens.tokenHash, tokenHash)));
+}
+
+export async function revokeOtherAccountSessions(userId: number, currentTokenHash?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const sessions = await listAccountSessions(userId);
+  const others = sessions.filter(session => !session.usedAt && session.tokenHash !== currentTokenHash);
+  await Promise.all(others.map(session => db.update(accountTokens).set({ usedAt: new Date() }).where(eq(accountTokens.id, session.id))));
+  return others.length;
 }
 
 export async function listWorkspaceReleases(workspaceId: number, limit = 50) {

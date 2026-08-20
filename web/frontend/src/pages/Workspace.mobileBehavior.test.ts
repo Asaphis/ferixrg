@@ -4,7 +4,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 
 const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const sessionMocks = vi.hoisted(() => ({
+  logout: vi.fn().mockResolvedValue({ success: true }),
+  invalidate: vi.fn().mockResolvedValue(undefined),
+  user: { id: 1, openId: "local_test", name: "Maya Turner", email: "maya@example.com", loginMethod: "email", role: "user", accountStatus: "active", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+  bootstrap: { workspace: { id: 1, name: "Maya Turner workspace" }, membership: { workspaceId: 1, userId: 1, role: "owner" } },
+  profile: { id: 1, name: "Maya Turner", email: "maya@example.com" },
+  preferences: { id: 1, userId: 1, defaultPreview: "mobile", analysisReadyNotifications: 1, draftReviewNotifications: 1, publishingReadinessNotifications: 1, releaseNotes: 1, productResearch: 0, reduceMotion: 0, increaseContrast: 0, visibleKeyboardFocus: 1 },
+  updateProfile: vi.fn().mockResolvedValue({ id: 1, name: "Maya Turner" }),
+  updatePreferences: vi.fn().mockResolvedValue({ id: 1, userId: 1, defaultPreview: "mobile" }),
+  requestEmailChange: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
+}));
 vi.mock("sonner", () => ({ toast: toastMocks }));
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    auth: {
+      me: { useQuery: () => ({ data: sessionMocks.user, isLoading: false }) },
+      logout: { useMutation: () => ({ mutateAsync: sessionMocks.logout, isPending: false }) },
+    },
+    workspace: { bootstrap: { useQuery: () => ({ data: sessionMocks.bootstrap, isLoading: false }) } },
+    account: {
+      profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
+      preferences: { useQuery: () => ({ data: sessionMocks.preferences, isLoading: false }) },
+      updateProfile: { useMutation: () => ({ mutateAsync: sessionMocks.updateProfile }) },
+      updatePreferences: { useMutation: () => ({ mutateAsync: sessionMocks.updatePreferences }) },
+      requestEmailChange: { useMutation: () => ({ mutateAsync: sessionMocks.requestEmailChange }) },
+    },
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate } } }),
+  },
+}));
 
 import Workspace from "./Workspace";
 
@@ -124,6 +152,24 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("button", { name: /Save preferences/i })).toBeTruthy();
   });
 
+  it("persists account profile and preferences from their approved More panels", async () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(view.getByRole("button", { name: "Profile" }));
+    fireEvent.click(view.getByRole("button", { name: /Edit profile/i }));
+    fireEvent.change(view.getByRole("textbox", { name: "Full name" }), { target: { value: "Maya Updated" } });
+    fireEvent.click(view.getByRole("button", { name: "Save personal details" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(sessionMocks.updateProfile).toHaveBeenCalledWith({ name: "Maya Updated" });
+    fireEvent.click(view.getByRole("button", { name: /Back to Profile/i }));
+    fireEvent.click(view.getByRole("button", { name: "Back to More" }));
+    fireEvent.click(view.getByRole("button", { name: "Preferences" }));
+    fireEvent.click(view.getByRole("button", { name: /Save preferences/i }));
+    fireEvent.click(view.getByRole("button", { name: "Save defaults" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(sessionMocks.updatePreferences).toHaveBeenCalledWith({ defaultPreview: "mobile" });
+  });
+
   it("opens specific nested Billing and Support actions instead of generic notices", () => {
     const billingView = renderWorkspace();
     fireEvent.click(within(billingView.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
@@ -172,6 +218,18 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("dialog").textContent).toMatch(/You have unsaved changes/i);
     expect(view.getByRole("button", { name: "Save & Sign Out" })).toBeTruthy();
     expect(view.getByRole("button", { name: "Sign Out Without Saving" })).toBeTruthy();
+  });
+
+  it("uses the authenticated logout mutation after a sign-out decision", async () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(view.getByRole("button", { name: /Support/i }));
+    fireEvent.click(view.getByRole("button", { name: /Sign out/i }));
+    fireEvent.click(view.getByRole("button", { name: "Sign Out Without Saving" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(sessionMocks.logout).toHaveBeenCalledTimes(1);
+    expect(sessionMocks.invalidate).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe("/auth/login");
   });
 
   it("shows Store connection loading feedback before confirming a successful connection", async () => {

@@ -1,12 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../db", () => ({
+  beginAccountEmailChange: vi.fn(),
   getAccountProfile: vi.fn(),
+  getUserPreferences: vi.fn(),
+  listAccountSessions: vi.fn(),
   listAccountIdentities: vi.fn(),
+  revokeAccountSession: vi.fn(),
+  revokeOtherAccountSessions: vi.fn(),
   updateAccountProfile: vi.fn(),
+  updateUserPreferences: vi.fn(),
 }));
 
-import { getAccountProfile, updateAccountProfile } from "../db";
+import { beginAccountEmailChange, getAccountProfile, getUserPreferences, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -19,6 +25,7 @@ function authenticatedContext(): TrpcContext {
       name: "Workspace Owner",
       loginMethod: "manus",
       role: "user",
+      accountStatus: "active",
       createdAt: new Date(),
       updatedAt: new Date(),
       lastSignedIn: new Date(),
@@ -44,5 +51,40 @@ describe("account router", () => {
     await caller.account.updateProfile({ name: "New Name" });
 
     expect(updateAccountProfile).toHaveBeenCalledWith(42, { name: "New Name" });
+  });
+
+  it("reads and updates preferences only for the authenticated account", async () => {
+    vi.mocked(getUserPreferences).mockResolvedValue({ id: 7, userId: 42, defaultPreview: "mobile" } as never);
+    vi.mocked(updateUserPreferences).mockResolvedValue({ id: 7, userId: 42, defaultPreview: "desktop" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.preferences()).resolves.toMatchObject({ userId: 42, defaultPreview: "mobile" });
+    await expect(caller.account.updatePreferences({ defaultPreview: "desktop" })).resolves.toMatchObject({ userId: 42, defaultPreview: "desktop" });
+
+    expect(getUserPreferences).toHaveBeenCalledWith(42);
+    expect(updateUserPreferences).toHaveBeenCalledWith(42, { defaultPreview: "desktop" });
+  });
+
+  it("lists and revokes sessions within the authenticated account boundary", async () => {
+    vi.mocked(listAccountSessions).mockResolvedValue([{ id: 19, tokenHash: "other-session", createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000), usedAt: null }] as never);
+    vi.mocked(revokeAccountSession).mockResolvedValue(undefined);
+    vi.mocked(revokeOtherAccountSessions).mockResolvedValue(2);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.sessions()).resolves.toMatchObject([{ id: 19, active: true, current: false }]);
+    await expect(caller.account.revokeSession({ sessionId: 19 })).resolves.toEqual({ success: true });
+    await expect(caller.account.revokeOtherSessions()).resolves.toEqual({ success: true, revoked: 2 });
+
+    expect(revokeAccountSession).toHaveBeenCalledWith(42, 19);
+    expect(revokeOtherAccountSessions).toHaveBeenCalledWith(42, undefined);
+  });
+
+  it("creates a pending email-change record only for the authenticated account", async () => {
+    vi.mocked(getAccountProfile).mockResolvedValue({ id: 42, name: "Workspace Owner", email: "owner@example.com" } as never);
+    vi.mocked(beginAccountEmailChange).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.requestEmailChange({ email: "new@example.com" })).resolves.toMatchObject({ success: true });
+    expect(beginAccountEmailChange).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, newEmail: "new@example.com" }));
   });
 });

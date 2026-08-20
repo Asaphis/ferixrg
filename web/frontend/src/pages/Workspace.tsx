@@ -20,7 +20,7 @@ import "./desktopWorkspaceNav.css";
 import "./authWorkspace.css";
 import "./moreDetail.css";
 import { toast } from "sonner";
-import { clearSimulatedSession } from "@/lib/authSimulation";
+import { trpc } from "@/lib/trpc";
 
 const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
@@ -47,7 +47,21 @@ type TeamMember = { id: string; name: string; email: string; role: TeamRole; sta
 function Brand() { return <a className="brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>; }
 
 export default function Workspace() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const authQuery = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
+  const workspaceBootstrapQuery = trpc.workspace.bootstrap.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const accountProfileQuery = trpc.account.profile.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const accountPreferencesQuery = trpc.account.preferences.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const authUtils = trpc.useUtils();
+  const logoutMutation = trpc.auth.logout.useMutation();
+  const updateProfileMutation = trpc.account.updateProfile.useMutation();
+  const updatePreferencesMutation = trpc.account.updatePreferences.useMutation();
+  const requestEmailChangeMutation = trpc.account.requestEmailChange.useMutation();
+  useEffect(() => {
+    if (authQuery.isLoading || authQuery.data) return;
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    setLocation(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [authQuery.data, authQuery.isLoading, setLocation]);
   const initialView = useMemo(() => {
     if (location.includes("tools")) return "Tools Library"; if (location.includes("stores")) return "Stores"; if (location.includes("more")) return "More"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
   }, [location]);
@@ -120,7 +134,16 @@ export default function Workspace() {
       toast.success("URL analysis is ready", { description: "Visible storefront evidence and recommendations are available in Results." });
     }, 1100);
   };
-  const finishSimulatedLogout = () => { clearSimulatedSession(); window.location.href = "/auth/login?reason=signed-out"; };
+  const finishAuthenticatedLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync();
+      await authUtils.auth.me.invalidate();
+      setLocation("/auth/login?reason=signed-out");
+    } catch {
+      toast.error("We couldn’t sign you out", { description: "Please try again before closing this workspace." });
+      setLogoutPrompt("none");
+    }
+  };
   const toolGroupLabel = (group: ToolCategory) => group;
   return <div className="workspace dashboard-system">
     <aside className="app-sidebar approved-sidebar desktop-workspace-sidebar"><Brand /><span className="sidebar-tagline">AI storefront intelligence</span><nav className="app-nav approved-nav desktop-workspace-nav" aria-label="Desktop workspace navigation">{desktopNavGroups.map(group => <section className="desktop-nav-group" key={group.label}><span>{group.label}</span>{group.items.map(item => <button key={item.label} className={view === item.destination ? "active" : ""} onClick={() => openDesktopView(item.destination)}><item.icon /> {item.label}</button>)}</section>)}</nav>{view === "Tools Library" && <div className="desktop-tool-subnav" aria-label="Tool groups">{(toolCategories.slice(1) as ToolCategory[]).map(group => <section key={group}><button onClick={() => setExpandedToolGroup(expandedToolGroup === group ? "Content & AI" : group)}><span>{expandedToolGroup === group ? "⌄" : "›"}</span>{toolGroupLabel(group)}<b>{toolCatalog.filter(tool => tool.category === group).length}</b></button>{expandedToolGroup === group && <div>{toolCatalog.filter(tool => tool.category === group).map(tool => <button className={toolIntent === tool.id ? "active" : ""} onClick={() => { setToolIntent(tool.id); setToolFlow("library"); }} key={tool.id}>{tool.name}</button>)}</div>}</section>)}</div>}<div className="store-mini"><div className="store-mini-top"><div className="store-orb">AF</div><div><strong>Atelier Forma</strong><span>Shopify · Connected</span></div></div><button onClick={() => openStore("atelier-forma")}>Open store</button></div></aside>
@@ -131,7 +154,7 @@ export default function Workspace() {
       <button className={view==="Tools Library" ? "active" : ""} onClick={() => { setToolFlow("library"); changeView("Tools Library"); }}><Wand2 /><span>Tools</span></button>
       <button className={view==="More" ? "active" : ""} onClick={() => { setMoreFlow("home"); changeView("More"); }}><MoreHorizontal /><span>More</span></button>
     </nav>
-    {logoutPrompt !== "none" && <div className="logout-dialog-layer" role="dialog" aria-modal="true" aria-labelledby="logout-dialog-title"><section className="logout-dialog"><span className="logout-dialog-icon"><ShieldCheck /></span><h2 id="logout-dialog-title">{logoutPrompt === "unsaved" ? "You have unsaved changes" : "Sign out of your account?"}</h2><p>{logoutPrompt === "unsaved" ? "You have changes that haven’t been saved yet. Choose how you’d like to leave this preview workspace." : "You’ll need to sign in again to access your workspace."}</p>{logoutPrompt === "unsaved" ? <><button className="approved-primary" onClick={finishSimulatedLogout}><Check /> Save & Sign Out</button><button className="logout-destructive" onClick={finishSimulatedLogout}>Sign Out Without Saving</button></> : <button className="logout-destructive" onClick={finishSimulatedLogout}>Sign Out</button>}<button className="approved-secondary" onClick={() => setLogoutPrompt("none")}>Cancel</button></section></div>}
+    {logoutPrompt !== "none" && <div className="logout-dialog-layer" role="dialog" aria-modal="true" aria-labelledby="logout-dialog-title"><section className="logout-dialog"><span className="logout-dialog-icon"><ShieldCheck /></span><h2 id="logout-dialog-title">{logoutPrompt === "unsaved" ? "You have unsaved changes" : "Sign out of your account?"}</h2><p>{logoutPrompt === "unsaved" ? "You have changes that haven’t been saved yet. Choose how you’d like to leave this preview workspace." : "You’ll need to sign in again to access your workspace."}</p>{logoutPrompt === "unsaved" ? <><button className="approved-primary" onClick={finishAuthenticatedLogout}><Check /> Save & Sign Out</button><button className="logout-destructive" onClick={finishAuthenticatedLogout}>Sign Out Without Saving</button></> : <button className="logout-destructive" onClick={finishAuthenticatedLogout}>Sign Out</button>}<button className="approved-secondary" onClick={() => setLogoutPrompt("none")}>Cancel</button></section></div>}
   </div>;
 
   function PageHeading({ label, title, copy, action }: { label: string; title: string; copy: string; action?: React.ReactNode }) { return <div className="page-heading"><div><span className="eyebrow">{label}</span><h1>{title}</h1><p className="subtle">{copy}</p></div>{action}</div>; }
@@ -290,7 +313,7 @@ export default function Workspace() {
       resources: { title: "Resources", copy: "Find product guidance and stay current with FerixRG updates.", rows: ["Documentation", "Help Center", "What’s New", "About", "Terms", "Privacy"] },
       support: { title: "Support", copy: "Get help, report a problem, or share feedback with the product team.", rows: ["Contact support", "Report a problem", "Send feedback", "Feature requests", "Sign out"] },
     };
-    if (moreAction) return <MoreActionPanel section={moreAction.section} action={moreAction.action} onBack={() => { setMoreAction(null); window.scrollTo({ top: 0, behavior: "smooth" }); }} />;
+    if (moreAction) return <MoreActionPanel section={moreAction.section} action={moreAction.action} profile={accountProfileQuery.data ? { name: accountProfileQuery.data.name, email: accountProfileQuery.data.email } : undefined} preferences={accountPreferencesQuery.data} onSaveProfile={async input => { await updateProfileMutation.mutateAsync(input); await authUtils.account.profile.invalidate(); }} onSavePreferences={async input => { await updatePreferencesMutation.mutateAsync(input); await authUtils.account.preferences.invalidate(); }} onRequestEmailChange={async input => requestEmailChangeMutation.mutateAsync(input)} onBack={() => { setMoreAction(null); window.scrollTo({ top: 0, behavior: "smooth" }); }} />;
     if (moreFlow === "team") return <TeamManagement back={back} />;
     const alignedDetail = moreFlow !== "home";
     const detailIcon = moreFlow === "billing" ? <BarChart3 /> : moreFlow === "profile" ? <Settings /> : moreFlow === "preferences" ? <Bell /> : moreFlow === "platform" ? <Layers3 /> : moreFlow === "resources" ? <FileBarChart /> : <CircleHelp />;
