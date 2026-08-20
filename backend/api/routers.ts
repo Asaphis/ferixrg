@@ -4,6 +4,7 @@ import { listEditorDrafts, restoreEditorDraft, saveEditorDraft } from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { workspaceRouter } from "./routers/workspace";
 
 const editorTarget = z.object({
   storeId: z.string().min(1).max(128),
@@ -39,6 +40,7 @@ export const appRouter = router({
     save: protectedProcedure.input(draftInput).mutation(({ ctx, input }) => saveEditorDraft(ctx.user.id, { ...input, isCurrent: input.isCurrent ? 1 : 0 })),
     restore: protectedProcedure.input(editorTarget.extend({ draftId: z.number().int().positive() })).mutation(({ ctx, input }) => restoreEditorDraft(ctx.user.id, input.draftId, input.storeId, input.pageId)),
   }),
+  workspace: workspaceRouter,
 });
 
 export type AppRouter = typeof appRouter;

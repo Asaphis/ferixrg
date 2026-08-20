@@ -381,3 +381,92 @@
 
 ## GitHub delivery
 - [x] Create a private FerixRG repository under the connected GitHub account, then commit and push the complete verified workspace.
+
+## Backend implementation foundation
+- [x] Classify every FerixRG tool by the right execution engine: AI, deterministic analysis, connected-store data, validation, export, or publishing.
+- [x] Define the production data model and secure permission boundaries for users, stores, connections, tool runs, evidence, drafts, reports, and release actions.
+- [ ] Select the AI model strategy and real platform-integration approach before connecting any third-party accounts.
+- [ ] Implement and test the first backend foundation without altering the approved frontend behavior.
+
+## Central AI architecture
+- [x] Define the central FerixRG AI layer, including model capabilities, agent actions, design context, review safeguards, and access pattern for every tool.
+- [x] Compare a managed AI service, direct provider integration, and an open-source/self-hosted route before selecting the production architecture.
+- [ ] Connect the approved central AI layer to the first real FerixRG tool workflows without changing the approved frontend design.
+
+## Open-source AI requirement
+- [ ] Select a free open-source multimodal model, model server, and agent framework that can support FerixRG’s central design AI.
+- [ ] Define the self-hosted AI deployment and backend connection without exposing the model service directly to users.
+- [ ] Implement the approved open-source AI connection only after the required hosting capacity is available.
+
+## Open-source model inventory
+- [x] List every essential and optional open-source model role for FerixRG, with no unnecessary duplicate models.
+- [x] Verify Ubuntu compatibility, model-server requirements, and the setup order before installing any model.
+
+## Complete launch AI foundation
+- [ ] Define every AI model role and supporting AI service needed for the full FerixRG launch, not only the first feature.
+- [ ] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability.
+- [ ] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
+- [ ] Implement and test the complete approved AI foundation before activating user-facing tool workflows.
+
+## AI hosting decision
+- [ ] Confirm the real free-access limits of NVIDIA development APIs and the compute requirements of self-hosting open models on Ubuntu.
+- [ ] Select one simple AI hosting route for FerixRG development and document the public-launch transition before any installation.
+
+## Existing Ubuntu server assessment
+- [ ] Preserve the existing 8 GB RAM, two-core Ubuntu server for FerixRG application services and define a separate inference route for GPU-only visual AI workloads.
+- [ ] Select the GPU-backed AI inference option that connects securely to the existing Ubuntu server without requiring a frontend or tool rebuild.
+
+## Hosted multi-model AI platform evaluation
+- [ ] Compare hosted multi-model dashboards and APIs that offer open-source models, visual AI, coding AI, image AI, and agent capabilities for FerixRG.
+- [ ] Verify each provider’s free development access, current limits, production terms, and model-selection workflow before selecting the central connection.
+- [ ] Recommend one provider or provider combination and document the secure backend API connection for the FerixRG Central AI Gateway.
+
+## Ready-made AI service evaluation
+- [x] Identify established API-accessible AI agents and specialist services for FerixRG design, visual editing, code, storefront analysis, content, and automation workflows.
+- [x] Exclude NVIDIA from the recommended production shortlist and distinguish usable production services from testing-only or internal-developer products.
+- [x] Map the selected ready-made AI services to the actual FerixRG tool categories and define the secure backend API connection plan.
+
+## GitHub Models evaluation
+- [x] Review GitHub Models’ catalog, API access, free-use conditions, privacy controls, and production limits for FerixRG.
+- [x] Determine the right GitHub Models role within the FerixRG AI service registry and document the backend connection path.
+
+## User-researched AI platform evaluation
+- [x] Verify the user-identified Vercel AI Gateway, Cloudflare Workers AI, Mistral, Cerebras, Groq, Google AI Studio, and free-LLM API resources against current official documentation.
+- [ ] Compare their available model types, free limits, privacy and production conditions, then assign each a precise FerixRG role or exclude it.
+- [ ] Define the approved multi-provider stack, fallbacks, and secure Central AI Gateway connection sequence.
+
+## Verified free-access classification
+- [ ] Separate genuinely recurring free AI access from limited development free access and one-time trial credits for every user-identified platform.
+
+## Cloudflare Workers AI foundation
+- [ ] Make Cloudflare Workers AI the first FerixRG provider while keeping the central gateway provider-neutral.
+- [ ] Map Cloudflare text, vision, image, embedding, and safety capabilities to the current FerixRG tool catalogue.
+- [ ] Design and test the secure backend provider adapter, daily-free-limit guard, privacy policy, and fallback behavior before connecting credentials.
+
+## Cloudflare capability and API verification
+- [x] Verify whether Cloudflare Workers AI covers each required FerixRG AI capability and identify capability gaps that need a separate provider.
+- [x] Verify the exact backend-only API authentication, request, and deployment connection path before provider implementation.
+
+## Isolated Cloudflare connection test
+- [x] Create and verify a Cloudflare Workers AI token and account connection outside the FerixRG prototype.
+- [x] Run a direct model-response test and confirm token permissions, account access, response format, and free-tier usage without adding product backend code.
+- [x] Begin FerixRG backend implementation only after the isolated provider test succeeds.
+
+## Cloudflare free-plan test correction
+- [x] Select a current Workers AI model available on the user's Free plan and complete the isolated response test.
+
+## First Cloudflare-powered backend milestone
+- [ ] Implement the provider-neutral Central AI Gateway only after the core FerixRG backend foundation is complete.
+- [ ] Add Cloudflare AI tool-run contracts, daily-free-limit guards, privacy boundaries, and audit-ready records after core account and store data exists.
+- [ ] Connect and test the first real AI Design Copilot workflow only after the backend foundation and its permission model are complete.
+
+## Core backend foundation before AI
+- [x] Define the authentication approach and domain model for users, workspaces, team roles, stores, drafts, reports, tool runs, release actions, activity, usage, and billing state.
+- [x] Create and migrate the foundational database tables before connecting any external AI service to FerixRG workflows.
+- [x] Build protected backend APIs and permission checks for account, workspace, team, store, draft, activity, usage, and release data.
+- [ ] Connect the approved frontend behaviors to the real backend foundation without changing the approved UI design.
+
+## Foundational protected API contracts
+- [x] Create personal workspace bootstrap and membership checks for every authenticated FerixRG user.
+- [x] Add protected workspace, team, store, activity, usage, and tool-run read/write contracts with ownership enforcement.
+- [x] Add backend tests proving user, workspace, and role scoping before connecting existing frontend components.
