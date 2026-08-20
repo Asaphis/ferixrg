@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "@/lib/toolCatalog";
+import { getToolRoute, type ToolRoute } from "@/lib/toolRouting";
 import {
   ArrowLeft,
   ArrowRight,
@@ -26,6 +27,7 @@ import {
 import React, { useMemo, useState } from "react";
 import "./approved-tool-workflow.css";
 import "./approved-tool-workflow-overrides.css";
+import "./tool-workflow-specialist.css";
 
 type Stage = "setup" | "processing" | "results" | "editor" | "review" | "finish";
 type InspectorTab = "edit" | "ai" | "history";
@@ -38,7 +40,7 @@ const stages: Array<{ id: Stage; label: string }> = [
   { id: "setup", label: "Set up" },
   { id: "processing", label: "Run" },
   { id: "results", label: "Results" },
-  { id: "editor", label: "Edit" },
+  { id: "editor", label: "Workspace" },
   { id: "review", label: "Check" },
   { id: "finish", label: "Finish" },
 ];
@@ -82,6 +84,8 @@ export function ApprovedToolWorkflow({
   ]);
 
   const isConnected = source === "Connected store";
+  const route = getToolRoute(tool.id);
+  const routeUsesReview = route.workspace === "Release Review" || route.workspace === "Validation Workspace" || route.workspace === "Version & Comparison";
   const sourceDetail = sourceCopy[source] ?? sourceCopy["Public URL"];
   const stageIndex = stages.findIndex(item => item.id === stage);
   const scope = isConnected
@@ -97,6 +101,8 @@ export function ApprovedToolWorkflow({
     setStage(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const openCorrectWorkspace = () => move(routeUsesReview ? "review" : "editor");
 
   const sendToAi = (content: string) => {
     if (!content.trim()) return;
@@ -253,22 +259,22 @@ export function ApprovedToolWorkflow({
         <article className="tool-workflow-card tool-workflow-next-card">
           <span className="tool-workflow-kicker">What would you like to do next?</span>
           <h2>Choose what happens to this result.</h2>
-          <button className="active" onClick={() => move("editor")}><Layers3 /><span><b>Improve in the editor</b><small>Change it manually, use AI, or combine both.</small></span><ChevronRight /></button>
-          <button onClick={() => { setInspectorTab("ai"); move("editor"); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>
+          <button className="active" onClick={openCorrectWorkspace}><Layers3 /><span><b>{route.primaryAction}</b><small>{route.primaryDescription}</small></span><ChevronRight /></button>
+          {route.allowsAi && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
           <button onClick={() => setReportReady(true)}><Download /><span><b>Download report</b><small>Keep the evidence, score, and recommendations.</small></span><ChevronRight /></button>
           <button onClick={() => setFinishNotice("This analysis is saved to Product page · Draft 4.")}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>
-          {!isConnected && <button onClick={() => setFinishNotice("Connect a supported store later to create a store draft or publish.")}><Store /><span><b>Connect a store later</b><small>Publishing only appears after a supported connection and permission.</small></span><ChevronRight /></button>}
+          {!isConnected && route.supportsStoreRelease && <button onClick={() => setFinishNotice("Connect a supported store later to create a store draft or publish.")}><Store /><span><b>Connect a store later</b><small>Publishing only appears after a supported connection and permission.</small></span><ChevronRight /></button>}
           {finishNotice && <p className="tool-workflow-inline-notice">{finishNotice}</p>}
         </article>
       </section>
     </>
   );
 
-  const editorScreen = (
+  const editorScreen = route.hasVisualEditor ? (
     <section className="tool-workflow-editor">
       <header className="tool-workflow-editor-header">
         <button onClick={() => move("results")}><ArrowLeft /> Results</button>
-        <div><span>Responsive redesign</span><b>Product page · Draft 4</b></div>
+        <div><span>{route.workspace}</span><b>{tool.name} · Draft 4</b></div>
         <em>{versionSaved ? "Saved" : "Draft"}</em>
         <div className="tool-workflow-device-switcher">{["Desktop", "Tablet", "Mobile"].map(item => <button className={device === item ? "active" : ""} onClick={() => setDevice(item)} key={item}>{item}</button>)}</div>
         <button className="tool-workflow-editor-outline" onClick={() => move("review")}><ShieldCheck /> Validate</button>
@@ -296,18 +302,18 @@ export function ApprovedToolWorkflow({
         </main>
         <aside className="tool-workflow-inspector">
           <div className="tool-workflow-inspector-tabs"><button className={inspectorTab === "edit" ? "active" : ""} onClick={() => setInspectorTab("edit")}>Edit</button><button className={inspectorTab === "ai" ? "active" : ""} onClick={() => setInspectorTab("ai")}>Ask AI</button><button className={inspectorTab === "history" ? "active" : ""} onClick={() => setInspectorTab("history")}>History</button></div>
-          {inspectorTab === "edit" && <EditorControls selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={saveVersion} />}
+          {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={saveVersion} />}
           {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · Draft 4</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI suggestion"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
           {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], ["Draft 4", proposalApplied ? "AI suggestion applied" : "Current draft"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={saveVersion} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={saveVersion}><Save /> Save version</button></div>}
         </aside>
       </div>
       {finishNotice && <div className="tool-workflow-editor-notice">{finishNotice}</div>}
     </section>
-  );
+  ) : <SpecialistWorkspace route={route} tool={tool} source={source} scope={scope} onBack={() => move("results")} onContinue={() => move("review")} onAskAi={() => setFinishNotice(`AI plan prepared for ${tool.name}.`)} />;
 
   const reviewScreen = (
     <>
-      <WorkflowHeader kicker="Draft 4 · validation" title="Check your draft before you finish." copy="Compare the current version, review the checks, then decide how to complete this work." back={() => move("editor")} />
+      <WorkflowHeader kicker={`${tool.name} · validation`} title="Check your draft before you finish." copy="Compare the current version, review the checks, then decide how to complete this work." back={() => move(route.hasVisualEditor ? "editor" : "results")} />
       <section className="tool-workflow-review-grid">
         <article className="tool-workflow-card tool-workflow-version-card">
           <span className="tool-workflow-kicker">Compare versions</span>
@@ -328,7 +334,7 @@ export function ApprovedToolWorkflow({
 
   const finishScreen = (
     <>
-      <WorkflowHeader kicker="Responsive redesign · completion" title="Finish this redesign the right way." copy="The final action is based on the source and store permission currently available." back={() => move("review")} />
+      <WorkflowHeader kicker={`${tool.name} · completion`} title="Finish this work the right way." copy="The final action is based on the source and store permission currently available." back={() => move("review")} />
       <section className="tool-workflow-finish-grid">
         {isConnected ? <article className="tool-workflow-card tool-workflow-release-card"><span className="tool-workflow-kicker">Connected store available</span><h2>Atelier Forma · Shopify</h2><div className="tool-workflow-permission"><Check /> Publish permission granted</div><p>Your approved {tool.name} can be saved as a store draft or published after one final confirmation.</p><img src={redesignAsset} alt="Approved store draft" /><div className="tool-workflow-release-checks"><span>✓ Draft saved</span><span>✓ Validation complete</span><span>✓ Confirm before live publish</span></div><button className="tool-workflow-primary" onClick={() => setFinishNotice("Publishing confirmation is ready in this simulated workspace.")}>Publish changes</button><button className="tool-workflow-secondary" onClick={() => setFinishNotice("Store draft created in this simulated workspace.")}>Create store draft</button></article> : <article className="tool-workflow-card tool-workflow-export-card"><span className="tool-workflow-kicker">No store connection? Still complete.</span><h2>Download your finished package</h2><p>Use the reviewed design in your own store system or share it with your developer.</p><div className="tool-workflow-package-list">{["Before and after redesign visuals", "Evidence, score, and priority issue report", "Page and mobile change instructions", "Developer handoff with design decisions"].map(item => <span key={item}>✓ {item}</span>)}</div><button className="tool-workflow-primary" onClick={() => setFinishNotice("Your design package is ready to download.")}><Download /> Download design package</button><button className="tool-workflow-secondary" onClick={() => setFinishNotice("Your developer handoff is ready to download.")}><FileDown /> Download developer handoff</button><div className="tool-workflow-scope"><Store /><p>Connect a supported store later to retain this project and unlock store-draft or publish actions where permissions allow.</p></div></article>}
         <article className="tool-workflow-card tool-workflow-alternative-finish"><span className="tool-workflow-kicker">Other finish route</span><h2>{isConnected ? "Need an implementation package instead?" : "Want publishing later?"}</h2><p>{isConnected ? "Download the evidence and developer handoff alongside your store release." : "Connect a supported store later and keep this project, evidence, and Draft 4."}</p><button className="tool-workflow-secondary" onClick={() => setFinishNotice(isConnected ? "Design package is ready to download." : "Store connection options are ready in this simulated workspace.")}>{isConnected ? "Download design package" : "Connect a store"}</button><button className="tool-workflow-secondary" onClick={() => setFinishNotice("You can return to the tool result at any time.")}>Back to result</button></article>
@@ -356,6 +362,18 @@ function WorkflowProgress({ activeIndex }: { activeIndex: number }) {
   return <div className="tool-workflow-progress-nav">{stages.map((item, index) => <div className={index === activeIndex ? "active" : index < activeIndex ? "complete" : ""} key={item.id}><i>{index < activeIndex ? "✓" : ""}</i><span>{item.label}</span></div>)}</div>;
 }
 
+function SpecialistWorkspace({ route, tool, source, scope, onBack, onContinue, onAskAi }: { route: ToolRoute; tool: ToolDefinition; source: string; scope: string; onBack: () => void; onContinue: () => void; onAskAi: () => void }) {
+  const technical = route.workspace === "Developer Handoff" || route.workspace === "Optimization Workbench" || route.workspace === "Measurement Workspace";
+  return <section className="tool-specialist-workspace">
+    <header className="tool-specialist-header"><button onClick={onBack}><ArrowLeft /> Results</button><span>{route.workspace}</span><h1>{route.primaryAction}</h1><p>{route.primaryDescription}</p></header>
+    <section className="tool-specialist-grid">
+      <article className="tool-workflow-card tool-specialist-context"><span className="tool-workflow-kicker">Current context</span><h2>{tool.name}</h2><div><b>Input</b><span>{source}</span></div><div><b>Result</b><span>{tool.outcome}</span></div><div><b>Scope</b><span>{scope}</span></div></article>
+      <article className="tool-workflow-card tool-specialist-evidence"><span className="tool-workflow-kicker">Evidence and recommendations</span><h2>{technical ? "What needs implementation" : "What this result tells you"}</h2><div className="tool-specialist-list"><span><i>1</i><b>{technical ? "Prioritized cause" : "Priority finding"}</b><small>{technical ? "Evidence points to a change that should be reviewed before implementation." : "The visible customer path has one clear decision to improve first."}</small></span><span><i>2</i><b>{technical ? "Expected impact" : "Recommended next step"}</b><small>{technical ? "The recommendation is recorded with scope and expected impact." : route.primaryDescription}</small></span><span><i>3</i><b>{technical ? "Delivery path" : "Safe continuation"}</b><small>{technical ? "Prepare an implementation package rather than altering a visual draft." : "Save, export, or enter the appropriate focused workspace."}</small></span></div></article>
+      <article className="tool-workflow-card tool-specialist-action"><span className="tool-workflow-kicker">Next action</span><h2>{route.workspace}</h2><p>{technical ? "This workspace keeps the technical brief, affected context, acceptance criteria, and delivery choices together." : "Review the evidence and keep a clear record of the next decision."}</p>{route.allowsAi ? <button className="tool-workflow-primary" onClick={onAskAi}><Sparkles /> Create AI plan</button> : <button className="tool-workflow-primary" onClick={() => undefined}><FileDown /> Review recommendation</button>}<button className="tool-workflow-secondary" onClick={onContinue}>{technical ? "Review handoff package" : "Continue to review"} <ArrowRight /></button><button className="tool-specialist-export"><Download /> Download report and evidence</button></article>
+    </section>
+  </section>;
+}
+
 function SourceIcon({ source }: { source: string }) {
   if (source === "Connected store") return <Store />;
   if (source === "Public URL") return <Link2 />;
@@ -364,6 +382,15 @@ function SourceIcon({ source }: { source: string }) {
   return <FileDown />;
 }
 
-function EditorControls({ selectedElement, device, onOpenAi, onSave }: { selectedElement: string; device: string; onOpenAi: () => void; onSave: () => void }) {
-  return <div className="tool-workflow-edit-controls"><span className="tool-workflow-kicker">{selectedElement} · {device}</span><h3>Make a focused change.</h3>{[["Text", selectedElement === "Buy button" ? "Add to basket" : "Current content"], ["Colour", "Primary blue"], ["Spacing", "16 px"], ["Mobile position", "Above shipping details"]].map(([label, value]) => <label key={label}><span>{label}</span><button>{value}<ChevronRight /></button></label>)}<button className="tool-workflow-primary" onClick={onOpenAi}><Sparkles /> Ask AI to improve this</button><button className="tool-workflow-secondary" onClick={onSave}><Save /> Save version</button><button className="tool-workflow-more-controls"><Paintbrush /> More design controls</button></div>;
+function EditorControls({ workspace, selectedElement, device, onOpenAi, onSave }: { workspace: ToolRoute["workspace"]; selectedElement: string; device: string; onOpenAi: () => void; onSave: () => void }) {
+  const controls = workspace === "Responsive Studio"
+    ? [["Breakpoint", device], ["Element order", "Buy action first"], ["Visibility", "Visible on mobile"], ["Spacing", "16 px"]]
+    : workspace === "Layout Composer"
+      ? [["Section order", "Product story → buy action"], ["Grid", "Two columns"], ["CTA placement", "After product detail"], ["Spacing", "24 px"]]
+      : workspace === "Visual Style Studio"
+        ? [["Typography", "Display / 700"], ["Colour", "Primary blue"], ["Image treatment", "Natural crop"], ["Borders", "12 px radius"]]
+        : workspace === "Content Studio"
+          ? [["Heading", "Clear product value"], ["Reassurance", "Shipping and returns"], ["Search intent", "Product benefit"], ["Tone", "Direct and warm"]]
+          : [["Reference direction", "Current evidence"], ["Hierarchy", "Decision-first"], ["Spacing", "16 px"], ["Mobile position", "Above shipping details"]];
+  return <div className="tool-workflow-edit-controls"><span className="tool-workflow-kicker">{workspace} · {selectedElement}</span><h3>Make a focused change.</h3>{controls.map(([label, value]) => <label key={label}><span>{label}</span><button>{value}<ChevronRight /></button></label>)}<button className="tool-workflow-primary" onClick={onOpenAi}><Sparkles /> Ask AI to improve this</button><button className="tool-workflow-secondary" onClick={onSave}><Save /> Save version</button><button className="tool-workflow-more-controls"><Paintbrush /> More {workspace.toLowerCase()} controls</button></div>;
 }

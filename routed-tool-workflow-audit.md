@@ -111,3 +111,9 @@ The implemented mobile Tools Library retains the focused existing mobile entry s
 The implemented desktop editor keeps the selected Responsive redesign context visible through the progress path and draft header. It shows the live storefront canvas, selected Buy button, page/layer rail, Edit / Ask AI / History inspector tabs, Design Health, explicit version saving, validation, and finish actions in one workspace.
 
 The mobile editor converts that structure into a focused vertical sequence rather than removing its capabilities. The live Mobile preview appears first, followed by page tools and inspector tabs, manual properties, **Ask AI to improve this**, version saving, and more design controls. This maintains the shared-draft relationship between manual and AI work at phone width.
+
+## Context-aware workspace routing verification
+
+Performance evidence now opens the **Optimization Workbench** rather than the visual editor. Its desktop and mobile layouts keep the selected tool, source, outcome, and analysis scope visible alongside a prioritized cause, expected impact, delivery path, AI plan action, handoff review, and export action. This implements the intended boundary: technical performance work remains delivery-oriented and does not suggest that a visual canvas can safely change it.
+
+Responsive redesign now opens **Responsive Studio** in the shared draft workspace. Desktop and mobile both expose responsive-specific controls—breakpoint, element order, visibility, and spacing—beside the same live Mobile preview, selected element, AI entry, history, Design Health, validation, and finish actions. The prior generic editor-control treatment is no longer used for this responsive tool.

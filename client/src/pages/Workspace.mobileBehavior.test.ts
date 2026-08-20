@@ -83,21 +83,33 @@ describe("Workspace mobile behaviour", () => {
   });
 
   it("keeps a selected real tool connected through source setup, evidence results, and the shared editor AI tab", () => {
+    window.history.replaceState({}, "", "/app/tools?tool=responsive-redesign");
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
     const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
     if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
     fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Public URL" }));
     fireEvent.click(view.getByRole("button", { name: "Start tool" }));
-    expect(view.getByRole("heading", { name: /Set up Storefront scan/i })).toBeTruthy();
-    fireEvent.click(view.getByRole("button", { name: /Run Storefront scan/i }));
+    expect(view.getByRole("heading", { name: /Set up Responsive redesign/i })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: /Run Responsive redesign/i }));
     fireEvent.click(view.getByRole("button", { name: "See result" }));
-    expect(view.getByRole("heading", { name: /Storefront scan found a clear next step/i })).toBeTruthy();
+    expect(view.getByRole("heading", { name: /Responsive redesign found a clear next step/i })).toBeTruthy();
     expect(view.getAllByRole("button", { name: /Download report/i }).length).toBeGreaterThan(0);
-    fireEvent.click(view.getByRole("button", { name: /Improve in the editor/i }));
-    expect(view.getByText("Product page · Draft 4")).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: /Improve in Responsive Studio/i }));
+    expect(view.getByText("Responsive redesign · Draft 4")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Ask AI" }));
     expect(view.getByText(/Context attached/i)).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Make this less crowded" }));
+    fireEvent.click(view.getByRole("button", { name: /Preview AI suggestion/i }));
+    expect(view.getByText("AI suggestion")).toBeTruthy();
+  });
+
+  it("routes technical tools into a delivery-focused workbench rather than the visual editor", () => {
+    window.history.replaceState({}, "", "/app/tools?tool=performance-evidence&stage=editor");
+    const view = renderWorkspace();
+    expect(view.getByRole("heading", { name: "Open Optimization Workbench" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Create AI plan" })).toBeTruthy();
+    expect(view.queryByAltText("Editable storefront preview")).toBeNull();
   });
 
   it("opens an interactive Account management destination from More", () => {

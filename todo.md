@@ -246,11 +246,11 @@
 
 ## AI-assisted and manual correction workspaces
 
-- [ ] Define the routing grammar from every tool result to AI-assisted correction, manual editing, or a report/export outcome.
-- [ ] Design a shared AI design conversation with text instructions, image/reference upload, contextual evidence, proposed changes, and user-controlled apply/revise actions.
-- [ ] Define the distinct manual workspaces and controls needed for layout, visual style, content, responsive, performance, and code-oriented corrections.
-- [ ] Connect each existing tool to only the relevant correction workspace instead of sending all tools into one generic editor.
-- [ ] Implement and test simulated AI/manual correction journeys with preview, versioning, validation, publish/export, and responsive behavior.
+- [x] Define the routing grammar from every tool result to AI-assisted correction, manual editing, or a report/export outcome.
+- [x] Design a shared AI design conversation with text instructions, image/reference upload, contextual evidence, proposed changes, and user-controlled apply/revise actions.
+- [x] Define the distinct manual workspaces and controls needed for layout, visual style, content, responsive, performance, and code-oriented corrections.
+- [x] Connect each existing tool to only the relevant correction workspace instead of sending all tools into one generic editor.
+- [x] Implement and test simulated AI/manual correction journeys with preview, versioning, validation, publish/export, and responsive behavior.
 
 ## Tool behavior and access architecture
 
