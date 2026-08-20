@@ -4,6 +4,7 @@ vi.mock("../db", () => ({
   beginAccountEmailChange: vi.fn(),
   getAccountProfile: vi.fn(),
   getUserPreferences: vi.fn(),
+  issueAccountToken: vi.fn(),
   listAccountSessions: vi.fn(),
   listAccountIdentities: vi.fn(),
   revokeAccountSession: vi.fn(),
@@ -12,7 +13,7 @@ vi.mock("../db", () => ({
   updateUserPreferences: vi.fn(),
 }));
 
-import { beginAccountEmailChange, getAccountProfile, getUserPreferences, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
+import { beginAccountEmailChange, getAccountProfile, getUserPreferences, issueAccountToken, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -86,5 +87,14 @@ describe("account router", () => {
 
     await expect(caller.account.requestEmailChange({ email: "new@example.com" })).resolves.toMatchObject({ success: true });
     expect(beginAccountEmailChange).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, newEmail: "new@example.com" }));
+  });
+
+  it("issues a reset token only for the authenticated account", async () => {
+    vi.mocked(getAccountProfile).mockResolvedValue({ id: 42, name: "Workspace Owner", email: "owner@example.com" } as never);
+    vi.mocked(issueAccountToken).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.requestPasswordReset()).resolves.toMatchObject({ success: true });
+    expect(issueAccountToken).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, purpose: "password_reset" }));
   });
 });

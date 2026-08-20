@@ -301,6 +301,47 @@ export async function cancelWorkspaceInvitation(workspaceId: number, invitationI
   });
 }
 
+export async function updateWorkspaceInvitationRole(input: { workspaceId: number; invitationId: number; actorUserId: number; role: "admin" | "editor" | "viewer" | "billing" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(workspaceInvitations).set({ role: input.role }).where(and(eq(workspaceInvitations.id, input.invitationId), eq(workspaceInvitations.workspaceId, input.workspaceId), eq(workspaceInvitations.status, "pending")));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "team.invitation_role_updated", entityType: "workspace_invitation", entityId: String(input.invitationId), details: { role: input.role } });
+}
+
+export async function updateWorkspaceMemberRole(input: { workspaceId: number; memberId: number; actorUserId: number; role: "admin" | "editor" | "viewer" | "billing" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const members = await db.select().from(workspaceMembers).where(and(eq(workspaceMembers.id, input.memberId), eq(workspaceMembers.workspaceId, input.workspaceId))).limit(1);
+  const member = members[0];
+  if (!member || member.role === "owner") throw new Error("Cannot change the workspace owner role");
+  await db.update(workspaceMembers).set({ role: input.role }).where(eq(workspaceMembers.id, input.memberId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "team.member_role_updated", entityType: "workspace_member", entityId: String(input.memberId), details: { role: input.role } });
+}
+
+export async function removeWorkspaceMember(input: { workspaceId: number; memberId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const members = await db.select().from(workspaceMembers).where(and(eq(workspaceMembers.id, input.memberId), eq(workspaceMembers.workspaceId, input.workspaceId))).limit(1);
+  const member = members[0];
+  if (!member || member.role === "owner") throw new Error("Cannot remove the workspace owner");
+  await db.delete(workspaceMembers).where(eq(workspaceMembers.id, input.memberId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "team.member_removed", entityType: "workspace_member", entityId: String(input.memberId), details: { userId: member.userId } });
+}
+
+export async function acceptWorkspaceInvitation(input: { tokenHash: string; userId: number; email: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const invitations = await tx.select().from(workspaceInvitations).where(eq(workspaceInvitations.tokenHash, input.tokenHash)).limit(1);
+    const invitation = invitations[0];
+    if (!invitation || invitation.status !== "pending" || invitation.expiresAt.getTime() < Date.now() || invitation.email.toLowerCase() !== input.email.toLowerCase()) return undefined;
+    await tx.insert(workspaceMembers).values({ workspaceId: invitation.workspaceId, userId: input.userId, role: invitation.role }).onDuplicateKeyUpdate({ set: { role: invitation.role } });
+    await tx.update(workspaceInvitations).set({ status: "accepted", acceptedAt: new Date() }).where(eq(workspaceInvitations.id, invitation.id));
+    await tx.insert(activityEvents).values({ workspaceId: invitation.workspaceId, actorUserId: input.userId, eventType: "team.invitation_accepted", entityType: "workspace_invitation", entityId: String(invitation.id), details: { role: invitation.role } });
+    return invitation;
+  });
+}
+
 export async function listWorkspaceStores(workspaceId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -430,6 +471,8 @@ export type UserPreferenceUpdate = Partial<{
   reduceMotion: boolean;
   increaseContrast: boolean;
   visibleKeyboardFocus: boolean;
+  twoStepVerification: boolean;
+  securityAlerts: boolean;
 }>;
 
 export async function updateUserPreferences(userId: number, input: UserPreferenceUpdate) {

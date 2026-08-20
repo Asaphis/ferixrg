@@ -493,7 +493,7 @@
 
 ## Complete frontend-derived backend implementation
 - [ ] Finish remaining account security controls: two-step-verification configuration, security-alert persistence, and session-list/revocation UI wiring. Verification resend, password recovery/reset, email change, durable session records, backend revocation, and honest delivery-status handling are implemented.
-- [ ] Replace all simulated workspace, team, invitation, role, member-removal, activity, and account-summary records with scoped live backend contracts.
+- [ ] Replace remaining simulated workspace summary records with scoped live backend contracts. Team membership, invitations, role changes, removals, acceptance, and dashboard workspace activity now use live scoped backend contracts.
 - [ ] Replace all simulated store records, URL analysis input, source uploads, store connection states, store workspaces, and platform-permission states with live backend contracts.
 - [ ] Replace all simulated editor projects, draft persistence, version history, comparisons, restores, assets, manual controls, and unsaved-work handling with live backend contracts.
 - [ ] Implement real source setup, request validation, queued execution, run state, evidence, issues, metrics, reports, export packages, and developer handoff for every exact tool in the 57-tool catalogue.
@@ -503,3 +503,9 @@
 - [ ] Implement the remaining Platform, Resources, Support, legal-version, feedback, and system-operation contracts behind every approved More action.
 - [ ] Add Cloudflare Workers AI orchestration only after real source, permissions, drafts, tool runs, usage, and audit foundations are complete.
 - [ ] Add integration tests, migration checks, authorization coverage, responsive UI verification, and deployment configuration documentation for the fully implemented system.
+
+## Blueprint Step 2 — workspace and team
+- [x] Connect real personal-workspace bootstrap to the approved workspace entry path.
+- [x] Replace Team member lists, invitations, role changes, invitation-role changes, member removal, cancellation, and pending status with workspace-scoped backend queries and mutations.
+- [x] Add secure invitation acceptance, owner protection, role-gated mutation rules, and workspace activity audit records.
+- [x] Replace the approved dashboard’s Recent Activity panel with live workspace audit events while preserving the approved dashboard design.

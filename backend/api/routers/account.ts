@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { beginAccountEmailChange, getAccountProfile, getUserPreferences, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
+import { beginAccountEmailChange, getAccountProfile, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
 import { createAccountToken, hashAccountToken, normalizeEmail } from "../localAuth";
 import { sdk } from "../_core/sdk";
-import { accountEmailOrigin, sendEmailChangeVerification } from "../transactionalEmail";
+import { accountEmailOrigin, sendEmailChangeVerification, sendPasswordResetEmail } from "../transactionalEmail";
 import { protectedProcedure, router } from "../_core/trpc";
 
 export const accountRouter = router({
@@ -45,6 +45,15 @@ export const accountRouter = router({
     const delivery = await sendEmailChangeVerification({ to: newEmail, name: profile.name ?? "", token: token.rawToken, origin: accountEmailOrigin(requestGet?.("origin"), requestGet?.("host")) });
     return { success: true, delivery: delivery.status };
   }),
+  requestPasswordReset: protectedProcedure.mutation(async ({ ctx }) => {
+    const profile = await getAccountProfile(ctx.user.id);
+    if (!profile?.email) return { success: true, delivery: "not_configured" as const };
+    const token = createAccountToken();
+    await issueAccountToken({ userId: ctx.user.id, purpose: "password_reset", tokenHash: token.tokenHash, expiresAt: token.expiresAt });
+    const requestGet = typeof ctx.req.get === "function" ? ctx.req.get.bind(ctx.req) : undefined;
+    const delivery = await sendPasswordResetEmail({ to: profile.email, name: profile.name ?? "", token: token.rawToken, origin: accountEmailOrigin(requestGet?.("origin"), requestGet?.("host")) });
+    return { success: true, delivery: delivery.status };
+  }),
   updatePreferences: protectedProcedure
     .input(
       z
@@ -58,6 +67,8 @@ export const accountRouter = router({
           reduceMotion: z.boolean().optional(),
           increaseContrast: z.boolean().optional(),
           visibleKeyboardFocus: z.boolean().optional(),
+          twoStepVerification: z.boolean().optional(),
+          securityAlerts: z.boolean().optional(),
         })
         .refine(input => Object.values(input).some(value => value !== undefined), "Provide at least one preference to update."),
     )

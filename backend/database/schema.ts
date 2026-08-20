@@ -61,6 +61,8 @@ export const userPreferences = mysqlTable(
     reduceMotion: int("reduceMotion").default(0).notNull(),
     increaseContrast: int("increaseContrast").default(0).notNull(),
     visibleKeyboardFocus: int("visibleKeyboardFocus").default(1).notNull(),
+    twoStepVerification: int("twoStepVerification").default(0).notNull(),
+    securityAlerts: int("securityAlerts").default(1).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

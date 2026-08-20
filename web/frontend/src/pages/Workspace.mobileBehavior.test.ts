@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 
 const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const sessionMocks = vi.hoisted(() => ({
@@ -10,10 +10,25 @@ const sessionMocks = vi.hoisted(() => ({
   user: { id: 1, openId: "local_test", name: "Maya Turner", email: "maya@example.com", loginMethod: "email", role: "user", accountStatus: "active", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
   bootstrap: { workspace: { id: 1, name: "Maya Turner workspace" }, membership: { workspaceId: 1, userId: 1, role: "owner" } },
   profile: { id: 1, name: "Maya Turner", email: "maya@example.com" },
-  preferences: { id: 1, userId: 1, defaultPreview: "mobile", analysisReadyNotifications: 1, draftReviewNotifications: 1, publishingReadinessNotifications: 1, releaseNotes: 1, productResearch: 0, reduceMotion: 0, increaseContrast: 0, visibleKeyboardFocus: 1 },
+  preferences: { id: 1, userId: 1, defaultPreview: "mobile", analysisReadyNotifications: 1, draftReviewNotifications: 1, publishingReadinessNotifications: 1, releaseNotes: 1, productResearch: 0, reduceMotion: 0, increaseContrast: 0, visibleKeyboardFocus: 1, twoStepVerification: 0, securityAlerts: 1 },
+  sessions: [{ id: 1, createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), active: true, current: true }],
+  members: [
+    { member: { id: 1, workspaceId: 1, userId: 1, role: "owner" }, user: { id: 1, name: "Maya Turner", email: "maya@example.com" } },
+    { member: { id: 2, workspaceId: 1, userId: 2, role: "editor" }, user: { id: 2, name: "Alex Knight", email: "alex@example.com" } },
+  ],
+  invitations: [{ id: 3, workspaceId: 1, email: "jules@example.com", role: "viewer", status: "pending" }],
+  activity: [{ id: 8, eventType: "workspace.created" }],
   updateProfile: vi.fn().mockResolvedValue({ id: 1, name: "Maya Turner" }),
   updatePreferences: vi.fn().mockResolvedValue({ id: 1, userId: 1, defaultPreview: "mobile" }),
   requestEmailChange: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
+  requestPasswordReset: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
+  revokeOtherSessions: vi.fn().mockResolvedValue({ success: true, revoked: 0 }),
+  revokeSession: vi.fn().mockResolvedValue({ success: true }),
+  inviteMember: vi.fn().mockResolvedValue({ id: 4, email: "taylor@atelierforma.com", role: "viewer" }),
+  updateMemberRole: vi.fn().mockResolvedValue({ success: true }),
+  updateInvitationRole: vi.fn().mockResolvedValue({ success: true }),
+  removeMember: vi.fn().mockResolvedValue({ success: true }),
+  cancelInvitation: vi.fn().mockResolvedValue({ success: true }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/lib/trpc", () => ({
@@ -22,15 +37,29 @@ vi.mock("@/lib/trpc", () => ({
       me: { useQuery: () => ({ data: sessionMocks.user, isLoading: false }) },
       logout: { useMutation: () => ({ mutateAsync: sessionMocks.logout, isPending: false }) },
     },
-    workspace: { bootstrap: { useQuery: () => ({ data: sessionMocks.bootstrap, isLoading: false }) } },
+    workspace: {
+      bootstrap: { useQuery: () => ({ data: sessionMocks.bootstrap, isLoading: false }) },
+      members: { useQuery: () => ({ data: sessionMocks.members, isLoading: false }) },
+      invitations: { useQuery: () => ({ data: sessionMocks.invitations, isLoading: false }) },
+      activity: { useQuery: () => ({ data: sessionMocks.activity, isLoading: false }) },
+      invite: { useMutation: () => ({ mutateAsync: sessionMocks.inviteMember }) },
+      updateMemberRole: { useMutation: () => ({ mutateAsync: sessionMocks.updateMemberRole }) },
+      updateInvitationRole: { useMutation: () => ({ mutateAsync: sessionMocks.updateInvitationRole }) },
+      removeMember: { useMutation: () => ({ mutateAsync: sessionMocks.removeMember }) },
+      cancelInvitation: { useMutation: () => ({ mutateAsync: sessionMocks.cancelInvitation }) },
+    },
     account: {
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
       preferences: { useQuery: () => ({ data: sessionMocks.preferences, isLoading: false }) },
+      sessions: { useQuery: () => ({ data: sessionMocks.sessions, isLoading: false }) },
       updateProfile: { useMutation: () => ({ mutateAsync: sessionMocks.updateProfile }) },
       updatePreferences: { useMutation: () => ({ mutateAsync: sessionMocks.updatePreferences }) },
       requestEmailChange: { useMutation: () => ({ mutateAsync: sessionMocks.requestEmailChange }) },
+      requestPasswordReset: { useMutation: () => ({ mutateAsync: sessionMocks.requestPasswordReset }) },
+      revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
+      revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate } } }),
   },
 }));
 
@@ -189,7 +218,7 @@ describe("Workspace mobile behaviour", () => {
     expect(supportView.getByRole("button", { name: "Send support request" })).toBeTruthy();
   });
 
-  it("invites teammates, manages pending roles, and safely cancels an invitation", () => {
+  it("invites teammates, manages pending roles, and safely cancels an invitation through live workspace contracts", async () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
     fireEvent.click(view.getByRole("button", { name: "Team" }));
@@ -198,16 +227,16 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.change(view.getByRole("textbox", { name: "Email address" }), { target: { value: "taylor@atelierforma.com" } });
     fireEvent.change(view.getByRole("combobox", { name: "Role" }), { target: { value: "Viewer" } });
     fireEvent.click(view.getByRole("button", { name: "Send invitation" }));
-    expect(view.getByText("taylor@atelierforma.com")).toBeTruthy();
-    const pendingRole = view.getByRole("combobox", { name: "Role for invitation to taylor@atelierforma.com" });
+    await waitFor(() => expect(sessionMocks.inviteMember).toHaveBeenCalledWith({ workspaceId: 1, email: "taylor@atelierforma.com", role: "viewer" }));
+    const pendingRole = view.getByRole("combobox", { name: "Role for invitation to jules@example.com" });
     fireEvent.change(pendingRole, { target: { value: "Editor" } });
-    expect(view.getByText(/Taylor is now an Editor/i)).toBeTruthy();
-    const taylorInvitation = view.getByText("taylor@atelierforma.com").closest("article");
-    expect(taylorInvitation).toBeTruthy();
-    fireEvent.click(within(taylorInvitation!).getByRole("button", { name: "Cancel invite" }));
+    await waitFor(() => expect(sessionMocks.updateInvitationRole).toHaveBeenCalledWith({ workspaceId: 1, invitationId: 3, role: "editor" }));
+    const julesInvitation = view.getByText("jules@example.com").closest("article");
+    expect(julesInvitation).toBeTruthy();
+    fireEvent.click(within(julesInvitation!).getByRole("button", { name: "Cancel invite" }));
     expect(view.getByRole("dialog", { name: /Cancel this invitation/i })).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Cancel invitation" }));
-    expect(view.queryByText("taylor@atelierforma.com")).toBeNull();
+    await waitFor(() => expect(sessionMocks.cancelInvitation).toHaveBeenCalledWith({ workspaceId: 1, invitationId: 3 }));
   });
 
   it("requires a simulated unsaved-work decision before signing out", () => {

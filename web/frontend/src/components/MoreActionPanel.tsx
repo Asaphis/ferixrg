@@ -14,7 +14,10 @@ type AccountPreferences = {
   reduceMotion: number;
   increaseContrast: number;
   visibleKeyboardFocus: number;
+  twoStepVerification: number;
+  securityAlerts: number;
 };
+type AccountSession = { id: number; createdAt: Date; expiresAt: Date; active: boolean; current: boolean };
 type Detail = {
   eyebrow: string;
   title: string;
@@ -58,7 +61,7 @@ export const moreActionDetails: Record<string, Detail> = {
   "support:Feature requests": { eyebrow: "Help and feedback", title: "Feature requests", copy: "Describe the job you want FerixRG to make easier for your storefront workflow.", metrics: [["Open", "Request status"], ["More", "Context attached"]], fields: [{ label: "Feature request", value: "" }, { label: "Why would this help?", value: "" }], primary: "Submit feature request", completion: "Feature request submitted for review." },
 };
 
-export function MoreActionPanel({ section, action, onBack, profile, preferences, onSaveProfile, onSavePreferences, onRequestEmailChange }: { section: string; action: string; onBack: () => void; profile?: AccountProfile; preferences?: AccountPreferences; onSaveProfile?: (input: { name?: string }) => Promise<void>; onSavePreferences?: (input: Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean }>) => Promise<void>; onRequestEmailChange?: (input: { email: string }) => Promise<{ delivery: string }> }) {
+export function MoreActionPanel({ section, action, onBack, profile, preferences, sessions, onSaveProfile, onSavePreferences, onRequestEmailChange, onRequestPasswordReset, onRevokeSession, onRevokeOtherSessions }: { section: string; action: string; onBack: () => void; profile?: AccountProfile; preferences?: AccountPreferences; sessions?: AccountSession[]; onSaveProfile?: (input: { name?: string }) => Promise<void>; onSavePreferences?: (input: Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean; twoStepVerification: boolean; securityAlerts: boolean }>) => Promise<void>; onRequestEmailChange?: (input: { email: string }) => Promise<{ delivery: string }>; onRequestPasswordReset?: () => Promise<{ delivery: string }>; onRevokeSession?: (sessionId: number) => Promise<void>; onRevokeOtherSessions?: () => Promise<{ revoked: number }> }) {
   const detail = moreActionDetails[`${section}:${action}`];
   const [selectedChoice, setSelectedChoice] = useState(detail?.choices?.[0] ?? "");
   const [saved, setSaved] = useState("");
@@ -70,7 +73,7 @@ export function MoreActionPanel({ section, action, onBack, profile, preferences,
     return field.value;
   };
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => Object.fromEntries(detail?.fields?.map(field => [field.label, resolveFieldValue(field)]) ?? []));
-  const preferenceKey = (label: string): keyof AccountPreferences | undefined => ({ "Analysis ready": "analysisReadyNotifications", "Draft review": "draftReviewNotifications", "Publishing readiness": "publishingReadinessNotifications", "Release notes": "releaseNotes", "Product research": "productResearch", "Reduce motion": "reduceMotion", "Increase contrast": "increaseContrast", "Visible keyboard focus": "visibleKeyboardFocus" })[label] as keyof AccountPreferences | undefined;
+  const preferenceKey = (label: string): keyof AccountPreferences | undefined => ({ "Analysis ready": "analysisReadyNotifications", "Draft review": "draftReviewNotifications", "Publishing readiness": "publishingReadinessNotifications", "Release notes": "releaseNotes", "Product research": "productResearch", "Reduce motion": "reduceMotion", "Increase contrast": "increaseContrast", "Visible keyboard focus": "visibleKeyboardFocus", "Two-step verification": "twoStepVerification", "Security alerts": "securityAlerts" })[label] as keyof AccountPreferences | undefined;
   const [toggleValues, setToggleValues] = useState<Record<string, boolean>>(() => Object.fromEntries(detail?.toggles?.map(toggle => [toggle.label, Boolean(preferences?.[preferenceKey(toggle.label) ?? "analysisReadyNotifications"] ?? toggle.enabled)]) ?? []));
   useEffect(() => {
     setSelectedChoice(detail?.choices?.[0] ?? "");
@@ -86,14 +89,20 @@ export function MoreActionPanel({ section, action, onBack, profile, preferences,
       if (section === "profile" && action === "Personal details" && onSaveProfile) {
         await onSaveProfile({ name: fieldValues["Full name"]?.trim() });
         setSaved("Personal details saved to your account.");
-      } else if (section === "preferences" && onSavePreferences) {
-        const preferenceUpdate = Object.fromEntries(Object.entries(toggleValues).map(([label, value]) => [preferenceKey(label), value]).filter(([key]) => Boolean(key))) as Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean }>;
+      } else if ((section === "preferences" || (section === "profile" && action === "Password & security")) && onSavePreferences) {
+        const preferenceUpdate = Object.fromEntries(Object.entries(toggleValues).map(([label, value]) => [preferenceKey(label), value]).filter(([key]) => Boolean(key))) as Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean; twoStepVerification: boolean; securityAlerts: boolean }>;
         if (action === "Workspace defaults") preferenceUpdate.defaultPreview = (fieldValues["Default preview"]?.toLowerCase() || "mobile") as "desktop" | "tablet" | "mobile";
         await onSavePreferences(preferenceUpdate);
-        setSaved("Your preferences are saved to your account.");
+        if (section === "profile" && onRequestPasswordReset) {
+          const reset = await onRequestPasswordReset();
+          setSaved(reset.delivery === "sent" ? "Security settings saved and a password reset link was sent." : "Security settings saved. Password-reset email delivery is not configured in this environment yet.");
+        } else setSaved("Your preferences are saved to your account.");
       } else if (section === "profile" && action === "Email address" && onRequestEmailChange) {
         const result = await onRequestEmailChange({ email: fieldValues["New email address"]?.trim() ?? "" });
         setSaved(result.delivery === "sent" ? "A confirmation email was sent to the new address." : "Email delivery is not configured in this environment yet. No confirmation message was sent.");
+      } else if (section === "profile" && action === "Connected sessions" && onRevokeOtherSessions) {
+        const result = await onRevokeOtherSessions();
+        setSaved(result.revoked ? `${result.revoked} other signed-in session${result.revoked === 1 ? "" : "s"} revoked.` : "There are no other active sessions to revoke.");
       } else {
         setSaved(detail.completion);
       }

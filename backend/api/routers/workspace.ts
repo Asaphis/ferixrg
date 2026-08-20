@@ -2,6 +2,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  acceptWorkspaceInvitation,
   cancelWorkspaceInvitation,
   createWorkspaceInvitation,
   createWorkspaceStore,
@@ -17,6 +18,9 @@ import {
   listWorkspaceToolRuns,
   listWorkspaceUsage,
   queueWorkspaceToolRun,
+  removeWorkspaceMember,
+  updateWorkspaceInvitationRole,
+  updateWorkspaceMemberRole,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import { requireWorkspaceAccess } from "../workspaceAccess";
@@ -77,6 +81,40 @@ export const workspaceRouter = router({
     } catch (error) {
       return toForbidden(error);
     }
+  }),
+  updateInvitationRole: protectedProcedure.input(workspaceInput.extend({ invitationId: z.number().int().positive(), role: invitationRole })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "admin");
+      await updateWorkspaceInvitationRole({ ...input, actorUserId: ctx.user.id });
+      return { success: true } as const;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  updateMemberRole: protectedProcedure.input(workspaceInput.extend({ memberId: z.number().int().positive(), role: invitationRole })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "admin");
+      await updateWorkspaceMemberRole({ ...input, actorUserId: ctx.user.id });
+      return { success: true } as const;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  removeMember: protectedProcedure.input(workspaceInput.extend({ memberId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "admin");
+      await removeWorkspaceMember({ ...input, actorUserId: ctx.user.id });
+      return { success: true } as const;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  acceptInvitation: protectedProcedure.input(z.object({ token: z.string().min(1).max(512) })).mutation(async ({ ctx, input }) => {
+    const email = ctx.user.email;
+    if (!email) throw new TRPCError({ code: "BAD_REQUEST", message: "Add a verified email address before accepting a workspace invitation." });
+    const invitation = await acceptWorkspaceInvitation({ tokenHash: createHash("sha256").update(input.token).digest("hex"), userId: ctx.user.id, email });
+    if (!invitation) throw new TRPCError({ code: "BAD_REQUEST", message: "This invitation is invalid, expired, or no longer available." });
+    return { success: true, workspaceId: invitation.workspaceId } as const;
   }),
   stores: router({
     list: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {

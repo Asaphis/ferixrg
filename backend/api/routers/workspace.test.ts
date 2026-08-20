@@ -6,6 +6,10 @@ vi.mock("../db", () => ({
   listWorkspaceMembers: vi.fn(),
   createWorkspaceInvitation: vi.fn(),
   cancelWorkspaceInvitation: vi.fn(),
+  updateWorkspaceInvitationRole: vi.fn(),
+  updateWorkspaceMemberRole: vi.fn(),
+  removeWorkspaceMember: vi.fn(),
+  acceptWorkspaceInvitation: vi.fn(),
   listWorkspaceInvitations: vi.fn(),
   listWorkspaceStores: vi.fn(),
   createWorkspaceStore: vi.fn(),
@@ -19,7 +23,7 @@ vi.mock("../db", () => ({
   getWorkspaceAccess: vi.fn(),
 }));
 
-import { createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, listWorkspaceStores, queueWorkspaceToolRun } from "../db";
+import { acceptWorkspaceInvitation, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, listWorkspaceStores, queueWorkspaceToolRun, removeWorkspaceMember, updateWorkspaceInvitationRole, updateWorkspaceMemberRole } from "../db";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -84,5 +88,30 @@ describe("workspace router", () => {
 
     expect(queueWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, requestedByUserId: 42, toolId: "ai-design-copilot" }));
     expect(result).toMatchObject({ id: 22, status: "queued" });
+  });
+
+  it("allows an admin to change member and pending invitation roles while retaining workspace scope", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
+    vi.mocked(updateWorkspaceMemberRole).mockResolvedValue(undefined);
+    vi.mocked(updateWorkspaceInvitationRole).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.updateMemberRole({ workspaceId: 9, memberId: 14, role: "viewer" })).resolves.toEqual({ success: true });
+    await expect(caller.workspace.updateInvitationRole({ workspaceId: 9, invitationId: 8, role: "editor" })).resolves.toEqual({ success: true });
+
+    expect(updateWorkspaceMemberRole).toHaveBeenCalledWith({ workspaceId: 9, memberId: 14, role: "viewer", actorUserId: 42 });
+    expect(updateWorkspaceInvitationRole).toHaveBeenCalledWith({ workspaceId: 9, invitationId: 8, role: "editor", actorUserId: 42 });
+  });
+
+  it("restricts member removal to workspace admins and accepts a valid invitation for the signed-in email", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
+    vi.mocked(removeWorkspaceMember).mockResolvedValue(undefined);
+    vi.mocked(acceptWorkspaceInvitation).mockResolvedValue({ workspaceId: 9 } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.removeMember({ workspaceId: 9, memberId: 15 })).resolves.toEqual({ success: true });
+    await expect(caller.workspace.acceptInvitation({ token: "accepted-token" })).resolves.toEqual({ success: true, workspaceId: 9 });
+    expect(removeWorkspaceMember).toHaveBeenCalledWith({ workspaceId: 9, memberId: 15, actorUserId: 42 });
+    expect(acceptWorkspaceInvitation).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, email: "user-42@example.com" }));
   });
 });

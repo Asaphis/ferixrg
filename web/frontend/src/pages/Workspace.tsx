@@ -41,8 +41,8 @@ const issues = [
   { severity: "Low", title: "Secondary body text is low-contrast", detail: "Supporting text in the information grid is visually quiet enough to reduce sustained reading comfort.", tag: "Homepage", impact: "Accessibility", measures: [["Contrast", "3.8:1"], ["Element", "Body copy"], ["Required", "4.5:1"], ["Status", "Open"]] },
 ];
 
-type TeamRole = "Owner" | "Editor" | "Viewer";
-type TeamMember = { id: string; name: string; email: string; role: TeamRole; status: "Active" | "Pending" };
+type TeamRole = "Owner" | "Admin" | "Editor" | "Viewer" | "Billing";
+type TeamMember = { id: string; name: string; email: string; role: TeamRole; status: "Active" | "Pending"; source?: "member" | "invitation"; sourceId?: number };
 
 function Brand() { return <a className="brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>; }
 
@@ -52,11 +52,24 @@ export default function Workspace() {
   const workspaceBootstrapQuery = trpc.workspace.bootstrap.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
   const accountProfileQuery = trpc.account.profile.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
   const accountPreferencesQuery = trpc.account.preferences.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const accountSessionsQuery = trpc.account.sessions.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const activeWorkspaceId = workspaceBootstrapQuery.data?.workspace.id;
+  const workspaceMembersQuery = trpc.workspace.members.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceInvitationsQuery = trpc.workspace.invitations.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceActivityQuery = trpc.workspace.activity.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 12 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const authUtils = trpc.useUtils();
   const logoutMutation = trpc.auth.logout.useMutation();
   const updateProfileMutation = trpc.account.updateProfile.useMutation();
   const updatePreferencesMutation = trpc.account.updatePreferences.useMutation();
   const requestEmailChangeMutation = trpc.account.requestEmailChange.useMutation();
+  const requestPasswordResetMutation = trpc.account.requestPasswordReset.useMutation();
+  const revokeOtherSessionsMutation = trpc.account.revokeOtherSessions.useMutation();
+  const revokeSessionMutation = trpc.account.revokeSession.useMutation();
+  const inviteWorkspaceMemberMutation = trpc.workspace.invite.useMutation();
+  const updateWorkspaceMemberRoleMutation = trpc.workspace.updateMemberRole.useMutation();
+  const updateWorkspaceInvitationRoleMutation = trpc.workspace.updateInvitationRole.useMutation();
+  const removeWorkspaceMemberMutation = trpc.workspace.removeMember.useMutation();
+  const cancelWorkspaceInvitationMutation = trpc.workspace.cancelInvitation.useMutation();
   useEffect(() => {
     if (authQuery.isLoading || authQuery.data) return;
     const returnTo = `${window.location.pathname}${window.location.search}`;
@@ -95,6 +108,13 @@ export default function Workspace() {
   ]);
   const [teamInviteOpen, setTeamInviteOpen] = useState(false);
   const [removalMemberId, setRemovalMemberId] = useState<string | null>(null);
+  const liveTeamMembers = useMemo<TeamMember[]>(() => {
+    if (!activeWorkspaceId || (!workspaceMembersQuery.data && !workspaceInvitationsQuery.data)) return teamMembers;
+    const active = (workspaceMembersQuery.data ?? []).map(item => ({ id: `member-${item.member.id}`, source: "member" as const, sourceId: item.member.id, name: item.user.name || item.user.email || "Workspace member", email: item.user.email || "No email address", role: `${item.member.role[0].toUpperCase()}${item.member.role.slice(1)}` as TeamRole, status: "Active" as const }));
+    const pending = (workspaceInvitationsQuery.data ?? []).filter(item => item.status === "pending").map(item => ({ id: `invitation-${item.id}`, source: "invitation" as const, sourceId: item.id, name: item.email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()), email: item.email, role: `${item.role[0].toUpperCase()}${item.role.slice(1)}` as TeamRole, status: "Pending" as const }));
+    return [...active, ...pending];
+  }, [activeWorkspaceId, teamMembers, workspaceInvitationsQuery.data, workspaceMembersQuery.data]);
+  const liveActivity = useMemo(() => (workspaceActivityQuery.data ?? []).map(event => ({ id: event.id, text: event.eventType.replace(/[._]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()), destination: event.eventType.startsWith("team.") ? "More" : event.eventType.startsWith("tool_run.") ? "Reports" : event.eventType.startsWith("draft.") ? "Visual editor" : "Stores" })), [workspaceActivityQuery.data]);
 
   const changeView = (next: string) => { if (next === "Overview" && window.location.search) window.history.replaceState({}, "", "/app"); setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const openDesktopView = (next: string) => {
@@ -249,7 +269,7 @@ export default function Workspace() {
         <article className="approved-panel approved-analyses"><div className="approved-panel-title"><div><span className="approved-eyebrow">Recent analyses</span><h2>Evidence ready to revisit.</h2></div><button onClick={() => changeView("Reports")}>View history <ChevronRight /></button></div>{approvedDashboard.analyses.map(analysis => <button onClick={() => changeView("Reports")} className="approved-analysis-row" key={analysis.store}><span><b>{analysis.store}</b><small>{analysis.type}</small></span><em>{analysis.score}/100</em><strong>View report</strong><ChevronRight /></button>)}</article>
         <article className="approved-panel approved-transformation"><div className="approved-panel-title"><div><span className="approved-eyebrow">Your latest transformation</span><h2>Evidence of improvement.</h2></div><button onClick={() => changeView("Visual editor")}>View comparison <ChevronRight /></button></div><div className="approved-compare"><div><div className="approved-preview before"/><span>Before <b>{approvedDashboard.transformation.before}</b></span></div><ArrowRight /><div><div className="approved-preview after"/><span>After <b>{approvedDashboard.transformation.after}</b></span></div><strong>+{approvedDashboard.transformation.gain}<small>improvement</small></strong></div></article>
         <article className="approved-panel approved-publish"><div><span className="approved-eyebrow">Ready to publish</span><h2>{approvedDashboard.publish.title}</h2><p>{approvedDashboard.publish.status}</p></div><div>{approvedDashboard.publish.actions.map(action => <button className={action.label === "Publish" ? "approved-primary" : "approved-secondary"} onClick={() => action.label === "Preview" ? changeView("Preview & validate") : runAction(action)} key={action.label}>{action.label}</button>)}</div></article>
-        <article className="approved-panel approved-activity"><div className="approved-panel-title"><div><span className="approved-eyebrow">Recent activity</span><h2>Progress at a glance.</h2></div><button onClick={() => changeView("Reports")}>View activity <ChevronRight /></button></div>{approvedDashboard.activity.map(activity => <button onClick={() => changeView(activity.includes("redesign") ? "Visual editor" : activity.includes("navigation") ? "Issues" : "Reports")} key={activity}><Check /> {activity}<ChevronRight /></button>)}</article>
+        <article className="approved-panel approved-activity"><div className="approved-panel-title"><div><span className="approved-eyebrow">Recent activity</span><h2>Progress at a glance.</h2></div><button onClick={() => changeView("Reports")}>View activity <ChevronRight /></button></div>{liveActivity.length ? liveActivity.map(activity => <button onClick={() => changeView(activity.destination)} key={activity.id}><Check /> {activity.text}<ChevronRight /></button>) : <p className="team-empty-state">No workspace activity yet. Start by inviting a teammate, adding a store, or running a tool.</p>}</article>
       </section>
     </section>;
   }
@@ -275,29 +295,46 @@ export default function Workspace() {
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteRole, setInviteRole] = useState<TeamRole>("Editor");
     const [inviteError, setInviteError] = useState("");
-    const activeMembers = teamMembers.filter(member => member.status === "Active");
-    const pendingMembers = teamMembers.filter(member => member.status === "Pending");
-    const submitInvite = () => {
+    const activeMembers = liveTeamMembers.filter(member => member.status === "Active");
+    const pendingMembers = liveTeamMembers.filter(member => member.status === "Pending");
+    const submitInvite = async () => {
       const email = inviteEmail.trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(email)) { setInviteError("Enter a valid email address to send an invitation."); return; }
-      if (teamMembers.some(member => member.email === email)) { setInviteError("This email already has workspace access or a pending invitation."); return; }
-      setTeamMembers([...teamMembers, { id: `invite-${Date.now()}`, name: email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()), email, role: inviteRole, status: "Pending" }]);
-      setInviteEmail(""); setInviteError(""); setTeamInviteOpen(false);
-      setMoreNotice(`Invitation sent to ${email} as ${inviteRole}.`);
+      if (liveTeamMembers.some(member => member.email.toLowerCase() === email)) { setInviteError("This email already has workspace access or a pending invitation."); return; }
+      try {
+        if (activeWorkspaceId) {
+          await inviteWorkspaceMemberMutation.mutateAsync({ workspaceId: activeWorkspaceId, email, role: inviteRole.toLowerCase() as "admin" | "editor" | "viewer" | "billing" });
+          await authUtils.workspace.invitations.invalidate();
+        } else setTeamMembers([...teamMembers, { id: `invite-${Date.now()}`, name: email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()), email, role: inviteRole, status: "Pending" }]);
+        setInviteEmail(""); setInviteError(""); setTeamInviteOpen(false);
+        setMoreNotice(`Invitation sent to ${email} as ${inviteRole}.`);
+      } catch { setInviteError("We couldn’t send that invitation. Please try again."); }
     };
-    const changeRole = (id: string, role: TeamRole) => {
-      setTeamMembers(teamMembers.map(member => member.id === id ? { ...member, role } : member));
-      const member = teamMembers.find(item => item.id === id);
-      if (member) setMoreNotice(`${member.name} is now ${role === "Editor" || role === "Owner" ? "an" : "a"} ${role}.`);
+    const changeRole = async (id: string, role: TeamRole) => {
+      const member = liveTeamMembers.find(item => item.id === id);
+      if (!member || role === "Owner") return;
+      try {
+        if (activeWorkspaceId && member.sourceId) {
+          const inputRole = role.toLowerCase() as "admin" | "editor" | "viewer" | "billing";
+          if (member.source === "member") { await updateWorkspaceMemberRoleMutation.mutateAsync({ workspaceId: activeWorkspaceId, memberId: member.sourceId, role: inputRole }); await authUtils.workspace.members.invalidate(); }
+          else { await updateWorkspaceInvitationRoleMutation.mutateAsync({ workspaceId: activeWorkspaceId, invitationId: member.sourceId, role: inputRole }); await authUtils.workspace.invitations.invalidate(); }
+        } else setTeamMembers(teamMembers.map(item => item.id === id ? { ...item, role } : item));
+        setMoreNotice(`${member.name} is now ${role === "Editor" ? "an" : "a"} ${role}.`);
+      } catch { setMoreNotice("We couldn’t update that role. Please try again."); }
     };
-    const removeMember = () => {
-      const member = teamMembers.find(item => item.id === removalMemberId);
+    const removeMember = async () => {
+      const member = liveTeamMembers.find(item => item.id === removalMemberId);
       if (!member) return;
-      setTeamMembers(teamMembers.filter(item => item.id !== member.id));
-      setRemovalMemberId(null);
-      setMoreNotice(member.status === "Pending" ? `Invitation to ${member.email} was canceled.` : `${member.name} no longer has workspace access.`);
+      try {
+        if (activeWorkspaceId && member.sourceId) {
+          if (member.source === "invitation") { await cancelWorkspaceInvitationMutation.mutateAsync({ workspaceId: activeWorkspaceId, invitationId: member.sourceId }); await authUtils.workspace.invitations.invalidate(); }
+          else { await removeWorkspaceMemberMutation.mutateAsync({ workspaceId: activeWorkspaceId, memberId: member.sourceId }); await authUtils.workspace.members.invalidate(); }
+        } else setTeamMembers(teamMembers.filter(item => item.id !== member.id));
+        setRemovalMemberId(null);
+        setMoreNotice(member.status === "Pending" ? `Invitation to ${member.email} was canceled.` : `${member.name} no longer has workspace access.`);
+      } catch { setMoreNotice("We couldn’t remove that access. Please try again."); }
     };
-    const selectedForRemoval = teamMembers.find(member => member.id === removalMemberId);
+    const selectedForRemoval = liveTeamMembers.find(member => member.id === removalMemberId);
     return <section className="more-detail-page team-management-page"><PageHeading label="Workspace settings / More" title="Team" copy="Manage who can access this workspace and what they can do." action={<button className="app-button" onClick={() => { setInviteError(""); setTeamInviteOpen(true); }}><Plus /> Invite member</button>} /><section className="more-detail-summary"><span className="more-detail-icon"><Layers3 /></span><div><span className="approved-eyebrow">Workspace access</span><h2>Keep shared access simple and visible.</h2><p>Invite people, assign the right role, and cancel access safely when work changes.</p></div><button className="more-detail-back" onClick={back}><ArrowRight /> Back to More</button></section><section className="team-stat-grid"><article><b>{activeMembers.length}</b><span>Active members</span></article><article><b>{pendingMembers.length}</b><span>Pending invitations</span></article><article><b>Owner</b><span>Required role</span></article></section><section className="team-management-grid"><article className="approved-panel team-member-panel"><div className="more-detail-list-head"><div><span className="approved-eyebrow">Workspace members</span><h2>Access and roles</h2></div><button className="approved-secondary" onClick={() => { setInviteError(""); setTeamInviteOpen(true); }}><Plus /> Invite</button></div><div className="team-member-list">{activeMembers.map(member => <article key={member.id}><span className="team-avatar">{member.name.split(" ").map(part => part[0]).join("")}</span><div><b>{member.name}{member.role === "Owner" && <em>Owner</em>}</b><small>{member.email} · Active</small></div><label><span className="sr-only">Role for {member.name}</span><select value={member.role} disabled={member.role === "Owner"} onChange={event => changeRole(member.id, event.target.value as TeamRole)}><option>Owner</option><option>Editor</option><option>Viewer</option></select></label>{member.role !== "Owner" && <button className="team-remove" onClick={() => setRemovalMemberId(member.id)}>Remove</button>}</article>)}</div></article><aside className="approved-panel team-guide-panel"><span className="approved-eyebrow">Role guide</span><h2>Give only the access each person needs.</h2><div><b>Owner</b><p>Manages workspace access, billing, and all workspace settings.</p></div><div><b>Editor</b><p>Can use tools, create drafts, and prepare supported releases.</p></div><div><b>Viewer</b><p>Can review evidence, reports, and shared draft progress.</p></div></aside></section><section className="approved-panel pending-invite-panel"><div className="more-detail-list-head"><div><span className="approved-eyebrow">Pending invitations</span><h2>Waiting for a response</h2></div><span>{pendingMembers.length} pending</span></div>{pendingMembers.length ? <div className="team-member-list pending">{pendingMembers.map(member => <article key={member.id}><span className="team-avatar muted">{member.name.split(" ").map(part => part[0]).join("")}</span><div><b>{member.email}</b><small>Invited as {member.role} · Invitation not accepted yet</small></div><label><span className="sr-only">Role for invitation to {member.email}</span><select value={member.role} onChange={event => changeRole(member.id, event.target.value as TeamRole)}><option>Editor</option><option>Viewer</option></select></label><button className="team-remove" onClick={() => setRemovalMemberId(member.id)}>Cancel invite</button></article>)}</div> : <p className="team-empty-state">No invitations are pending. Invite a teammate when you are ready to share this workspace.</p>}</section>{moreNotice && <section className="more-detail-notice"><Check /><div><b>Team workspace updated</b><p>{moreNotice}</p></div><button onClick={() => setMoreNotice("")}>Dismiss</button></section>}{teamInviteOpen && <div className="team-dialog-layer" role="dialog" aria-modal="true" aria-labelledby="invite-member-title"><section className="team-dialog"><span className="team-dialog-icon"><Plus /></span><h2 id="invite-member-title">Invite a workspace member</h2><p>They will receive access after accepting this simulated invitation.</p><label>Email address<input value={inviteEmail} onChange={event => { setInviteEmail(event.target.value); setInviteError(""); }} placeholder="teammate@company.com" autoFocus /></label><label>Role<select value={inviteRole} onChange={event => setInviteRole(event.target.value as TeamRole)}><option>Editor</option><option>Viewer</option></select></label>{inviteError && <p className="team-dialog-error" role="alert">{inviteError}</p>}<div className="team-dialog-actions"><button className="approved-secondary" onClick={() => setTeamInviteOpen(false)}>Cancel</button><button className="approved-primary" onClick={submitInvite}><Plus /> Send invitation</button></div></section></div>}{selectedForRemoval && <div className="team-dialog-layer" role="dialog" aria-modal="true" aria-labelledby="remove-member-title"><section className="team-dialog"><span className="team-dialog-icon warning">!</span><h2 id="remove-member-title">{selectedForRemoval.status === "Pending" ? "Cancel this invitation?" : `Remove ${selectedForRemoval.name}?`}</h2><p>{selectedForRemoval.status === "Pending" ? "The recipient will no longer be able to accept this invitation." : "They will immediately lose access to shared workspace tools, drafts, and reports."}</p><div className="team-dialog-actions"><button className="approved-secondary" onClick={() => setRemovalMemberId(null)}>Keep access</button><button className="team-confirm-remove" onClick={removeMember}>{selectedForRemoval.status === "Pending" ? "Cancel invitation" : "Remove member"}</button></div></section></div>}</section>;
   }
 
@@ -313,7 +350,7 @@ export default function Workspace() {
       resources: { title: "Resources", copy: "Find product guidance and stay current with FerixRG updates.", rows: ["Documentation", "Help Center", "What’s New", "About", "Terms", "Privacy"] },
       support: { title: "Support", copy: "Get help, report a problem, or share feedback with the product team.", rows: ["Contact support", "Report a problem", "Send feedback", "Feature requests", "Sign out"] },
     };
-    if (moreAction) return <MoreActionPanel section={moreAction.section} action={moreAction.action} profile={accountProfileQuery.data ? { name: accountProfileQuery.data.name, email: accountProfileQuery.data.email } : undefined} preferences={accountPreferencesQuery.data} onSaveProfile={async input => { await updateProfileMutation.mutateAsync(input); await authUtils.account.profile.invalidate(); }} onSavePreferences={async input => { await updatePreferencesMutation.mutateAsync(input); await authUtils.account.preferences.invalidate(); }} onRequestEmailChange={async input => requestEmailChangeMutation.mutateAsync(input)} onBack={() => { setMoreAction(null); window.scrollTo({ top: 0, behavior: "smooth" }); }} />;
+    if (moreAction) return <MoreActionPanel section={moreAction.section} action={moreAction.action} profile={accountProfileQuery.data ? { name: accountProfileQuery.data.name, email: accountProfileQuery.data.email } : undefined} preferences={accountPreferencesQuery.data} sessions={accountSessionsQuery.data} onSaveProfile={async input => { await updateProfileMutation.mutateAsync(input); await authUtils.account.profile.invalidate(); }} onSavePreferences={async input => { await updatePreferencesMutation.mutateAsync(input); await authUtils.account.preferences.invalidate(); }} onRequestEmailChange={async input => requestEmailChangeMutation.mutateAsync(input)} onRequestPasswordReset={async () => requestPasswordResetMutation.mutateAsync()} onRevokeSession={async sessionId => { await revokeSessionMutation.mutateAsync({ sessionId }); await authUtils.account.sessions.invalidate(); }} onRevokeOtherSessions={async () => { const result = await revokeOtherSessionsMutation.mutateAsync(); await authUtils.account.sessions.invalidate(); return result; }} onBack={() => { setMoreAction(null); window.scrollTo({ top: 0, behavior: "smooth" }); }} />;
     if (moreFlow === "team") return <TeamManagement back={back} />;
     const alignedDetail = moreFlow !== "home";
     const detailIcon = moreFlow === "billing" ? <BarChart3 /> : moreFlow === "profile" ? <Settings /> : moreFlow === "preferences" ? <Bell /> : moreFlow === "platform" ? <Layers3 /> : moreFlow === "resources" ? <FileBarChart /> : <CircleHelp />;
