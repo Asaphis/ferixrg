@@ -2,6 +2,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityEvents,
+  accountTokens,
+  authIdentities,
   drafts,
   editorDrafts,
   InsertEditorDraft,
@@ -348,6 +350,97 @@ export async function listWorkspaceDrafts(workspaceId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(drafts).where(eq(drafts.workspaceId, workspaceId)).orderBy(desc(drafts.updatedAt));
+}
+
+export async function getAccountProfile(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0];
+}
+
+export async function updateAccountProfile(userId: number, input: { name?: string; email?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const changes: Record<string, unknown> = {};
+  if (input.name !== undefined) changes.name = input.name;
+  if (input.email !== undefined) {
+    changes.email = input.email.toLowerCase();
+    changes.emailVerifiedAt = null;
+    changes.accountStatus = "pending_verification";
+  }
+  if (Object.keys(changes).length) await db.update(users).set(changes).where(eq(users.id, userId));
+  return getAccountProfile(userId);
+}
+
+export async function listAccountIdentities(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({ provider: authIdentities.provider, createdAt: authIdentities.createdAt, updatedAt: authIdentities.updatedAt })
+    .from(authIdentities)
+    .where(eq(authIdentities.userId, userId))
+    .orderBy(authIdentities.createdAt);
+}
+
+export async function getLocalAccountByEmail(email: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select({ user: users, identity: authIdentities })
+    .from(authIdentities)
+    .innerJoin(users, eq(authIdentities.userId, users.id))
+    .where(and(eq(authIdentities.provider, "email"), eq(authIdentities.providerAccountId, email)))
+    .limit(1);
+  return rows[0];
+}
+
+export async function createLocalAccount(input: { openId: string; name: string; email: string; passwordHash: string; verificationTokenHash: string; verificationExpiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const created = await tx.insert(users).values({
+      openId: input.openId,
+      name: input.name,
+      email: input.email,
+      loginMethod: "email",
+      accountStatus: "pending_verification",
+      lastSignedIn: new Date(),
+    });
+    const userId = Number(created[0].insertId);
+    await tx.insert(authIdentities).values({
+      userId,
+      provider: "email",
+      providerAccountId: input.email,
+      passwordHash: input.passwordHash,
+    });
+    await tx.insert(accountTokens).values({
+      userId,
+      purpose: "email_verification",
+      tokenHash: input.verificationTokenHash,
+      expiresAt: input.verificationExpiresAt,
+    });
+    const rows = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+    return rows[0];
+  });
+}
+
+export async function verifyLocalAccount(tokenHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const tokens = await tx
+      .select()
+      .from(accountTokens)
+      .where(and(eq(accountTokens.tokenHash, tokenHash), eq(accountTokens.purpose, "email_verification")))
+      .limit(1);
+    const token = tokens[0];
+    if (!token || token.usedAt || token.expiresAt.getTime() < Date.now()) return undefined;
+    await tx.update(accountTokens).set({ usedAt: new Date() }).where(eq(accountTokens.id, token.id));
+    await tx.update(users).set({ accountStatus: "active", emailVerifiedAt: new Date() }).where(eq(users.id, token.userId));
+    const rows = await tx.select().from(users).where(eq(users.id, token.userId)).limit(1);
+    return rows[0];
+  });
 }
 
 export async function listWorkspaceReleases(workspaceId: number, limit = 50) {

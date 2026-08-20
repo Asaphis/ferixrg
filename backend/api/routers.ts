@@ -4,6 +4,7 @@ import { listEditorDrafts, restoreEditorDraft, saveEditorDraft } from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { accountRouter } from "./routers/account";
 import { workspaceRouter } from "./routers/workspace";
 
 const editorTarget = z.object({
@@ -25,6 +26,7 @@ const draftInput = editorTarget.extend({
 export const appRouter = router({
   // If a real-time transport is needed, register it in backend/api/_core/index.ts. API routes must start with '/api/' so the gateway can route them correctly.
   system: systemRouter,
+  account: accountRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

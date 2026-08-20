@@ -470,3 +470,11 @@
 - [x] Create personal workspace bootstrap and membership checks for every authenticated FerixRG user.
 - [x] Add protected workspace, team, store, activity, usage, and tool-run read/write contracts with ownership enforcement.
 - [x] Add backend tests proving user, workspace, and role scoping before connecting existing frontend components.
+
+## Account identity backend
+- [x] Add protected account profile, authentication-identity, and account-status contracts on top of the existing secure identity session.
+- [ ] Connect the approved authentication screen to real identity status only after its account behavior is verified without changing its visual design.
+
+## Local account authentication foundation
+- [x] Add secure local account registration, password hashing, sign-in, and sign-out session routes without changing the approved authentication UI.
+- [x] Add account-status and credential tests before connecting the registration and sign-in forms to the real backend.
