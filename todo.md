@@ -243,3 +243,95 @@
 - [x] Preserve the requested destination through simulated login, registration, verification, password recovery, reset, and onboarding paths.
 - [x] Return the user to the requested tool after successful authentication while rejecting invalid or external return paths.
 - [x] Add regression coverage, verify responsive journeys, run checks, and save the deep-link return behavior.
+
+## AI-assisted and manual correction workspaces
+
+- [ ] Define the routing grammar from every tool result to AI-assisted correction, manual editing, or a report/export outcome.
+- [ ] Design a shared AI design conversation with text instructions, image/reference upload, contextual evidence, proposed changes, and user-controlled apply/revise actions.
+- [ ] Define the distinct manual workspaces and controls needed for layout, visual style, content, responsive, performance, and code-oriented corrections.
+- [ ] Connect each existing tool to only the relevant correction workspace instead of sending all tools into one generic editor.
+- [ ] Implement and test simulated AI/manual correction journeys with preview, versioning, validation, publish/export, and responsive behavior.
+
+## Tool behavior and access architecture
+
+- [ ] Define casual public-analysis, signed-in project, connected-store, and developer-handoff user modes with clear capability boundaries.
+- [ ] Map each FerixRG tool to eligible inputs, result type, persistence, permitted next actions, and connection-dependent capabilities.
+- [ ] Define the different result experiences for one-off URL/screenshot findings, saved projects, connected stores, AI correction, manual editing, and export/developer handoff.
+- [ ] Present the complete tool behavior matrix and routing grammar for approval before changing the implemented product flows.
+- [ ] Implement the approved tool behavior system with tests and responsive verification.
+
+## Tool-result interface audit and approval deck
+
+- [ ] Audit the current Tools Library, tool setup, connection, results, correction, version, validation, publish, and export interfaces against the supplied product architecture.
+- [ ] Document specific alignment gaps for casual URL/screenshot users, saved-project users, connected-store users, and developer-handoff users.
+- [ ] Generate complete screen-by-screen desktop and mobile visuals for casual analysis, AI-assisted correction with references, connected-store change/publish, and developer handoff journeys.
+- [ ] Attach the visual deck and concise audit findings for user approval before changing the live interface.
+- [ ] Implement only the approved interface corrections, then test, verify, and save the updated tool-result system.
+
+## Direct visual-board delivery
+
+- [ ] Deliver the generated desktop and mobile tool-behavior boards as directly viewable image attachments rather than web links.
+
+## Desktop-first behavior approval
+
+- [ ] Present only desktop tool-result behavior boards, one route at a time, and obtain explicit desktop approval before creating or presenting any mobile design.
+
+## Complete desktop system and manual-editor audit
+
+- [ ] Extract and organize the supplied manual-editor requirements for canvas, pages, sections, elements, assets, components, contextual design controls, responsive states, history, preview, and publish.
+- [ ] Audit the current dashboard, Tools Library, store workspaces, result paths, AI correction, developer handoff, release paths, and Visual Editor against the complete system requirements.
+- [ ] Define the missing desktop dashboard and contextual manual-editor architecture, including live preview alongside editing controls and capability-aware publishing/export.
+- [ ] Generate actual desktop-only visual boards for the complete dashboard, manual editor, and their key correction/release flows, then obtain approval before implementation.
+
+## Mobile command center and contextual editor approval
+
+- [ ] Translate the approved desktop command center into an intentionally focused mobile dashboard while preserving essential active-work, evidence, and release actions.
+- [ ] Translate the desktop manual editor into a focused mobile editing workspace with live preview, contextual controls, device overrides, AI collaboration, validation, and safe release access.
+- [ ] Generate and attach direct mobile-only visual boards for the command center, manual editing, and AI-assisted editing before responsive implementation.
+
+## Complete routed tool behavior workflow
+
+- [ ] Audit every current tool-related screen: discovery, input setup, URL/screenshot analysis, store connection, processing, results, AI correction, manual editing, preview, validation, versioning, publishing, export, and developer handoff.
+- [ ] Define the complete screen-by-screen routing rules from each tool and input mode into the correct next workspace, including connected and unconnected capability limits.
+- [ ] Specify the manual editor as an actual editing workflow with live preview alongside contextual section/element controls, not as a standalone dashboard concept.
+- [ ] Generate desktop-only screen-by-screen behavior boards that show the full tool workflow from entry through release, then obtain approval before mobile or implementation work.
+
+## Direct desktop workflow image delivery
+
+- [ ] Generate and attach actual desktop images in sequence for Tools Library, input setup, connection/URL fork, processing, result evidence, next actions, AI correction, manual editing, preview/version, validation, and publish/export.
+
+## Corrected unified editor and release workflow
+
+- [x] Replace the separate AI-versus-manual correction interpretation with one shared editor workspace containing live manual controls and a persistent AI panel.
+- [x] Make tool setup a straightforward selected-tool flow: choose an eligible existing store, connect a store, enter a URL, upload screenshots, or use the other inputs that the selected tool supports.
+- [x] Make every completed run show its findings, issue indicators, score/impact evidence, analysis report, report-download action, and clear next steps before entering the shared editor.
+- [x] Design the shared editor with live storefront preview, before/after comparison, AI-proposed changes, user-controlled application, manual changes, and saved version history in one draft context.
+- [x] Gate Publish behind an eligible connected store and granted permissions; otherwise show only the actionable export/download package required to apply the design externally.
+- [ ] Re-read and reconcile the complete uploaded architecture with the existing source-of-truth specification before generating a replacement desktop workflow image.
+
+## Beginner-friendly feature translation
+
+- [ ] Translate the uploaded architecture into user tasks and progressive-disclosure rules rather than treating its feature list as a screen layout.
+- [ ] Ensure each screen exposes only the next understandable decision for a first-time, non-technical user, with advanced editing controls hidden until contextually requested.
+- [ ] Replace the rejected workflow-board approach with a simple visual flow that communicates what the user sees, chooses, learns, changes, and finishes at every stage.
+- [ ] Independently decide and validate the most user-friendly placement for all required capabilities within the existing FerixRG UI language, including what remains hidden until context makes it useful.
+
+## Actual tools and sub-tools must remain discoverable
+
+- [x] Preserve the real FerixRG tool catalogue and its sub-tools as the primary product offering; do not replace them with generic task labels.
+- [x] Design the desktop Tools sidebar as an expandable grouped catalogue and retain a full searchable Tools Library for every actual tool.
+- [x] Show a selected tool’s plain-language purpose, eligible inputs, access requirements, expected result, and available next actions only after that tool is chosen.
+- [x] Regenerate the full desktop workflow in one continuous sequence after correcting any stage; never replace the real tool catalogue or stop at the corrected entry screens.
+
+## Complete mobile workflow visual approval
+
+- [x] Translate the full approved desktop tool workflow into focused mobile screens while preserving the actual tool catalogue, selected-tool context, result/report, shared AI/manual editor, validation, and publish/export behavior.
+- [x] Generate and attach the full mobile sequence from Tools Library through permission-aware publish or download, without dropping desktop workflow capability.
+
+## Approved desktop and mobile tool workflow implementation
+
+- [x] Implement expandable actual tool groups and sub-tools in the desktop sidebar and mobile Tools Library while retaining the searchable full 23-tool catalogue.
+- [x] Implement a selected-tool-specific source setup, processing state, scoped evidence result, priority indicators, downloadable report, and relevant next actions across desktop and mobile.
+- [x] Implement one shared draft editor where live manual controls, AI conversation/proposal comparison, history, validation, and device preview work together.
+- [x] Implement version/validation review and capability-aware publishing, store-draft, design-package, and developer-handoff completion states across desktop and mobile.
+- [x] Add regression tests and verify both responsive flows without changing the approved public landing page or dashboard.

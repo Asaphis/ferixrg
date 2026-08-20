@@ -79,7 +79,25 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Connected store" }));
     fireEvent.click(view.getByRole("button", { name: "Start tool" }));
     expect(view.getByRole("heading", { name: /Set up/i })).toBeTruthy();
-    expect(view.getByText("Select input")).toBeTruthy();
+    expect(view.getByText("Choose a source for this tool.")).toBeTruthy();
+  });
+
+  it("keeps a selected real tool connected through source setup, evidence results, and the shared editor AI tab", () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
+    const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
+    if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
+    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Public URL" }));
+    fireEvent.click(view.getByRole("button", { name: "Start tool" }));
+    expect(view.getByRole("heading", { name: /Set up Storefront scan/i })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: /Run Storefront scan/i }));
+    fireEvent.click(view.getByRole("button", { name: "See result" }));
+    expect(view.getByRole("heading", { name: /Storefront scan found a clear next step/i })).toBeTruthy();
+    expect(view.getAllByRole("button", { name: /Download report/i }).length).toBeGreaterThan(0);
+    fireEvent.click(view.getByRole("button", { name: /Improve in the editor/i }));
+    expect(view.getByText("Product page · Draft 4")).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Ask AI" }));
+    expect(view.getByText(/Context attached/i)).toBeTruthy();
   });
 
   it("opens an interactive Account management destination from More", () => {
@@ -130,7 +148,7 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("heading", { name: "Analyzing store…" })).toBeTruthy();
     expect(view.getByText(/Results will open automatically/i)).toBeTruthy();
     await act(async () => { vi.advanceTimersByTime(1100); });
-    expect(view.getByRole("heading", { name: "Results workspace" })).toBeTruthy();
+    expect(view.getByRole("heading", { name: /Storefront scan found a clear next step/i })).toBeTruthy();
     expect(toastMocks.success).toHaveBeenCalledWith("URL analysis is ready", expect.any(Object));
   });
 });
