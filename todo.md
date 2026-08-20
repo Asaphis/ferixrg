@@ -378,3 +378,6 @@
 - [x] Create the separate `web/admin-panel` application boundary without mixing it into the customer-facing frontend.
 - [x] Move API, database, and shared backend code into named `backend` directories and update every configuration path, alias, script, import, and test.
 - [x] Remove retired root application folders only after confirming the migrated workspace runs, tests, types, and builds successfully.
+
+## GitHub delivery
+- [ ] Create a private FerixRG repository under the connected GitHub account, then commit and push the complete verified workspace.
