@@ -335,3 +335,10 @@
 - [x] Implement one shared draft editor where live manual controls, AI conversation/proposal comparison, history, validation, and device preview work together.
 - [x] Implement version/validation review and capability-aware publishing, store-draft, design-package, and developer-handoff completion states across desktop and mobile.
 - [x] Add regression tests and verify both responsive flows without changing the approved public landing page or dashboard.
+
+## More subsection UI alignment and safe cleanup
+
+- [x] Audit the Platform, Resources, and Support destinations opened from More against the approved FerixRG desktop and mobile workspace system.
+- [x] Restyle those More destinations to match the active dark workspace shell, top bar, cards, typography, actions, and mobile layout.
+- [x] Inventory all project files and remove only abandoned, verified-unreferenced files while preserving active routes, imports, tests, and static assets.
+- [x] Run tests, type checks, and desktop/mobile visual verification after cleanup, then save a restorable checkpoint.

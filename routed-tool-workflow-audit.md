@@ -125,3 +125,9 @@ The Responsive redesign result now identifies a public-URL run as **Explorer · 
 Store change publisher now identifies a permitted input as **Connected-store user · Connected store context**. Desktop and mobile both route its result into **Release Review** and limit the visible actions to the supported release review, report download, and project saving path. This preserves the explicit review boundary before any simulated draft or publish completion action.
 
 Theme patch proposal now identifies its source as **Developer / agency · Technical input attached**. Desktop and mobile expose the appropriate technical path: review the theme patch, download the evidence report, or download the developer handoff. No visual canvas or live publishing action is presented for this technical result.
+
+## More subsection alignment verification
+
+Platform, Resources, and Support no longer use the legacy mobile-flow presentation when opened from More. Each destination now renders in the active FerixRG dark workspace shell with the current sidebar and top bar, a clear workspace heading, a concise contextual summary, numbered action rows, current-workspace status, and local preview notice handling. Their content is deliberately distinct, while their hierarchy and interaction treatment match the rest of the workspace.
+
+At mobile width, the same screens reflow into focused stacked panels: heading and primary action first, contextual summary and back action second, numbered action list third, then current-workspace status. Platform retains its connected-store boundary, Resources retains guidance links, and Support keeps the contextual sign-out option and unsaved-work confirmation route.

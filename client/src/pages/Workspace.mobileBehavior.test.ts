@@ -124,7 +124,7 @@ describe("Workspace mobile behaviour", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
     fireEvent.click(view.getByRole("button", { name: /Support/i }));
-    fireEvent.click(view.getByRole("button", { name: "Sign out" }));
+    fireEvent.click(view.getByRole("button", { name: /Sign out/i }));
     expect(view.getByRole("dialog").textContent).toMatch(/You have unsaved changes/i);
     expect(view.getByRole("button", { name: "Save & Sign Out" })).toBeTruthy();
     expect(view.getByRole("button", { name: "Sign Out Without Saving" })).toBeTruthy();
