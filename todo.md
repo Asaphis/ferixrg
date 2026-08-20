@@ -478,3 +478,9 @@
 ## Local account authentication foundation
 - [x] Add secure local account registration, password hashing, sign-in, and sign-out session routes without changing the approved authentication UI.
 - [x] Add account-status and credential tests before connecting the registration and sign-in forms to the real backend.
+
+## Complete frontend-to-backend blueprint
+- [x] Inventory every approved frontend route, component, static record, simulation, user state, action, and mobile behavior across FerixRG.
+- [x] Map every frontend feature to its required backend data, authentication, roles, permissions, services, integrations, audit records, and failure states.
+- [x] Create one complete backend implementation sequence for accounts, workspaces, teams, billing, stores, tools, editor drafts, reports, release, settings, support, and platform operations.
+- [ ] Build all remaining backend work from the approved complete frontend-to-backend blueprint without changing the approved frontend design.
