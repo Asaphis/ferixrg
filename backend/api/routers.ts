@@ -22,7 +22,7 @@ const draftInput = editorTarget.extend({
 });
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
+  // If a real-time transport is needed, register it in backend/api/_core/index.ts. API routes must start with '/api/' so the gateway can route them correctly.
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

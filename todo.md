@@ -367,3 +367,14 @@
 - [x] Separate user-facing analysis, generation, and redesign tools from internal workspaces, validation features, and release actions while preserving advanced direct access where appropriate.
 - [x] Define accurate simulated inputs, analysis focus, evidence, result metrics, actions, workspace routing, export, and permission behavior for every listed tool.
 - [x] Rebuild the desktop and mobile Tools Library and selected-tool simulator around the corrected taxonomy, then verify full tool coverage with regression tests and visual review.
+
+## Fresh cleanup audit before organization
+- [x] Inventory active source, styles, routes, tests, assets, generated artifacts, temporary files, and project documentation after the latest exact-tool update.
+- [x] Classify every cleanup candidate conservatively and remove nothing that is active, imported, routed, tested, or a retained project specification.
+- [x] Confirm the cleanup status and preserve a safe checkpoint before applying the user’s organization requirements.
+
+## Production workspace organization
+- [x] Move the active customer-facing application into `web/frontend` using only production-quality directory and file names.
+- [x] Create the separate `web/admin-panel` application boundary without mixing it into the customer-facing frontend.
+- [x] Move API, database, and shared backend code into named `backend` directories and update every configuration path, alias, script, import, and test.
+- [x] Remove retired root application folders only after confirming the migrated workspace runs, tests, types, and builds successfully.
