@@ -494,7 +494,7 @@
 ## Complete frontend-derived backend implementation
 - [ ] Finish remaining account security controls: two-step-verification configuration, security-alert persistence, and session-list/revocation UI wiring. Verification resend, password recovery/reset, email change, durable session records, backend revocation, and honest delivery-status handling are implemented.
 - [ ] Replace remaining simulated workspace summary records with scoped live backend contracts. Team membership, invitations, role changes, removals, acceptance, and dashboard workspace activity now use live scoped backend contracts.
-- [ ] Replace all simulated store records, URL analysis input, source uploads, store connection states, store workspaces, and platform-permission states with live backend contracts.
+- [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
 - [ ] Replace all simulated editor projects, draft persistence, version history, comparisons, restores, assets, manual controls, and unsaved-work handling with live backend contracts.
 - [ ] Implement real source setup, request validation, queued execution, run state, evidence, issues, metrics, reports, export packages, and developer handoff for every exact tool in the 57-tool catalogue.
 - [ ] Replace the static dashboard, analysis, issues, reports, release, and usage records with workspace- and store-scoped backend read models.
@@ -509,3 +509,10 @@
 - [x] Replace Team member lists, invitations, role changes, invitation-role changes, member removal, cancellation, and pending status with workspace-scoped backend queries and mutations.
 - [x] Add secure invitation acceptance, owner protection, role-gated mutation rules, and workspace activity audit records.
 - [x] Replace the approved dashboard’s Recent Activity panel with live workspace audit events while preserving the approved dashboard design.
+
+## Blueprint Step 3 — store registry and sources
+- [x] Add workspace-scoped store registry, store lookup, public URL source snapshots, source listing, and activity audit contracts.
+- [x] Connect the approved URL analysis setup to save a real public storefront source before retaining the approved progress and results route.
+- [x] Add protected screenshot, theme-export, and manual-upload source storage through server-side S3 helpers; persist only file metadata keys in the database.
+- [x] Add pending store connection lifecycle records and safe connection/status read contracts without storing provider credentials in frontend code.
+- [ ] Add individual Shopify, WooCommerce, Magento, and custom provider authorization adapters after their server-side deployment configuration is available.

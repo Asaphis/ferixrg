@@ -10,6 +10,8 @@ import {
   InsertEditorDraft,
   InsertUser,
   releaseActions,
+  storeConnections,
+  storeSnapshots,
   stores,
   subscriptions,
   toolRuns,
@@ -369,6 +371,54 @@ export async function createWorkspaceStore(input: {
   });
   const rows = await db.select().from(stores).where(eq(stores.id, storeId)).limit(1);
   return rows[0];
+}
+
+export async function getWorkspaceStore(workspaceId: number, storeId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(stores).where(and(eq(stores.id, storeId), eq(stores.workspaceId, workspaceId))).limit(1);
+  return rows[0];
+}
+
+export async function createStoreSnapshot(input: { storeId: number; sourceType: "url_scan" | "store_api" | "screenshot" | "theme_export" | "manual_upload"; sourceUrl?: string; storageKey?: string; summary?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const created = await db.insert(storeSnapshots).values(input);
+  const rows = await db.select().from(storeSnapshots).where(eq(storeSnapshots.id, Number(created[0].insertId))).limit(1);
+  return rows[0];
+}
+
+export async function listStoreSnapshots(storeId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(storeSnapshots).where(eq(storeSnapshots.storeId, storeId)).orderBy(desc(storeSnapshots.capturedAt));
+}
+
+export async function beginStoreConnection(input: { storeId: number; provider: "shopify" | "woocommerce" | "magento" | "custom"; scopes?: string[] }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(storeConnections).values({ storeId: input.storeId, provider: input.provider, scopes: input.scopes ?? [], status: "pending" }).onDuplicateKeyUpdate({ set: { scopes: input.scopes ?? [], status: "pending", lastError: null, lastCheckedAt: new Date() } });
+  const rows = await db.select().from(storeConnections).where(and(eq(storeConnections.storeId, input.storeId), eq(storeConnections.provider, input.provider))).limit(1);
+  return rows[0];
+}
+
+export async function listStoreConnections(storeId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(storeConnections).where(eq(storeConnections.storeId, storeId)).orderBy(desc(storeConnections.updatedAt));
+}
+
+export async function setStoreConnectionStatus(input: { storeId: number; provider: "shopify" | "woocommerce" | "magento" | "custom"; status: "pending" | "connected" | "expired" | "revoked" | "failed"; lastError?: string | null }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(storeConnections).set({ status: input.status, lastError: input.lastError ?? null, lastCheckedAt: new Date() }).where(and(eq(storeConnections.storeId, input.storeId), eq(storeConnections.provider, input.provider)));
+  await db.update(stores).set({ status: input.status === "connected" ? "connected" : input.status === "failed" || input.status === "expired" ? "attention" : "draft" }).where(eq(stores.id, input.storeId));
+}
+
+export async function recordWorkspaceActivity(input: { workspaceId: number; actorUserId?: number; eventType: string; entityType: string; entityId: string; details?: Record<string, unknown> }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(activityEvents).values(input);
 }
 
 export async function listWorkspaceActivity(workspaceId: number, limit = 50) {

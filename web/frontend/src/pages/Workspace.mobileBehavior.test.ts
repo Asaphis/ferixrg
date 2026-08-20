@@ -18,6 +18,7 @@ const sessionMocks = vi.hoisted(() => ({
   ],
   invitations: [{ id: 3, workspaceId: 1, email: "jules@example.com", role: "viewer", status: "pending" }],
   activity: [{ id: 8, eventType: "workspace.created" }],
+  stores: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91, url: "https://atelier.example", updatedAt: new Date() }],
   updateProfile: vi.fn().mockResolvedValue({ id: 1, name: "Maya Turner" }),
   updatePreferences: vi.fn().mockResolvedValue({ id: 1, userId: 1, defaultPreview: "mobile" }),
   requestEmailChange: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
@@ -29,6 +30,7 @@ const sessionMocks = vi.hoisted(() => ({
   updateInvitationRole: vi.fn().mockResolvedValue({ success: true }),
   removeMember: vi.fn().mockResolvedValue({ success: true }),
   cancelInvitation: vi.fn().mockResolvedValue({ success: true }),
+  createPublicUrlSource: vi.fn().mockResolvedValue({ store: { id: 11, name: "yourstore.com" }, snapshot: { id: 12, sourceType: "url_scan" } }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/lib/trpc", () => ({
@@ -47,6 +49,10 @@ vi.mock("@/lib/trpc", () => ({
       updateInvitationRole: { useMutation: () => ({ mutateAsync: sessionMocks.updateInvitationRole }) },
       removeMember: { useMutation: () => ({ mutateAsync: sessionMocks.removeMember }) },
       cancelInvitation: { useMutation: () => ({ mutateAsync: sessionMocks.cancelInvitation }) },
+      stores: {
+        list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
+        createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
+      },
     },
     account: {
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
@@ -59,7 +65,7 @@ vi.mock("@/lib/trpc", () => ({
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } } } }),
   },
 }));
 
@@ -288,6 +294,8 @@ describe("Workspace mobile behaviour", () => {
     expect(toastMocks.error).toHaveBeenCalledWith("Enter a valid storefront URL", expect.any(Object));
     fireEvent.change(view.getByRole("textbox", { name: "Storefront URL" }), { target: { value: "https://atelier-forma.example" } });
     fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(sessionMocks.createPublicUrlSource).toHaveBeenCalledWith({ workspaceId: 1, name: "atelier-forma.example", url: "https://atelier-forma.example/" });
     expect(view.getByRole("heading", { name: "Analyzing store…" })).toBeTruthy();
     expect(view.getByText(/Results will open automatically/i)).toBeTruthy();
     await act(async () => { vi.advanceTimersByTime(1100); });

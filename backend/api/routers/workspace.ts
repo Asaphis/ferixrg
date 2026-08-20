@@ -4,10 +4,13 @@ import { z } from "zod";
 import {
   acceptWorkspaceInvitation,
   cancelWorkspaceInvitation,
+  beginStoreConnection,
+  createStoreSnapshot,
   createWorkspaceInvitation,
   createWorkspaceStore,
   ensurePersonalWorkspace,
   getWorkspaceSubscription,
+  getWorkspaceStore,
   listUserWorkspaces,
   listWorkspaceActivity,
   listWorkspaceDrafts,
@@ -15,14 +18,18 @@ import {
   listWorkspaceMembers,
   listWorkspaceReleases,
   listWorkspaceStores,
+  listStoreConnections,
+  listStoreSnapshots,
   listWorkspaceToolRuns,
   listWorkspaceUsage,
   queueWorkspaceToolRun,
+  recordWorkspaceActivity,
   removeWorkspaceMember,
   updateWorkspaceInvitationRole,
   updateWorkspaceMemberRole,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
+import { storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
@@ -135,6 +142,70 @@ export const workspaceRouter = router({
           return toForbidden(error);
         }
       }),
+    get: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+        return getWorkspaceStore(input.workspaceId, input.storeId);
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
+    snapshots: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+        if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
+        return listStoreSnapshots(input.storeId);
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
+    connections: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+        if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
+        return listStoreConnections(input.storeId);
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
+    createPublicUrlSource: protectedProcedure.input(workspaceInput.extend({ name: z.string().trim().min(1).max(160), url: z.string().url().max(2048) })).mutation(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+        const store = await createWorkspaceStore({ workspaceId: input.workspaceId, name: input.name, platform: "public_url", url: input.url, createdByUserId: ctx.user.id });
+        if (!store) throw new Error("Unable to create the public URL source");
+        const snapshot = await createStoreSnapshot({ storeId: store.id, sourceType: "url_scan", sourceUrl: input.url, summary: "Public URL source recorded; analysis is queued separately." });
+        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.public_url_source_created", entityType: "store_snapshot", entityId: String(snapshot?.id ?? store.id), details: { storeId: store.id, url: input.url } });
+        return { store, snapshot };
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
+    uploadSource: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive(), fileName: z.string().trim().min(1).max(180), mimeType: z.string().trim().min(3).max(120), contentBase64: z.string().min(4).max(11_000_000), sourceType: z.enum(["screenshot", "theme_export", "manual_upload"]) })).mutation(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+        if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
+        const bytes = Buffer.from(input.contentBase64, "base64");
+        if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new TRPCError({ code: "BAD_REQUEST", message: "Upload a valid file up to 8 MB." });
+        const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+        const upload = await storagePut(`workspace-${input.workspaceId}/store-${input.storeId}/sources/${safeName}`, bytes, input.mimeType);
+        const snapshot = await createStoreSnapshot({ storeId: input.storeId, sourceType: input.sourceType, storageKey: upload.key, summary: `Uploaded source: ${safeName}` });
+        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.source_uploaded", entityType: "store_snapshot", entityId: String(snapshot?.id ?? input.storeId), details: { storeId: input.storeId, sourceType: input.sourceType, fileName: safeName } });
+        return { snapshot, storage: { key: upload.key, url: upload.url } };
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
+    beginConnection: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive(), provider: z.enum(["shopify", "woocommerce", "magento", "custom"]), scopes: z.array(z.string().min(1).max(160)).max(32).optional() })).mutation(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+        if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
+        const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes });
+        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider } });
+        return connection;
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
   }),
   activity: protectedProcedure.input(workspaceInput.extend({ limit: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
     try {

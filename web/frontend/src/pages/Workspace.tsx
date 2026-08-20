@@ -57,6 +57,7 @@ export default function Workspace() {
   const workspaceMembersQuery = trpc.workspace.members.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceInvitationsQuery = trpc.workspace.invitations.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceActivityQuery = trpc.workspace.activity.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 12 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceStoresQuery = trpc.workspace.stores.list.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const authUtils = trpc.useUtils();
   const logoutMutation = trpc.auth.logout.useMutation();
   const updateProfileMutation = trpc.account.updateProfile.useMutation();
@@ -70,6 +71,7 @@ export default function Workspace() {
   const updateWorkspaceInvitationRoleMutation = trpc.workspace.updateInvitationRole.useMutation();
   const removeWorkspaceMemberMutation = trpc.workspace.removeMember.useMutation();
   const cancelWorkspaceInvitationMutation = trpc.workspace.cancelInvitation.useMutation();
+  const createPublicUrlSourceMutation = trpc.workspace.stores.createPublicUrlSource.useMutation();
   useEffect(() => {
     if (authQuery.isLoading || authQuery.data) return;
     const returnTo = `${window.location.pathname}${window.location.search}`;
@@ -137,9 +139,10 @@ export default function Workspace() {
     setConnectionFeedback("error");
     toast.error("Connection couldn’t be completed", { description: "No store data or publishing permissions were changed. Check access and try again." });
   };
-  const beginUrlAnalysis = () => {
+  const beginUrlAnalysis = async () => {
+    let parsed: URL;
     try {
-      const parsed = new URL(storeUrl);
+      parsed = new URL(storeUrl);
       if (!/^https?:$/.test(parsed.protocol)) throw new Error("Unsupported URL protocol");
     } catch {
       setUrlAnalysisFeedback("error");
@@ -147,7 +150,18 @@ export default function Workspace() {
       return;
     }
     setUrlAnalysisFeedback("idle");
-    setStoreFlow("url-progress");
+    try {
+      if (!activeWorkspaceId) throw new Error("Workspace is not ready");
+      const name = parsed.hostname.replace(/^www\./, "") || "Public storefront";
+      await createPublicUrlSourceMutation.mutateAsync({ workspaceId: activeWorkspaceId, name, url: parsed.toString() });
+      await authUtils.workspace.stores.list.invalidate();
+      await authUtils.workspace.activity.invalidate();
+      setStoreFlow("url-progress");
+    } catch {
+      setUrlAnalysisFeedback("error");
+      toast.error("We couldn’t save that storefront source", { description: "No analysis was started. Please try again." });
+      return;
+    }
     window.setTimeout(() => {
       setToolFlow("results");
       changeView("Tools Library");
@@ -280,7 +294,10 @@ export default function Workspace() {
 
   function StoresFlow() {
     const navigateStores = (next: typeof storeFlow) => { setStoreFlow(next); window.scrollTo({ top: 0, behavior: "smooth" }); };
-    const primaryStore = connectedStores[0];
+    const registryStores = workspaceStoresQuery.data?.map(store => ({ id: String(store.id), name: store.name, platform: store.platform === "public_url" ? "Public URL" : `${store.platform[0].toUpperCase()}${store.platform.slice(1)}`, connection: store.status === "connected" ? "Connected" : store.status === "attention" ? "Needs attention" : store.status === "disconnected" ? "Disconnected" : "Source saved", health: store.healthScore ?? 0, initials: store.name.slice(0, 2).toUpperCase(), url: store.url, lastActivity: store.updatedAt ? new Date(store.updatedAt).toLocaleDateString() : "Not analyzed", openIssues: 0, drafts: 0 }));
+    const visibleStores = registryStores ?? connectedStores;
+    const primaryStore = visibleStores[0];
+    if (!primaryStore && storeFlow === "list") return <section className="concise-board concise-stores-board"><header className="concise-board-header"><div><span className="approved-eyebrow">Store registry</span><h1>Your Stores</h1><p>Add a public storefront URL to begin analysis, or start a supported connection when its server-side authorization is configured.</p></div><button className="approved-primary" onClick={() => navigateStores("add")}><Plus /> Add Store</button></header><section className="approved-panel concise-next-card"><span className="approved-eyebrow">No stores yet</span><h2>Start with the storefront you want to understand.</h2><p>A public URL stores visible storefront evidence. A supported connection can later add only the permissions you approve.</p><button className="approved-primary" onClick={() => navigateStores("add")}><Plus /> Add Store</button></section></section>;
     if (storeFlow === "add") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("list")} title="Add a Store" copy="Connect your storefront to unlock the tools and capabilities available for your platform." /><div className="mobile-search-field"><Search /> Search platforms...</div><span className="flow-section-label">Popular platforms</span><div className="platform-choice-grid">{["Shopify", "WooCommerce", "BigCommerce", "Shopware", "Wix", "Squarespace"].map(platform => <button className={platform === "Shopify" ? "selected" : ""} onClick={() => navigateStores("connect")} key={platform}><b>{platform === "Shopify" ? "S" : platform === "WooCommerce" ? "woo" : platform.slice(0,1)}</b><span>{platform}<small>{platform === "Shopify" ? "Full integration" : "Supported connection"}</small></span><ChevronRight /></button>)}</div><span className="flow-section-label">More platforms</span><div className="flow-chip-grid">{["Adobe Commerce", "PrestaShop", "OpenCart", "Ecwid", "Saleor", "commercetools", "Medusa", "Vendure"].map(item => <button key={item}>{item}</button>)}</div><button className="flow-url-link" onClick={() => navigateStores("url")}><Link2 /> I don’t see my platform — analyze by URL instead</button></section>;
     if (storeFlow === "connect") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("add")} title="Connect your Shopify store" copy="Connect your store securely to use the capabilities available for this platform." /><div className="connection-identity"><span>S</span><div><b>Shopify</b><small>Full store integration</small></div></div><section className="flow-card"><span className="flow-section-label">Available after connection</span>{["Store information", "Products and pages", "Themes and design resources", "Preview changes", "Publishing access"].map(item => <div className="flow-access-row" key={item}><span>{item}</span><b>✓</b></div>)}</section>{connectionFeedback === "error" && <section className="flow-inline-error" role="alert"><b>We couldn’t complete the connection.</b><p>No store data or publishing permission was changed. Check that you have store access, then try again.</p></section>}<button className={`flow-primary ${connectionFeedback === "loading" ? "is-loading" : ""}`} disabled={connectionFeedback === "loading"} onClick={beginStoreConnection}>{connectionFeedback === "loading" ? <><RefreshCw className="animate-spin" /> Connecting securely…</> : <><Store /> Connect Store</>}</button>{connectionFeedback === "loading" && <p className="flow-loading-copy" aria-live="polite">Verifying store access and supported capabilities…</p>}{connectionFeedback === "error" ? <button className="flow-secondary" onClick={beginStoreConnection}><RefreshCw /> Retry connection</button> : <button className="flow-url-link" onClick={showConnectionError}>Having trouble connecting?</button>}<button className="flow-secondary" onClick={() => navigateStores("url")}><Link2 /> Analyze by URL instead</button></section>;
     if (storeFlow === "url") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("add")} title="Analyze a Store URL" copy="Enter a publicly accessible storefront URL to analyze the visible experience without connecting your store." /><label className="flow-input-label">Storefront URL<div className="flow-input"><Link2 /><input value={storeUrl} onChange={event => { setStoreUrl(event.target.value); if (urlAnalysisFeedback === "error") setUrlAnalysisFeedback("idle"); }} aria-invalid={urlAnalysisFeedback === "error"} /></div></label>{urlAnalysisFeedback === "error" && <section className="flow-inline-error" role="alert"><b>That URL can’t be analyzed yet.</b><p>Enter a public storefront URL starting with http:// or https://, then try again.</p></section>}<section className="flow-card"><b>URL analysis unlocks</b><p>Visible design, structure, responsiveness, performance, and accessibility analysis.</p><div className="flow-access-row"><span>Storefront analysis</span><b>✓</b></div><div className="flow-access-row"><span>Publishing or editing</span><em>Connect a supported store</em></div></section><button className="flow-primary" onClick={beginUrlAnalysis}><ScanLine /> Analyze URL</button></section>;
