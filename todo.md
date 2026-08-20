@@ -254,11 +254,11 @@
 
 ## Tool behavior and access architecture
 
-- [ ] Define casual public-analysis, signed-in project, connected-store, and developer-handoff user modes with clear capability boundaries.
-- [ ] Map each FerixRG tool to eligible inputs, result type, persistence, permitted next actions, and connection-dependent capabilities.
-- [ ] Define the different result experiences for one-off URL/screenshot findings, saved projects, connected stores, AI correction, manual editing, and export/developer handoff.
-- [ ] Present the complete tool behavior matrix and routing grammar for approval before changing the implemented product flows.
-- [ ] Implement the approved tool behavior system with tests and responsive verification.
+- [x] Define casual public-analysis, signed-in project, connected-store, and developer-handoff user modes with clear capability boundaries.
+- [x] Map each FerixRG tool to eligible inputs, result type, persistence, permitted next actions, and connection-dependent capabilities.
+- [x] Define the different result experiences for one-off URL/screenshot findings, saved projects, connected stores, AI correction, manual editing, and export/developer handoff.
+- [x] Present the complete tool behavior matrix and routing grammar for approval before changing the implemented product flows.
+- [x] Implement the approved tool behavior system with tests and responsive verification.
 
 ## Tool-result interface audit and approval deck
 

@@ -1,5 +1,6 @@
-import type { ToolDefinition } from "@/lib/toolCatalog";
+import type { ToolDefinition, ToolSource } from "@/lib/toolCatalog";
 import { getToolRoute, type ToolRoute } from "@/lib/toolRouting";
+import { getRunCapability } from "@/lib/toolCapabilities";
 import {
   ArrowLeft,
   ArrowRight,
@@ -59,13 +60,15 @@ export function ApprovedToolWorkflow({
   tool,
   onBack,
   startAt = "setup",
+  startSource,
 }: {
   tool: ToolDefinition;
   onBack: () => void;
   startAt?: "setup" | "results" | "editor" | "finish";
+  startSource?: string;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
-  const [source, setSource] = useState(tool.sources[0] ?? "Public URL");
+  const [source, setSource] = useState(tool.sources.includes(startSource as ToolSource) ? startSource as ToolSource : tool.sources[0] ?? "Public URL");
   const [url, setUrl] = useState("https://atelierforma.com");
   const [reportReady, setReportReady] = useState(false);
   const [selectedElement, setSelectedElement] = useState("Buy button");
@@ -85,12 +88,11 @@ export function ApprovedToolWorkflow({
 
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
+  const capability = getRunCapability(source, route);
   const routeUsesReview = route.workspace === "Release Review" || route.workspace === "Validation Workspace" || route.workspace === "Version & Comparison";
   const sourceDetail = sourceCopy[source] ?? sourceCopy["Public URL"];
   const stageIndex = stages.findIndex(item => item.id === stage);
-  const scope = isConnected
-    ? "Connected store context is being used. Release actions will appear only when the granted permissions support them."
-    : "Visible storefront evidence only. No private theme, product, checkout, or publishing access has been used.";
+  const scope = capability.scope;
   const statusSummary = useMemo(() => {
     if (source === "Screenshots") return "Your screenshot evidence is ready for review.";
     if (source === "Saved draft") return "Your saved draft is ready to continue.";
@@ -226,8 +228,8 @@ export function ApprovedToolWorkflow({
           <div className="tool-workflow-context-list">
             <div><span>Tool</span><b>{tool.name}</b></div>
             <div><span>Input</span><b>{source}</b></div>
-            <div><span>Project</span><b>{source === "Saved draft" ? "Product page · Draft 3" : "New analysis"}</b></div>
-            <div><span>Live store changes</span><b>None</b></div>
+            <div><span>Access mode</span><b>{capability.mode}</b></div>
+            <div><span>Live store changes</span><b>{capability.actions.includes("publish") ? "Eligible after review" : "Not available"}</b></div>
           </div>
         </article>
       </section>
@@ -246,6 +248,7 @@ export function ApprovedToolWorkflow({
         <article className="tool-workflow-card tool-workflow-score-card">
           <span className="tool-workflow-kicker">Your result</span>
           <h2>Mobile design score</h2>
+          <div className="tool-workflow-capability"><ShieldCheck /><span><b>{capability.mode}</b><small>{capability.label}</small></span></div>
           <div className="tool-workflow-score"><b>76</b><span>out of 100</span></div>
           <p>The main purchase decision needs a clearer position on mobile.</p>
           <div className="tool-workflow-stats"><span><b>3</b> priority issues</span><span><b>92%</b> evidence confidence</span><span><b>+14</b> potential improvement</span></div>
@@ -260,10 +263,11 @@ export function ApprovedToolWorkflow({
           <span className="tool-workflow-kicker">What would you like to do next?</span>
           <h2>Choose what happens to this result.</h2>
           <button className="active" onClick={openCorrectWorkspace}><Layers3 /><span><b>{route.primaryAction}</b><small>{route.primaryDescription}</small></span><ChevronRight /></button>
-          {route.allowsAi && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
-          <button onClick={() => setReportReady(true)}><Download /><span><b>Download report</b><small>Keep the evidence, score, and recommendations.</small></span><ChevronRight /></button>
-          <button onClick={() => setFinishNotice("This analysis is saved to Product page · Draft 4.")}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>
-          {!isConnected && route.supportsStoreRelease && <button onClick={() => setFinishNotice("Connect a supported store later to create a store draft or publish.")}><Store /><span><b>Connect a store later</b><small>Publishing only appears after a supported connection and permission.</small></span><ChevronRight /></button>}
+          {route.allowsAi && capability.actions.includes("ask_ai") && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
+          {capability.actions.includes("export_report") && <button onClick={() => setReportReady(true)}><Download /><span><b>Download report</b><small>Keep the evidence, score, and recommendations.</small></span><ChevronRight /></button>}
+          {capability.actions.includes("save_project") && <button onClick={() => setFinishNotice("This analysis is saved to Product page · Draft 4.")}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>}
+          {capability.actions.includes("developer_handoff") && <button onClick={() => setFinishNotice("Your technical handoff package is ready to download.")}><FileDown /><span><b>Download developer handoff</b><small>Keep acceptance criteria and implementation context together.</small></span><ChevronRight /></button>}
+          {!isConnected && route.supportsStoreRelease && <button onClick={() => setFinishNotice(capability.lockedMessage)}><Store /><span><b>Connect a store later</b><small>{capability.lockedMessage}</small></span><ChevronRight /></button>}
           {finishNotice && <p className="tool-workflow-inline-notice">{finishNotice}</p>}
         </article>
       </section>

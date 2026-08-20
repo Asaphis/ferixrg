@@ -117,3 +117,11 @@ The mobile editor converts that structure into a focused vertical sequence rathe
 Performance evidence now opens the **Optimization Workbench** rather than the visual editor. Its desktop and mobile layouts keep the selected tool, source, outcome, and analysis scope visible alongside a prioritized cause, expected impact, delivery path, AI plan action, handoff review, and export action. This implements the intended boundary: technical performance work remains delivery-oriented and does not suggest that a visual canvas can safely change it.
 
 Responsive redesign now opens **Responsive Studio** in the shared draft workspace. Desktop and mobile both expose responsive-specific controls—breakpoint, element order, visibility, and spacing—beside the same live Mobile preview, selected element, AI entry, history, Design Health, validation, and finish actions. The prior generic editor-control treatment is no longer used for this responsive tool.
+
+## Capability-aware Explorer verification
+
+The Responsive redesign result now identifies a public-URL run as **Explorer · Public analysis**. On desktop and mobile, the visible actions are limited to the correct boundary: enter Responsive Studio, ask AI, download the report, save the project, or connect a store later. The result does not offer live publishing; the connection option explains why private context, store drafts, validation, and publishing remain unavailable until a supported connection exists.
+
+Store change publisher now identifies a permitted input as **Connected-store user · Connected store context**. Desktop and mobile both route its result into **Release Review** and limit the visible actions to the supported release review, report download, and project saving path. This preserves the explicit review boundary before any simulated draft or publish completion action.
+
+Theme patch proposal now identifies its source as **Developer / agency · Technical input attached**. Desktop and mobile expose the appropriate technical path: review the theme patch, download the evidence report, or download the developer handoff. No visual canvas or live publishing action is presented for this technical result.
