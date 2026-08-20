@@ -124,6 +124,27 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("button", { name: /Save preferences/i })).toBeTruthy();
   });
 
+  it("invites teammates, manages pending roles, and safely cancels an invitation", () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(view.getByRole("button", { name: "Team" }));
+    fireEvent.click(view.getAllByRole("button", { name: "Invite member" })[0]);
+    expect(view.getByRole("dialog", { name: /Invite a workspace member/i })).toBeTruthy();
+    fireEvent.change(view.getByRole("textbox", { name: "Email address" }), { target: { value: "taylor@atelierforma.com" } });
+    fireEvent.change(view.getByRole("combobox", { name: "Role" }), { target: { value: "Viewer" } });
+    fireEvent.click(view.getByRole("button", { name: "Send invitation" }));
+    expect(view.getByText("taylor@atelierforma.com")).toBeTruthy();
+    const pendingRole = view.getByRole("combobox", { name: "Role for invitation to taylor@atelierforma.com" });
+    fireEvent.change(pendingRole, { target: { value: "Editor" } });
+    expect(view.getByText(/Taylor is now an Editor/i)).toBeTruthy();
+    const taylorInvitation = view.getByText("taylor@atelierforma.com").closest("article");
+    expect(taylorInvitation).toBeTruthy();
+    fireEvent.click(within(taylorInvitation!).getByRole("button", { name: "Cancel invite" }));
+    expect(view.getByRole("dialog", { name: /Cancel this invitation/i })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Cancel invitation" }));
+    expect(view.queryByText("taylor@atelierforma.com")).toBeNull();
+  });
+
   it("requires a simulated unsaved-work decision before signing out", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));

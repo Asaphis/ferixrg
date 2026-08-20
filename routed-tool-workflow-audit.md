@@ -135,3 +135,7 @@ At mobile width, the same screens reflow into focused stacked panels: heading an
 ## Remaining More destination verification
 
 Team, Billing, Profile, and Preferences now use the same aligned workspace structure on desktop and mobile while presenting their own purpose-specific context. Team shows member and invitation status; Billing exposes the active plan and usage boundary; Profile separates personal identity and security from shared store settings; Preferences clarifies that notification and accessibility defaults are personal. Each retains a focused primary action, clear return path, and responsive stacked layout.
+
+## Interactive Team management verification
+
+The Team destination now provides a dedicated management workspace. Desktop and mobile both show active members, current roles, a role guide, pending invitations, role selectors, invite entry points, and safe remove or cancel actions. The invite dialog validates email addresses, assigns Editor or Viewer access, creates a pending invitation, and supports later role adjustment or cancellation without affecting the Owner.

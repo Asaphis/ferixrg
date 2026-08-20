@@ -348,3 +348,9 @@
 - [x] Rebuild Team, Billing, Profile, and Preferences as focused FerixRG workspace panels instead of legacy mobile-flow lists.
 - [x] Add clear simulated team membership, plan/usage, profile, notification, and preference controls that match the approved desktop and mobile design system.
 - [x] Verify the remaining More destinations, preserve sign-out and account behavior, then save a restorable checkpoint.
+
+## Interactive Team management
+
+- [x] Implement a simulated invite-member flow with member email, role selection, invitation confirmation, and pending-invitation state.
+- [x] Implement member role-management actions and clear safe removal or invitation-cancellation confirmation states.
+- [x] Add Team-management regression tests and verify desktop/mobile interaction before saving a checkpoint.
