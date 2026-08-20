@@ -889,3 +889,25 @@ export async function createWorkspaceDeveloperHandoff(input: { workspaceId: numb
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "developer_handoff.created", entityType: "developer_handoff", entityId: String(rows[0]?.id ?? 0), details: { toolRunId: input.toolRunId, issueId: input.issueId } });
   return rows[0];
 }
+
+export async function getWorkspaceDashboardReadModel(workspaceId: number) {
+  const [workspaceStores, workspaceIssues, workspaceDrafts, workspaceRuns, workspaceReports, workspaceActivity] = await Promise.all([
+    listWorkspaceStores(workspaceId),
+    listWorkspaceIssues(workspaceId),
+    listWorkspaceDrafts(workspaceId),
+    listWorkspaceToolRuns(workspaceId, 8),
+    listWorkspaceReports(workspaceId),
+    listWorkspaceActivity(workspaceId, 12),
+  ]);
+  const measuredHealth = workspaceStores.map(store => store.healthScore).filter((score): score is number => typeof score === "number");
+  const statusCounts = workspaceIssues.reduce<Record<string, number>>((counts, issue) => { counts[issue.status] = (counts[issue.status] ?? 0) + 1; return counts; }, {});
+  return {
+    stores: { total: workspaceStores.length, connected: workspaceStores.filter(store => store.status === "connected").length, attention: workspaceStores.filter(store => store.status === "attention").length, records: workspaceStores },
+    health: { average: measuredHealth.length ? Math.round(measuredHealth.reduce((total, score) => total + score, 0) / measuredHealth.length) : null, measuredStoreCount: measuredHealth.length },
+    issues: { total: workspaceIssues.length, open: statusCounts.open ?? 0, inProgress: statusCounts.in_progress ?? 0, resolved: statusCounts.resolved ?? 0, records: workspaceIssues.slice(0, 8) },
+    drafts: { total: workspaceDrafts.length, active: workspaceDrafts.filter(draft => draft.status === "draft" || draft.status === "review").length, records: workspaceDrafts.slice(0, 8) },
+    runs: { total: workspaceRuns.length, queued: workspaceRuns.filter(run => run.status === "queued").length, running: workspaceRuns.filter(run => run.status === "running").length, completed: workspaceRuns.filter(run => run.status === "completed").length, records: workspaceRuns },
+    reports: { total: workspaceReports.length, records: workspaceReports.slice(0, 8) },
+    activity: workspaceActivity,
+  };
+}

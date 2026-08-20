@@ -48,9 +48,10 @@ vi.mock("../db", () => ({
   listWorkspaceDeveloperHandoffs: vi.fn(),
   createWorkspaceDeveloperHandoff: vi.fn(),
   getWorkspaceAccess: vi.fn(),
+  getWorkspaceDashboardReadModel: vi.fn(),
 }));
 
-import { acceptWorkspaceInvitation, beginStoreConnection, completeWorkspaceToolRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceStore, getWorkspaceToolRun, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, beginStoreConnection, completeWorkspaceToolRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceDashboardReadModel, getWorkspaceStore, getWorkspaceToolRun, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
@@ -81,6 +82,15 @@ describe("workspace router", () => {
     await caller.workspace.bootstrap();
 
     expect(ensurePersonalWorkspace).toHaveBeenCalledWith(expect.objectContaining({ id: 42, name: "Workspace Owner" }));
+  });
+
+  it("returns dashboard aggregates only within an accessible workspace", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "viewer" } } as never);
+    vi.mocked(getWorkspaceDashboardReadModel).mockResolvedValue({ stores: { total: 1, connected: 1 }, issues: { open: 2 }, drafts: { active: 1 } } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.dashboard({ workspaceId: 9 })).resolves.toMatchObject({ stores: { connected: 1 }, issues: { open: 2 } });
+    expect(getWorkspaceDashboardReadModel).toHaveBeenCalledWith(9);
   });
 
   it("allows an editor to create a store in an accessible workspace", async () => {

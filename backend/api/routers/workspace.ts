@@ -18,6 +18,7 @@ import {
   ensurePersonalWorkspace,
   getWorkspaceSubscription,
   getWorkspaceStore,
+  getWorkspaceDashboardReadModel,
   getWorkspaceToolRun,
   listUserWorkspaces,
   listWorkspaceActivity,
@@ -66,6 +67,14 @@ function toForbidden(error: unknown): never {
 export const workspaceRouter = router({
   bootstrap: protectedProcedure.query(async ({ ctx }) => ensurePersonalWorkspace(ctx.user)),
   list: protectedProcedure.query(({ ctx }) => listUserWorkspaces(ctx.user.id)),
+  dashboard: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return getWorkspaceDashboardReadModel(input.workspaceId);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
   members: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
     try {
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId);

@@ -497,7 +497,7 @@
 - [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
 - [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
-- [ ] Replace the static dashboard, analysis, issues, reports, release, and usage records with workspace- and store-scoped backend read models.
+- [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Implement validation records, release plans, explicit approvals, eligible publish actions, rollback records, and honest unsupported-action boundaries.
 - [ ] Implement billing, subscription, plan, usage, and entitlement contracts without embedding or requesting payment-provider credentials.
 - [ ] Implement the remaining Platform, Resources, Support, legal-version, feedback, and system-operation contracts behind every approved More action.
@@ -529,3 +529,10 @@
 - [x] Add durable issue and developer-handoff tables with an additive reviewed migration.
 - [x] Connect the approved tool workflow Run action to real queued and started tool-run records without changing its approved visual structure.
 - [ ] Add per-tool deterministic executors and the Cloudflare AI executor after the remaining aggregate, validation, release, usage, and audit boundaries are completed.
+
+## Blueprint Step 6 — live dashboard and aggregate reads
+- [x] Add a protected workspace dashboard read model derived from real stores, measured health, issues, drafts, tool runs, reports, and activity records.
+- [x] Replace the rendered approved Overview dashboard with live scoped aggregate cards and truthful empty states without changing its approved layout.
+- [x] Replace the rendered Analysis screen with live tool-run state and source-context records.
+- [x] Replace the rendered Issue Center and Reports route with live workspace issue, report, and run records plus honest empty/export states.
+- [ ] Replace remaining release and billing usage panels with live scoped data in their dedicated backend phases.
