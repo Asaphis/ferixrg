@@ -342,3 +342,9 @@
 - [x] Restyle those More destinations to match the active dark workspace shell, top bar, cards, typography, actions, and mobile layout.
 - [x] Inventory all project files and remove only abandoned, verified-unreferenced files while preserving active routes, imports, tests, and static assets.
 - [x] Run tests, type checks, and desktop/mobile visual verification after cleanup, then save a restorable checkpoint.
+
+## Remaining More destination alignment
+
+- [x] Rebuild Team, Billing, Profile, and Preferences as focused FerixRG workspace panels instead of legacy mobile-flow lists.
+- [x] Add clear simulated team membership, plan/usage, profile, notification, and preference controls that match the approved desktop and mobile design system.
+- [x] Verify the remaining More destinations, preserve sign-out and account behavior, then save a restorable checkpoint.

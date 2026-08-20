@@ -131,3 +131,7 @@ Theme patch proposal now identifies its source as **Developer / agency · Techni
 Platform, Resources, and Support no longer use the legacy mobile-flow presentation when opened from More. Each destination now renders in the active FerixRG dark workspace shell with the current sidebar and top bar, a clear workspace heading, a concise contextual summary, numbered action rows, current-workspace status, and local preview notice handling. Their content is deliberately distinct, while their hierarchy and interaction treatment match the rest of the workspace.
 
 At mobile width, the same screens reflow into focused stacked panels: heading and primary action first, contextual summary and back action second, numbered action list third, then current-workspace status. Platform retains its connected-store boundary, Resources retains guidance links, and Support keeps the contextual sign-out option and unsaved-work confirmation route.
+
+## Remaining More destination verification
+
+Team, Billing, Profile, and Preferences now use the same aligned workspace structure on desktop and mobile while presenting their own purpose-specific context. Team shows member and invitation status; Billing exposes the active plan and usage boundary; Profile separates personal identity and security from shared store settings; Preferences clarifies that notification and accessibility defaults are personal. Each retains a focused primary action, clear return path, and responsive stacked layout.

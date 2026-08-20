@@ -116,8 +116,12 @@ describe("Workspace mobile behaviour", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
     fireEvent.click(view.getByRole("button", { name: "Profile" }));
-    expect(view.getByRole("heading", { name: "Account" })).toBeTruthy();
-    expect(view.getByRole("button", { name: "Save preferences" })).toBeTruthy();
+    expect(view.getByRole("heading", { name: "Profile" })).toBeTruthy();
+    expect(view.getByRole("button", { name: /Edit profile/i })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Back to More" }));
+    fireEvent.click(view.getByRole("button", { name: "Preferences" }));
+    expect(view.getByRole("heading", { name: "Preferences" })).toBeTruthy();
+    expect(view.getByRole("button", { name: /Save preferences/i })).toBeTruthy();
   });
 
   it("requires a simulated unsaved-work decision before signing out", () => {
