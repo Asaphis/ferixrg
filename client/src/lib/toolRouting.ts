@@ -1,70 +1,30 @@
-export type ToolWorkspace =
-  | "Evidence Workspace"
-  | "AI Design Copilot"
-  | "Responsive Studio"
-  | "Layout Composer"
-  | "Visual Style Studio"
-  | "Content Studio"
-  | "Optimization Workbench"
-  | "Developer Handoff"
-  | "Version & Comparison"
-  | "Validation Workspace"
-  | "Release Review"
-  | "Measurement Workspace";
+export type ToolWorkspace = "Evidence Workspace" | "AI Design Copilot" | "Responsive Studio" | "Layout Composer" | "Visual Style Studio" | "Content Studio" | "Optimization Workbench" | "Developer Handoff" | "Version & Comparison" | "Validation Workspace" | "Release Review" | "Measurement Workspace";
+export type ToolRoute = { workspace: ToolWorkspace; primaryAction: string; primaryDescription: string; hasVisualEditor: boolean; allowsAi: boolean; supportsStoreRelease: boolean };
 
-export type ToolRoute = {
-  workspace: ToolWorkspace;
-  primaryAction: string;
-  primaryDescription: string;
-  hasVisualEditor: boolean;
-  allowsAi: boolean;
-  supportsStoreRelease: boolean;
-};
+const visual = (workspace: ToolWorkspace, primaryAction: string, primaryDescription: string): ToolRoute => ({ workspace, primaryAction, primaryDescription, hasVisualEditor: true, allowsAi: true, supportsStoreRelease: false });
+const specialist = (workspace: ToolWorkspace, primaryAction: string, primaryDescription: string, allowsAi = true, supportsStoreRelease = false): ToolRoute => ({ workspace, primaryAction, primaryDescription, hasVisualEditor: false, allowsAi, supportsStoreRelease });
 
-const visualRoute = (workspace: ToolWorkspace, primaryAction: string, primaryDescription: string): ToolRoute => ({
-  workspace,
-  primaryAction,
-  primaryDescription,
-  hasVisualEditor: true,
-  allowsAi: true,
-  supportsStoreRelease: true,
-});
-
-const specialistRoute = (workspace: ToolWorkspace, primaryAction: string, primaryDescription: string, allowsAi = true): ToolRoute => ({
-  workspace,
-  primaryAction,
-  primaryDescription,
-  hasVisualEditor: false,
-  allowsAi,
-  supportsStoreRelease: workspace === "Release Review" || workspace === "Validation Workspace",
-});
-
-const routes: Record<string, ToolRoute> = {
-  "storefront-scan": specialistRoute("Evidence Workspace", "Explore evidence", "Review the page inventory and evidence before choosing a focused follow-up."),
-  "screenshot-reviewer": visualRoute("AI Design Copilot", "Create a visual proposal", "Use AI and reference images to turn the evidence board into a proposal."),
-  "mobile-journey": visualRoute("Responsive Studio", "Open Responsive Studio", "Improve the mobile journey with responsive controls and AI guidance."),
-  "page-inventory": specialistRoute("Evidence Workspace", "Explore page map", "Review the scoped page map and start a focused analysis where needed."),
-  "search-metadata": visualRoute("Content Studio", "Open Content Studio", "Edit the resulting content and search proposal with AI guidance."),
-  "accessibility-surface": specialistRoute("Developer Handoff", "Prepare accessibility plan", "Turn visible accessibility evidence into a prioritized remediation handoff."),
-  "hierarchy-audit": visualRoute("Layout Composer", "Open Layout Composer", "Reorder hierarchy and CTA placement in the shared draft."),
-  "checkout-friction": specialistRoute("Developer Handoff", "Prepare purchase-path plan", "Create an implementation plan for purchase-path issues that cannot be safely edited here."),
-  "performance-evidence": specialistRoute("Optimization Workbench", "Open Optimization Workbench", "Review causes, estimated impact, and a developer-ready performance plan."),
-  "trust-policy": visualRoute("Content Studio", "Open Content Studio", "Improve reassurance content and trust placement in the shared draft."),
-  "analytics-map": specialistRoute("Measurement Workspace", "Open measurement plan", "Prepare the events, metrics, and handoff needed to verify the improvement."),
-  "responsive-redesign": visualRoute("Responsive Studio", "Improve in Responsive Studio", "Use live responsive controls and AI in the same draft."),
-  "product-composer": visualRoute("Layout Composer", "Open Layout Composer", "Compose product story, CTA, and trust context in the same draft."),
-  "visual-editor": visualRoute("Visual Style Studio", "Open Visual Style Studio", "Adjust style and compare versions in the same draft."),
-  "copy-clarity": visualRoute("Content Studio", "Open Content Studio", "Edit copy directions with contextual AI assistance."),
-  "component-spec": specialistRoute("Developer Handoff", "Prepare component handoff", "Turn the selected design decision into an engineering-ready brief.", false),
-  "theme-patch": specialistRoute("Developer Handoff", "Review theme patch", "Review technical patch guidance before a supported release.", false),
-  "variant-compare": specialistRoute("Version & Comparison", "Open comparison", "Compare the two variants, review evidence movement, and select a direction."),
-  "visual-regression": specialistRoute("Validation Workspace", "Open validation workspace", "Review the change report and turn meaningful differences into tracked issues."),
-  "publish-readiness": specialistRoute("Release Review", "Open release review", "Review the publish-readiness checklist and capability boundary."),
-  "theme-sync": specialistRoute("Release Review", "Open release review", "Review the staged theme release plan before any supported deployment.", false),
-  "developer-handoff": specialistRoute("Developer Handoff", "Open developer handoff", "Package issue context, acceptance criteria, and selected recommendations.", false),
-  "store-publisher": specialistRoute("Release Review", "Open release review", "Review the controlled store update and confirm a supported release.", false),
-};
+const layoutTools = new Set(["layout-analyzer", "visual-hierarchy-analyzer", "conversion-analyzer", "navigation-analyzer", "collection-analyzer", "cart-analyzer", "product-page-analyzer", "layout-composer"]);
+const styleTools = new Set(["visual-design-analyzer", "typography-analyzer", "color-contrast-analyzer", "product-presentation-analyzer", "screenshot-analyzer", "design-reference-analyzer", "visual-style-studio"]);
+const contentTools = new Set(["cta-analyzer", "trust-credibility-analyzer", "product-content-analyzer", "content-quality-analyzer", "ai-content-improver", "product-description-generator", "cta-generator", "seo-content-generator", "seo-analyzer", "meta-generator", "heading-structure-analyzer", "accessibility-fix-assistant", "content-editor"]);
+const responsiveTools = new Set(["responsive-analyzer", "mobile-ux-analyzer", "breakpoint-analyzer", "responsive-studio"]);
+const optimizationTools = new Set(["performance-analyzer", "image-optimization-analyzer", "asset-analyzer"]);
+const developerTools = new Set(["developer-handoff", "technical-analyzer", "theme-code-analyzer", "accessibility-analyzer", "image-seo-analyzer", "checkout-ux-analyzer"]);
+const validationTools = new Set(["visual-regression-analyzer", "responsive-regression-tester", "accessibility-regression-tester", "seo-regression-tester"]);
 
 export function getToolRoute(toolId: string): ToolRoute {
-  return routes[toolId] ?? specialistRoute("Evidence Workspace", "Explore evidence", "Review the result and choose an appropriate follow-up.");
+  if (toolId === "ai-design-copilot" || toolId === "ai-store-redesign") return visual("AI Design Copilot", "Create a design proposal", "Use the current evidence, draft, and references to create a reviewable proposal.");
+  if (responsiveTools.has(toolId)) return visual("Responsive Studio", "Open Responsive Studio", "Review desktop, tablet, and mobile changes in one shared draft.");
+  if (layoutTools.has(toolId)) return visual("Layout Composer", "Open Layout Composer", "Make structural changes in the same live draft with AI available beside manual controls.");
+  if (styleTools.has(toolId)) return visual("Visual Style Studio", "Open Visual Style Studio", "Apply visual system changes in the same live draft with evidence attached.");
+  if (contentTools.has(toolId)) return visual("Content Studio", "Open Content Editor", "Review and improve content in the shared draft with contextual AI assistance.");
+  if (toolId === "component-builder") return visual("Layout Composer", "Open Component Builder", "Create a reusable component with a live preview and developer-ready context.");
+  if (optimizationTools.has(toolId)) return specialist("Optimization Workbench", "Open Optimization Workbench", "Review causes, expected impact, and a developer-ready optimization plan.");
+  if (developerTools.has(toolId)) return specialist("Developer Handoff", "Open Developer Handoff", "Keep evidence, implementation context, expected behavior, and acceptance criteria together.", toolId !== "theme-code-analyzer");
+  if (toolId === "before-after-comparator") return specialist("Version & Comparison", "Open comparison", "Compare versions, score movement, issue movement, and the final direction.");
+  if (validationTools.has(toolId)) return specialist("Validation Workspace", "Open validation workspace", "Review regressions, create issues when needed, and export a focused check report.");
+  if (["publish-readiness-checker", "publish-manager", "rollback"].includes(toolId)) return specialist("Release Review", "Open release review", "Review validation, platform permission, and the controlled release or rollback path.", false, true);
+  if (toolId === "customer-journey-analyzer") return specialist("Evidence Workspace", "Explore journey evidence", "Review friction across the customer journey before choosing a focused fix.");
+  if (["storefront-analyzer", "page-analyzer", "site-structure-analyzer"].includes(toolId)) return specialist("Evidence Workspace", "Explore evidence", "Review the scoped result, evidence, issues, and recommended follow-up.");
+  return specialist("Evidence Workspace", "Explore evidence", "Review the result and choose an appropriate next action.");
 }

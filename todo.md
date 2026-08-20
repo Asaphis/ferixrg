@@ -361,3 +361,9 @@
 - [x] Implement a consistent nested detail/action pattern so each listed More item opens a specific simulated panel, form, confirmation, or contextual destination.
 - [x] Complete the Billing & Usage, Profile, Preferences, Platform, Resources, and Support subflows, including every currently listed action.
 - [x] Add complete regression coverage and verify all nested More interactions on desktop and mobile before saving a checkpoint.
+
+## Exact tool taxonomy and simulator correction
+- [x] Replace generic or incorrect tool names with the exact tool categories, tool names, and sub-tool distinctions extracted from the uploaded complete tools specification.
+- [x] Separate user-facing analysis, generation, and redesign tools from internal workspaces, validation features, and release actions while preserving advanced direct access where appropriate.
+- [x] Define accurate simulated inputs, analysis focus, evidence, result metrics, actions, workspace routing, export, and permission behavior for every listed tool.
+- [x] Rebuild the desktop and mobile Tools Library and selected-tool simulator around the corrected taxonomy, then verify full tool coverage with regression tests and visual review.

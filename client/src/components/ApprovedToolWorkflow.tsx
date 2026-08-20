@@ -28,6 +28,7 @@ import {
 import React, { useMemo, useState } from "react";
 import "./approved-tool-workflow.css";
 import "./approved-tool-workflow-overrides.css";
+import "./exact-tool-contract.css";
 import "./tool-workflow-specialist.css";
 
 type Stage = "setup" | "processing" | "results" | "editor" | "review" | "finish";
@@ -49,9 +50,14 @@ const stages: Array<{ id: Stage; label: string }> = [
 const sourceCopy: Record<string, { detail: string; support: string }> = {
   "Connected store": { detail: "Use an already connected store and its granted context.", support: "Choose an existing connection" },
   "Public URL": { detail: "Use pages your visitors can see. You can save and download the result.", support: "Paste a public storefront URL" },
+  "Specific page URL": { detail: "Use one exact page when a full-store analysis would be too broad.", support: "Paste the exact page URL" },
   Screenshots: { detail: "Use screenshots of the page or design you want to review.", support: "Upload screenshots or add a reference" },
   "Saved draft": { detail: "Continue an analysis, proposal, or design draft already in your workspace.", support: "Choose a saved project or draft" },
   "Theme files": { detail: "Use the supplied theme files to prepare a technical recommendation.", support: "Upload or select available theme files" },
+  "Selected page": { detail: "Use a selected page already saved in the current project.", support: "Choose a page from the project" },
+  "Selected text": { detail: "Use text or content selected for focused content work.", support: "Choose or paste the text to work on" },
+  "Reference design": { detail: "Use a visual reference to extract a usable design direction.", support: "Upload a reference design" },
+  "Analysis result": { detail: "Use a completed FerixRG finding as the starting context.", support: "Choose a saved analysis result" },
 };
 
 const editorLayers = ["Header", "Product media", "Product details", "Title", "Price", "Buy button", "Shipping details"];
@@ -138,6 +144,7 @@ export function ApprovedToolWorkflow({
           <span className="tool-workflow-kicker">Selected FerixRG tool</span>
           <h2>{tool.name}</h2>
           <p>{tool.description}</p>
+          <div className="tool-workflow-contract-list"><span>What this tool checks or uses</span><div>{tool.analysisFocus.slice(0, 6).map(item => <b key={item}>{item}</b>)}</div></div>
           <div className="tool-workflow-outcome">
             <Sparkles />
             <div>
@@ -169,9 +176,9 @@ export function ApprovedToolWorkflow({
         <article className="tool-workflow-card tool-workflow-source-detail">
           <span className="tool-workflow-kicker">{source} selected</span>
           <h2>{sourceDetail.support}</h2>
-          {source === "Public URL" && (
+          {(source === "Public URL" || source === "Specific page URL") && (
             <label className="tool-workflow-input">
-              <span>Storefront URL</span>
+              <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
               <div><Link2 /><input value={url} onChange={event => setUrl(event.target.value)} /></div>
             </label>
           )}
@@ -188,6 +195,10 @@ export function ApprovedToolWorkflow({
           {source === "Saved draft" && (
             <div className="tool-workflow-connected-choice"><History /><div><b>Product page · Draft 3</b><small>Last changed today</small></div><ChevronRight /></div>
           )}
+          {source === "Selected page" && <div className="tool-workflow-connected-choice"><Layers3 /><div><b>Product page</b><small>Selected from the current project</small></div><ChevronRight /></div>}
+          {source === "Analysis result" && <div className="tool-workflow-connected-choice"><ShieldCheck /><div><b>Latest saved analysis</b><small>Storefront Analyzer · evidence ready</small></div><ChevronRight /></div>}
+          {source === "Selected text" && <label className="tool-workflow-input"><span>Selected content</span><div><FileDown /><input defaultValue="Improve the selected product content." /></div></label>}
+          {source === "Reference design" && <button className="tool-workflow-dropzone"><Upload /><span><b>Upload reference design</b><small>PNG, JPG, WEBP</small></span><ImagePlus /></button>}
           {source === "Theme files" && (
             <button className="tool-workflow-dropzone"><Upload /><span><b>Choose theme files</b><small>Use verified file context only</small></span><FileDown /></button>
           )}
@@ -211,10 +222,10 @@ export function ApprovedToolWorkflow({
           <div className="tool-workflow-progress-ring"><b>72%</b><span>almost ready</span></div>
           <div className="tool-workflow-processing-stages">
             {[
-              ["Preparing evidence", "Complete"],
-              ["Reviewing the selected storefront", "Complete"],
-              ["Finding issues and opportunities", "Working"],
-              ["Preparing your result", "Next"],
+              [`Preparing ${source.toLowerCase()} context`, "Complete"],
+              [`Reviewing ${tool.analysisFocus[0]?.toLowerCase() ?? "the selected evidence"}`, "Complete"],
+              [`Finding ${tool.analysisFocus[1]?.toLowerCase() ?? "issues and opportunities"}`, "Working"],
+              [`Preparing ${tool.name} results`, "Next"],
               ["Creating the report", "Next"],
             ].map(([label, state], index) => <div className={state === "Working" ? "active" : state === "Complete" ? "complete" : ""} key={label}><i>{state === "Complete" ? "✓" : state === "Working" ? "●" : "○"}</i><span>{label}</span><small>{state}</small>{index < 4 && <em />}</div>)}
           </div>
@@ -247,22 +258,24 @@ export function ApprovedToolWorkflow({
       <section className="tool-workflow-results-grid">
         <article className="tool-workflow-card tool-workflow-score-card">
           <span className="tool-workflow-kicker">Your result</span>
-          <h2>Mobile design score</h2>
+          <h2>{tool.resultMetrics[0] ?? `${tool.name} result`}</h2>
           <div className="tool-workflow-capability"><ShieldCheck /><span><b>{capability.mode}</b><small>{capability.label}</small></span></div>
           <div className="tool-workflow-score"><b>76</b><span>out of 100</span></div>
-          <p>The main purchase decision needs a clearer position on mobile.</p>
-          <div className="tool-workflow-stats"><span><b>3</b> priority issues</span><span><b>92%</b> evidence confidence</span><span><b>+14</b> potential improvement</span></div>
+          <p>{tool.outcome}</p>
+          <div className="tool-workflow-stats"><span><b>{tool.resultMetrics[1] ?? "Priority issues"}</b><small>3 findings</small></span><span><b>{tool.resultMetrics[2] ?? "Evidence confidence"}</b><small>92% confidence</small></span><span><b>Checks in scope</b><small>{tool.analysisFocus.length} areas reviewed</small></span></div>
           <button className="tool-workflow-secondary" onClick={() => setReportReady(true)}><Download /> {reportReady ? "Report ready" : "Download report"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-evidence-card">
           <span className="tool-workflow-kicker">Where it happens</span>
           <div className="tool-workflow-evidence-visual"><img src={evidenceAsset} alt="Mobile product page evidence" /><span>Buy button</span></div>
-          <div className="tool-workflow-evidence-note"><b>Fix first</b><p>The purchase action arrives too late and competes with secondary actions.</p></div>
+          <div className="tool-workflow-evidence-note"><b>Priority finding</b><p>{tool.analysisFocus[0] ?? "The selected storefront evidence"} needs attention first{tool.analysisFocus[1] ? ` alongside ${tool.analysisFocus[1].toLowerCase()}` : ""}.</p></div>
+          <div className="tool-workflow-result-metrics"><span>Result includes</span>{tool.resultMetrics.slice(0, 4).map(metric => <b key={metric}>{metric}</b>)}</div>
         </article>
         <article className="tool-workflow-card tool-workflow-next-card">
           <span className="tool-workflow-kicker">What would you like to do next?</span>
           <h2>Choose what happens to this result.</h2>
           <button className="active" onClick={openCorrectWorkspace}><Layers3 /><span><b>{route.primaryAction}</b><small>{route.primaryDescription}</small></span><ChevronRight /></button>
+          <div className="tool-workflow-action-contract"><span>Available for this tool</span>{tool.nextActions.slice(0, 5).map(action => <b key={action}>{action}</b>)}</div>
           {route.allowsAi && capability.actions.includes("ask_ai") && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
           {capability.actions.includes("export_report") && <button onClick={() => setReportReady(true)}><Download /><span><b>Download report</b><small>Keep the evidence, score, and recommendations.</small></span><ChevronRight /></button>}
           {capability.actions.includes("save_project") && <button onClick={() => setFinishNotice("This analysis is saved to Product page · Draft 4.")}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>}

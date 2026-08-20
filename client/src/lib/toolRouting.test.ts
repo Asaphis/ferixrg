@@ -3,20 +3,20 @@ import { getToolRoute } from "./toolRouting";
 
 describe("tool routing grammar", () => {
   it("routes visual and responsive tools to shared draft workspaces", () => {
-    expect(getToolRoute("responsive-redesign")).toMatchObject({ workspace: "Responsive Studio", hasVisualEditor: true, allowsAi: true });
-    expect(getToolRoute("product-composer")).toMatchObject({ workspace: "Layout Composer", hasVisualEditor: true });
-    expect(getToolRoute("copy-clarity")).toMatchObject({ workspace: "Content Studio", hasVisualEditor: true });
+    expect(getToolRoute("responsive-analyzer")).toMatchObject({ workspace: "Responsive Studio", hasVisualEditor: true, allowsAi: true });
+    expect(getToolRoute("product-page-analyzer")).toMatchObject({ workspace: "Layout Composer", hasVisualEditor: true });
+    expect(getToolRoute("ai-content-improver")).toMatchObject({ workspace: "Content Studio", hasVisualEditor: true });
   });
 
   it("does not route technical evidence tools into the generic visual editor", () => {
-    expect(getToolRoute("performance-evidence")).toMatchObject({ workspace: "Optimization Workbench", hasVisualEditor: false });
-    expect(getToolRoute("component-spec")).toMatchObject({ workspace: "Developer Handoff", hasVisualEditor: false, allowsAi: false });
-    expect(getToolRoute("accessibility-surface")).toMatchObject({ workspace: "Developer Handoff", hasVisualEditor: false });
+    expect(getToolRoute("performance-analyzer")).toMatchObject({ workspace: "Optimization Workbench", hasVisualEditor: false });
+    expect(getToolRoute("theme-code-analyzer")).toMatchObject({ workspace: "Developer Handoff", hasVisualEditor: false, allowsAi: false });
+    expect(getToolRoute("accessibility-analyzer")).toMatchObject({ workspace: "Developer Handoff", hasVisualEditor: false });
   });
 
   it("reserves release controls for release and validation workspaces", () => {
-    expect(getToolRoute("publish-readiness")).toMatchObject({ workspace: "Release Review", supportsStoreRelease: true });
-    expect(getToolRoute("store-publisher")).toMatchObject({ workspace: "Release Review", supportsStoreRelease: true });
-    expect(getToolRoute("storefront-scan").supportsStoreRelease).toBe(false);
+    expect(getToolRoute("publish-readiness-checker")).toMatchObject({ workspace: "Release Review", supportsStoreRelease: true });
+    expect(getToolRoute("publish-manager")).toMatchObject({ workspace: "Release Review", supportsStoreRelease: true });
+    expect(getToolRoute("storefront-analyzer").supportsStoreRelease).toBe(false);
   });
 });

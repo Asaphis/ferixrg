@@ -141,5 +141,9 @@ Team, Billing, Profile, and Preferences now use the same aligned workspace struc
 The Team destination now provides a dedicated management workspace. Desktop and mobile both show active members, current roles, a role guide, pending invitations, role selectors, invite entry points, and safe remove or cancel actions. The invite dialog validates email addresses, assigns Editor or Viewer access, creates a pending invitation, and supports later role adjustment or cancellation without affecting the Owner.
 
 ## Complete More nested-action verification
-
 Every non-Team item in Billing & Usage, Profile, Preferences, Platform, Resources, and Support now has a named nested destination with metrics, relevant settings or information, a clear primary action, and a safe preview completion state. Desktop review confirmed Usage limits presents threshold controls and capacity detail. Mobile review confirmed Contact support presents its contextual request form and completion route in the focused workspace layout.
+
+## Exact uploaded tool taxonomy verification
+The Tools Library now exposes the complete **57-tool** product taxonomy from the uploaded specification in its real named groups: Store Analysis, Design & Visual, UX & Conversion, Responsive, Product & Commerce, Content & AI, SEO, Performance, Accessibility, Visual & Reference, Design Workspaces, Developer, Testing & Validation, and Release. These names are used as product tools and groups, while the user interface remains an intentionally simple library rather than a copy of the specification document.
+
+Desktop and mobile review confirmed that Storefront Analyzer is the default selected analysis tool and presents its exact inputs, Store Health result contract, and scoped start action. Responsive Analyzer results show Mobile Health, affected viewports, priority fixes, checks in scope, exact available actions, and the correct Responsive Studio route. The simulator now keeps tool-specific scope, metrics, actions, and workspace behavior visible rather than presenting every run as a generic mobile-design result.
