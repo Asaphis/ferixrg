@@ -26,6 +26,7 @@ import {
   Wand2,
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import "./approved-tool-workflow.css";
 import "./approved-tool-workflow-overrides.css";
 import "./exact-tool-contract.css";
@@ -67,11 +68,13 @@ export function ApprovedToolWorkflow({
   onBack,
   startAt = "setup",
   startSource,
+  workspaceId,
 }: {
   tool: ToolDefinition;
   onBack: () => void;
   startAt?: "setup" | "results" | "editor" | "finish";
   startSource?: string;
+  workspaceId?: number;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
   const [source, setSource] = useState(tool.sources.includes(startSource as ToolSource) ? startSource as ToolSource : tool.sources[0] ?? "Public URL");
@@ -91,6 +94,10 @@ export function ApprovedToolWorkflow({
       content: `I am looking at **${tool.name}** on Product page → ${selectedElement} → ${device}. Tell me what you would like to improve, or attach a visual reference.`,
     },
   ]);
+  const [toolRunId, setToolRunId] = useState<number | null>(null);
+  const [runError, setRunError] = useState("");
+  const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
+  const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
 
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
@@ -111,6 +118,20 @@ export function ApprovedToolWorkflow({
   };
 
   const openCorrectWorkspace = () => move(routeUsesReview ? "review" : "editor");
+
+  const sourceType = source === "Connected store" ? "connected_store" : source === "Saved draft" ? "saved_draft" : source === "Screenshots" || source === "Reference design" || source === "Theme files" ? "upload" : source === "Public URL" || source === "Specific page URL" ? "public_url" : "manual";
+  const beginLiveToolRun = async () => {
+    try {
+      if (!workspaceId) throw new Error("Workspace is still loading");
+      setRunError("");
+      const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined } });
+      const started = await startToolRunMutation.mutateAsync({ workspaceId, toolRunId: queued.id });
+      setToolRunId(started.id);
+      move("processing");
+    } catch (error) {
+      setRunError(error instanceof Error ? error.message : "We couldn’t start this tool run. Please try again.");
+    }
+  };
 
   const sendToAi = (content: string) => {
     if (!content.trim()) return;
@@ -203,7 +224,8 @@ export function ApprovedToolWorkflow({
             <button className="tool-workflow-dropzone"><Upload /><span><b>Choose theme files</b><small>Use verified file context only</small></span><FileDown /></button>
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
-          <button className="tool-workflow-primary" onClick={() => move("processing")}><Play /> Run {tool.name}</button>
+          {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
+          <button className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || startToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || startToolRunMutation.isPending ? "Starting…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
@@ -231,7 +253,7 @@ export function ApprovedToolWorkflow({
           </div>
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           <button className="tool-workflow-secondary" onClick={() => move("setup")}>Cancel and change source</button>
-          <button className="tool-workflow-primary" onClick={() => move("results")}>See result</button>
+          <button className="tool-workflow-primary" onClick={() => move("results")}>{toolRunId ? "See run record" : "See result"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-context-card">
           <span className="tool-workflow-kicker">Your run</span>

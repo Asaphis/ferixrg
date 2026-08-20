@@ -36,6 +36,8 @@ const sessionMocks = vi.hoisted(() => ({
   createDraft: vi.fn().mockResolvedValue({ draft: { id: 21 }, version: { id: 31 } }),
   saveDraftVersion: vi.fn().mockResolvedValue({ id: 32, designState: "{}" }),
   restoreDraftVersion: vi.fn().mockResolvedValue({ id: 31, designState: "{}" }),
+  queueToolRun: vi.fn().mockResolvedValue({ id: 71, status: "queued" }),
+  startToolRun: vi.fn().mockResolvedValue({ id: 71, status: "running" }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/lib/trpc", () => ({
@@ -63,6 +65,8 @@ vi.mock("@/lib/trpc", () => ({
       createDraft: { useMutation: () => ({ mutateAsync: sessionMocks.createDraft }) },
       saveDraftVersion: { useMutation: () => ({ mutateAsync: sessionMocks.saveDraftVersion }) },
       restoreDraftVersion: { useMutation: () => ({ mutateAsync: sessionMocks.restoreDraftVersion }) },
+      queueToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.queueToolRun, isPending: false }) },
+      startToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.startToolRun, isPending: false }) },
     },
     account: {
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
@@ -155,7 +159,7 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByText("Choose a source for this tool.")).toBeTruthy();
   });
 
-  it("keeps a selected real tool connected through source setup, evidence results, and the shared editor AI tab", () => {
+  it("keeps a selected real tool connected through source setup, evidence results, and the shared editor AI tab", async () => {
     window.history.replaceState({}, "", "/app/tools?tool=responsive-analyzer");
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
@@ -165,7 +169,9 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(view.getByRole("button", { name: "Start Responsive Analyzer" }));
     expect(view.getByRole("heading", { name: /Set up Responsive Analyzer/i })).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: /Run Responsive Analyzer/i }));
-    fireEvent.click(view.getByRole("button", { name: "See result" }));
+    await waitFor(() => expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "responsive-analyzer", sourceType: "public_url" })));
+    await waitFor(() => expect(view.getByRole("heading", { name: /Responsive Analyzer is checking your input/i })).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: /See (run record|result)/i }));
     expect(view.getByRole("heading", { name: /Responsive Analyzer found a clear next step/i })).toBeTruthy();
     expect(view.getAllByRole("button", { name: /Download report/i }).length).toBeGreaterThan(0);
     fireEvent.click(view.getByRole("button", { name: /Open Responsive Studio/i }));

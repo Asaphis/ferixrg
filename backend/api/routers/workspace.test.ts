@@ -34,10 +34,23 @@ vi.mock("../db", () => ({
   listWorkspaceReleases: vi.fn(),
   getWorkspaceSubscription: vi.fn(),
   queueWorkspaceToolRun: vi.fn(),
+  getWorkspaceToolRun: vi.fn(),
+  startWorkspaceToolRun: vi.fn(),
+  completeWorkspaceToolRun: vi.fn(),
+  failWorkspaceToolRun: vi.fn(),
+  listWorkspaceToolEvidence: vi.fn(),
+  createWorkspaceEvidence: vi.fn(),
+  listWorkspaceIssues: vi.fn(),
+  createWorkspaceIssue: vi.fn(),
+  updateWorkspaceIssueStatus: vi.fn(),
+  listWorkspaceReports: vi.fn(),
+  createWorkspaceReport: vi.fn(),
+  listWorkspaceDeveloperHandoffs: vi.fn(),
+  createWorkspaceDeveloperHandoff: vi.fn(),
   getWorkspaceAccess: vi.fn(),
 }));
 
-import { acceptWorkspaceInvitation, beginStoreConnection, createStoreSnapshot, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceStore, listStoreSnapshots, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, updateWorkspaceInvitationRole, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, beginStoreConnection, completeWorkspaceToolRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceStore, getWorkspaceToolRun, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
@@ -198,5 +211,29 @@ describe("workspace router", () => {
     expect(storagePut).toHaveBeenCalledWith(expect.stringContaining("workspace-9/draft-41/assets/reference.png"), expect.any(Buffer), "image/png");
     expect(createWorkspaceDraftAsset).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, draftId: 41, createdByUserId: 42, kind: "reference" }));
     expect(result.asset).toMatchObject({ id: 61, draftId: 41 });
+  });
+
+  it("accepts only canonical tool IDs and persists lifecycle, evidence, issues, reports, and handoffs in the workspace", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(queueWorkspaceToolRun).mockResolvedValue({ id: 71, workspaceId: 9, toolId: "storefront-analyzer", status: "queued" } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 71, workspaceId: 9, status: "queued" } as never);
+    vi.mocked(startWorkspaceToolRun).mockResolvedValue({ id: 71, status: "running" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 71, status: "completed" } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 81, toolRunId: 71, kind: "metric" } as never);
+    vi.mocked(createWorkspaceIssue).mockResolvedValue({ id: 91, workspaceId: 9, severity: "high" } as never);
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 101, workspaceId: 9, format: "json" } as never);
+    vi.mocked(createWorkspaceDeveloperHandoff).mockResolvedValue({ id: 111, workspaceId: 9, priority: "high" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.queueToolRun({ workspaceId: 9, toolId: "legacy-tool", sourceType: "public_url" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.workspace.queueToolRun({ workspaceId: 9, toolId: "storefront-analyzer", sourceType: "public_url" })).resolves.toMatchObject({ id: 71 });
+    await expect(caller.workspace.startToolRun({ workspaceId: 9, toolRunId: 71 })).resolves.toMatchObject({ status: "running" });
+    await expect(caller.workspace.completeToolRun({ workspaceId: 9, toolRunId: 71, resultSummary: { state: "completed" } })).resolves.toMatchObject({ status: "completed" });
+    await expect(caller.workspace.addToolEvidence({ workspaceId: 9, toolRunId: 71, kind: "metric", title: "Measured result", details: { value: 1 } })).resolves.toMatchObject({ id: 81 });
+    await expect(caller.workspace.createIssue({ workspaceId: 9, toolRunId: 71, title: "Needs review", severity: "high" })).resolves.toMatchObject({ id: 91 });
+    await expect(caller.workspace.createReport({ workspaceId: 9, toolRunId: 71, title: "Tool report", format: "json" })).resolves.toMatchObject({ id: 101 });
+    await expect(caller.workspace.createDeveloperHandoff({ workspaceId: 9, toolRunId: 71, title: "Fix handoff", affectedLocation: "Product page", currentBehavior: "Current", expectedBehavior: "Expected", recommendedImplementation: "Implement", priority: "high", acceptanceCriteria: ["Pass review"] })).resolves.toMatchObject({ id: 111 });
+    expect(queueWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ toolId: "storefront-analyzer", requestedByUserId: 42 }));
+    expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 71, actorUserId: 42 }));
   });
 });

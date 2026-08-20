@@ -9,12 +9,16 @@ import {
   draftAssets,
   draftVersions,
   editorDrafts,
+  evidenceItems,
+  developerHandoffs,
   InsertEditorDraft,
   InsertUser,
   releaseActions,
+  reports,
   storeConnections,
   storeSnapshots,
   stores,
+  issueRecords,
   subscriptions,
   toolRuns,
   usageLedger,
@@ -774,5 +778,114 @@ export async function queueWorkspaceToolRun(input: {
     details: { toolId: input.toolId, sourceType: input.sourceType },
   });
   const rows = await db.select().from(toolRuns).where(eq(toolRuns.id, toolRunId)).limit(1);
+  return rows[0];
+}
+
+export async function getWorkspaceToolRun(workspaceId: number, toolRunId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(toolRuns).where(and(eq(toolRuns.id, toolRunId), eq(toolRuns.workspaceId, workspaceId))).limit(1);
+  return rows[0];
+}
+
+export async function startWorkspaceToolRun(input: { workspaceId: number; toolRunId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+  if (!run || run.status !== "queued") return undefined;
+  await db.update(toolRuns).set({ status: "running", startedAt: new Date(), errorMessage: null }).where(eq(toolRuns.id, input.toolRunId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "tool_run.started", entityType: "tool_run", entityId: String(input.toolRunId), details: { toolId: run.toolId } });
+  return getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+}
+
+export async function completeWorkspaceToolRun(input: { workspaceId: number; toolRunId: number; actorUserId: number; resultSummary?: Record<string, unknown> }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+  if (!run || (run.status !== "queued" && run.status !== "running")) return undefined;
+  await db.update(toolRuns).set({ status: "completed", resultSummary: input.resultSummary ?? {}, completedAt: new Date(), startedAt: run.startedAt ?? new Date(), errorMessage: null }).where(eq(toolRuns.id, input.toolRunId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "tool_run.completed", entityType: "tool_run", entityId: String(input.toolRunId), details: { toolId: run.toolId } });
+  return getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+}
+
+export async function failWorkspaceToolRun(input: { workspaceId: number; toolRunId: number; actorUserId: number; errorMessage: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+  if (!run || (run.status !== "queued" && run.status !== "running")) return undefined;
+  await db.update(toolRuns).set({ status: "failed", errorMessage: input.errorMessage, completedAt: new Date(), startedAt: run.startedAt ?? new Date() }).where(eq(toolRuns.id, input.toolRunId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "tool_run.failed", entityType: "tool_run", entityId: String(input.toolRunId), details: { toolId: run.toolId } });
+  return getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+}
+
+export async function listWorkspaceToolEvidence(workspaceId: number, toolRunId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!(await getWorkspaceToolRun(workspaceId, toolRunId))) return undefined;
+  return db.select().from(evidenceItems).where(eq(evidenceItems.toolRunId, toolRunId)).orderBy(desc(evidenceItems.createdAt));
+}
+
+export async function createWorkspaceEvidence(input: { workspaceId: number; toolRunId: number; kind: "page_capture" | "screenshot" | "metric" | "store_data" | "validation" | "provider_summary"; title: string; sourceUrl?: string; storageKey?: string; details?: Record<string, unknown>; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
+  const created = await db.insert(evidenceItems).values({ toolRunId: input.toolRunId, kind: input.kind, title: input.title, sourceUrl: input.sourceUrl, storageKey: input.storageKey, details: input.details });
+  const rows = await db.select().from(evidenceItems).where(eq(evidenceItems.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "tool_run.evidence_added", entityType: "evidence_item", entityId: String(rows[0]?.id ?? input.toolRunId), details: { toolRunId: input.toolRunId, kind: input.kind } });
+  return rows[0];
+}
+
+export async function listWorkspaceIssues(workspaceId: number, status?: "open" | "in_progress" | "resolved" | "ignored") {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(issueRecords).where(status ? and(eq(issueRecords.workspaceId, workspaceId), eq(issueRecords.status, status)) : eq(issueRecords.workspaceId, workspaceId)).orderBy(desc(issueRecords.updatedAt));
+}
+
+export async function createWorkspaceIssue(input: { workspaceId: number; storeId?: number; toolRunId?: number; draftId?: number; title: string; severity: "critical" | "high" | "medium" | "low" | "info"; location?: string; details?: Record<string, unknown>; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (input.toolRunId && !(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
+  const created = await db.insert(issueRecords).values({ workspaceId: input.workspaceId, storeId: input.storeId, toolRunId: input.toolRunId, draftId: input.draftId, title: input.title, severity: input.severity, location: input.location, details: input.details });
+  const rows = await db.select().from(issueRecords).where(eq(issueRecords.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "issue.created", entityType: "issue", entityId: String(rows[0]?.id ?? 0), details: { severity: input.severity, toolRunId: input.toolRunId } });
+  return rows[0];
+}
+
+export async function updateWorkspaceIssueStatus(input: { workspaceId: number; issueId: number; status: "open" | "in_progress" | "resolved" | "ignored"; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(issueRecords).set({ status: input.status, updatedAt: new Date() }).where(and(eq(issueRecords.id, input.issueId), eq(issueRecords.workspaceId, input.workspaceId)));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "issue.status_updated", entityType: "issue", entityId: String(input.issueId), details: { status: input.status } });
+}
+
+export async function listWorkspaceReports(workspaceId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(reports).where(eq(reports.workspaceId, workspaceId)).orderBy(desc(reports.createdAt));
+}
+
+export async function createWorkspaceReport(input: { workspaceId: number; toolRunId?: number; title: string; format: "web" | "pdf" | "csv" | "json" | "zip"; storageKey?: string; summary?: string; createdByUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (input.toolRunId && !(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
+  const created = await db.insert(reports).values(input);
+  const rows = await db.select().from(reports).where(eq(reports.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "report.created", entityType: "report", entityId: String(rows[0]?.id ?? 0), details: { toolRunId: input.toolRunId, format: input.format } });
+  return rows[0];
+}
+
+export async function listWorkspaceDeveloperHandoffs(workspaceId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(developerHandoffs).where(eq(developerHandoffs.workspaceId, workspaceId)).orderBy(desc(developerHandoffs.createdAt));
+}
+
+export async function createWorkspaceDeveloperHandoff(input: { workspaceId: number; toolRunId?: number; issueId?: number; title: string; affectedLocation: string; currentBehavior: string; expectedBehavior: string; recommendedImplementation: string; priority: "critical" | "high" | "medium" | "low"; acceptanceCriteria: string[]; evidenceIds?: number[]; createdByUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (input.toolRunId && !(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
+  const created = await db.insert(developerHandoffs).values(input);
+  const rows = await db.select().from(developerHandoffs).where(eq(developerHandoffs.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "developer_handoff.created", entityType: "developer_handoff", entityId: String(rows[0]?.id ?? 0), details: { toolRunId: input.toolRunId, issueId: input.issueId } });
   return rows[0];
 }

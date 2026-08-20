@@ -5,6 +5,11 @@ import {
   acceptWorkspaceInvitation,
   cancelWorkspaceInvitation,
   beginStoreConnection,
+  completeWorkspaceToolRun,
+  createWorkspaceDeveloperHandoff,
+  createWorkspaceEvidence,
+  createWorkspaceIssue,
+  createWorkspaceReport,
   createStoreSnapshot,
   createWorkspaceDraft,
   createWorkspaceDraftAsset,
@@ -13,30 +18,39 @@ import {
   ensurePersonalWorkspace,
   getWorkspaceSubscription,
   getWorkspaceStore,
+  getWorkspaceToolRun,
   listUserWorkspaces,
   listWorkspaceActivity,
+  listWorkspaceDeveloperHandoffs,
   listWorkspaceDrafts,
   listWorkspaceDraftAssets,
   listWorkspaceDraftVersions,
   listWorkspaceInvitations,
   listWorkspaceMembers,
   listWorkspaceReleases,
+  listWorkspaceReports,
   listWorkspaceStores,
   listStoreConnections,
   listStoreSnapshots,
   listWorkspaceToolRuns,
+  listWorkspaceToolEvidence,
   listWorkspaceUsage,
+  listWorkspaceIssues,
+  failWorkspaceToolRun,
   queueWorkspaceToolRun,
   recordWorkspaceActivity,
   removeWorkspaceMember,
   restoreWorkspaceDraftVersion,
   saveWorkspaceDraftVersion,
+  startWorkspaceToolRun,
+  updateWorkspaceIssueStatus,
   updateWorkspaceInvitationRole,
   updateWorkspaceMemberRole,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
+import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
 const invitationRole = z.enum(["admin", "editor", "viewer", "billing"]);
@@ -250,7 +264,7 @@ export const workspaceRouter = router({
       workspaceInput.extend({
         storeId: z.number().int().positive().optional(),
         draftId: z.number().int().positive().optional(),
-        toolId: z.string().min(1).max(160),
+        toolId: z.string().min(1).max(160).refine(isCanonicalToolId, "Use an approved FerixRG tool."),
         sourceType: z.enum(["public_url", "connected_store", "saved_draft", "upload", "manual"]),
         inputSummary: z.record(z.string(), z.unknown()).optional(),
       }),
@@ -258,11 +272,140 @@ export const workspaceRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+        if (connectionRequiredToolIds.has(input.toolId) && !input.storeId) throw new TRPCError({ code: "BAD_REQUEST", message: "This tool requires a supported connected store context." });
+        if (input.storeId && !(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
+        if (connectionRequiredToolIds.has(input.toolId) && input.storeId) {
+          const hasConnection = (await listStoreConnections(input.storeId)).some(connection => connection.status === "connected");
+          if (!hasConnection) throw new TRPCError({ code: "BAD_REQUEST", message: "This tool becomes available after a supported store connection is active." });
+        }
         return queueWorkspaceToolRun({ ...input, requestedByUserId: ctx.user.id });
       } catch (error) {
         return toForbidden(error);
       }
     }),
+  toolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+      if (!run) throw new Error("workspace permission denied");
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  startToolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const run = await startWorkspaceToolRun({ ...input, actorUserId: ctx.user.id });
+      if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued tool run can be started." });
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  completeToolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive(), resultSummary: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const run = await completeWorkspaceToolRun({ ...input, actorUserId: ctx.user.id });
+      if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued or running tool run can be completed." });
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  failToolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive(), errorMessage: z.string().trim().min(1).max(20_000) })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const run = await failWorkspaceToolRun({ ...input, actorUserId: ctx.user.id });
+      if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued or running tool run can fail." });
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  toolEvidence: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      const evidence = await listWorkspaceToolEvidence(input.workspaceId, input.toolRunId);
+      if (!evidence) throw new Error("workspace permission denied");
+      return evidence;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  addToolEvidence: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive(), kind: z.enum(["page_capture", "screenshot", "metric", "store_data", "validation", "provider_summary"]), title: z.string().trim().min(1).max(255), sourceUrl: z.string().url().max(2048).optional(), storageKey: z.string().max(512).optional(), details: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const evidence = await createWorkspaceEvidence({ ...input, actorUserId: ctx.user.id });
+      if (!evidence) throw new Error("workspace permission denied");
+      return evidence;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  issues: protectedProcedure.input(workspaceInput.extend({ status: z.enum(["open", "in_progress", "resolved", "ignored"]).optional() })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return listWorkspaceIssues(input.workspaceId, input.status);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  createIssue: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive().optional(), toolRunId: z.number().int().positive().optional(), draftId: z.number().int().positive().optional(), title: z.string().trim().min(1).max(255), severity: z.enum(["critical", "high", "medium", "low", "info"]), location: z.string().trim().max(1024).optional(), details: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const issue = await createWorkspaceIssue({ ...input, actorUserId: ctx.user.id });
+      if (!issue) throw new Error("workspace permission denied");
+      return issue;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  updateIssueStatus: protectedProcedure.input(workspaceInput.extend({ issueId: z.number().int().positive(), status: z.enum(["open", "in_progress", "resolved", "ignored"]) })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      await updateWorkspaceIssueStatus({ ...input, actorUserId: ctx.user.id });
+      return { success: true } as const;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  reports: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return listWorkspaceReports(input.workspaceId);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  createReport: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), title: z.string().trim().min(1).max(255), format: z.enum(["web", "pdf", "csv", "json", "zip"]), storageKey: z.string().max(512).optional(), summary: z.string().max(50_000).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const report = await createWorkspaceReport({ ...input, createdByUserId: ctx.user.id });
+      if (!report) throw new Error("workspace permission denied");
+      return report;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  developerHandoffs: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return listWorkspaceDeveloperHandoffs(input.workspaceId);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  createDeveloperHandoff: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), issueId: z.number().int().positive().optional(), title: z.string().trim().min(1).max(255), affectedLocation: z.string().trim().min(1).max(1024), currentBehavior: z.string().trim().min(1).max(50_000), expectedBehavior: z.string().trim().min(1).max(50_000), recommendedImplementation: z.string().trim().min(1).max(50_000), priority: z.enum(["critical", "high", "medium", "low"]), acceptanceCriteria: z.array(z.string().trim().min(1).max(2_000)).min(1).max(50), evidenceIds: z.array(z.number().int().positive()).max(100).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const handoff = await createWorkspaceDeveloperHandoff({ ...input, createdByUserId: ctx.user.id });
+      if (!handoff) throw new Error("workspace permission denied");
+      return handoff;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
   drafts: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
     try {
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId);

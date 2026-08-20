@@ -291,6 +291,52 @@ export const evidenceItems = mysqlTable(
   }),
 );
 
+export const issueRecords = mysqlTable(
+  "issueRecords",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    storeId: int("storeId").references(() => stores.id, { onDelete: "set null" }),
+    toolRunId: int("toolRunId").references(() => toolRuns.id, { onDelete: "set null" }),
+    draftId: int("draftId").references(() => drafts.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    severity: mysqlEnum("severity", ["critical", "high", "medium", "low", "info"]).notNull(),
+    status: mysqlEnum("status", ["open", "in_progress", "resolved", "ignored"]).default("open").notNull(),
+    location: varchar("location", { length: 1024 }),
+    details: json("details"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    workspaceStatusIndex: index("issue_records_workspace_status_index").on(table.workspaceId, table.status),
+    toolRunIndex: index("issue_records_tool_run_index").on(table.toolRunId),
+  }),
+);
+
+export const developerHandoffs = mysqlTable(
+  "developerHandoffs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    toolRunId: int("toolRunId").references(() => toolRuns.id, { onDelete: "set null" }),
+    issueId: int("issueId").references(() => issueRecords.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 255 }).notNull(),
+    affectedLocation: varchar("affectedLocation", { length: 1024 }).notNull(),
+    currentBehavior: text("currentBehavior").notNull(),
+    expectedBehavior: text("expectedBehavior").notNull(),
+    recommendedImplementation: text("recommendedImplementation").notNull(),
+    priority: mysqlEnum("priority", ["critical", "high", "medium", "low"]).notNull(),
+    acceptanceCriteria: json("acceptanceCriteria").notNull(),
+    evidenceIds: json("evidenceIds"),
+    createdByUserId: int("createdByUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    workspaceIndex: index("developer_handoffs_workspace_index").on(table.workspaceId),
+    toolRunIndex: index("developer_handoffs_tool_run_index").on(table.toolRunId),
+  }),
+);
+
 export const reports = mysqlTable(
   "reports",
   {

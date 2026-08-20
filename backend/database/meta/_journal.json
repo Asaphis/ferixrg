@@ -43,6 +43,13 @@
       "when": 1787266965060,
       "tag": "0005_big_starjammers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1787267193146,
+      "tag": "0006_lean_prodigy",
+      "breakpoints": true
     }
   ]
 }

@@ -496,7 +496,7 @@
 - [ ] Replace remaining simulated workspace summary records with scoped live backend contracts. Team membership, invitations, role changes, removals, acceptance, and dashboard workspace activity now use live scoped backend contracts.
 - [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
 - [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
-- [ ] Implement real source setup, request validation, queued execution, run state, evidence, issues, metrics, reports, export packages, and developer handoff for every exact tool in the 57-tool catalogue.
+- [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [ ] Replace the static dashboard, analysis, issues, reports, release, and usage records with workspace- and store-scoped backend read models.
 - [ ] Implement validation records, release plans, explicit approvals, eligible publish actions, rollback records, and honest unsupported-action boundaries.
 - [ ] Implement billing, subscription, plan, usage, and entitlement contracts without embedding or requesting payment-provider credentials.
@@ -522,3 +522,10 @@
 - [x] Connect the approved editor save, version history, left/right comparison, and restore behavior to real workspace draft and version APIs.
 - [x] Add version-linked draft asset metadata and protected server-side S3 uploads for references, screenshots, theme exports, previews, and manual files.
 - [ ] Replace remaining browser-preview copy and add explicit dirty-state navigation/sign-out protection tied to live save state.
+
+## Blueprint Step 5 — exact tool-run foundation
+- [x] Add a backend canonical registry that enforces the exact approved 57-tool IDs and connection-required boundaries.
+- [x] Add scoped queue, start, completion, failure, evidence, issue, report-record, export-record, and developer-handoff contracts with activity audit records.
+- [x] Add durable issue and developer-handoff tables with an additive reviewed migration.
+- [x] Connect the approved tool workflow Run action to real queued and started tool-run records without changing its approved visual structure.
+- [ ] Add per-tool deterministic executors and the Cloudflare AI executor after the remaining aggregate, validation, release, usage, and audit boundaries are completed.
