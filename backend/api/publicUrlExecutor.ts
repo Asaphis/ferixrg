@@ -39,6 +39,9 @@ export type PublicUrlInspection = {
   stylesheetAssetReferenceCount: number;
   scriptAssetReferenceCount: number;
   assetHosts: string[];
+  inlineStyleBlockCount: number;
+  inlineMediaQueryCount: number;
+  responsiveImageSrcsetCount: number;
   bytesRead: number;
 };
 
@@ -157,6 +160,13 @@ function extractAssetReferences(html: string, baseUrl: URL) {
   };
 }
 
+function extractResponsiveIndicators(html: string) {
+  const styleBlocks = html.match(/<style\b[^>]*>[\s\S]*?<\/style>/gi) ?? [];
+  const inlineMediaQueryCount = styleBlocks.reduce((count, style) => count + (style.match(/@media\b/gi)?.length ?? 0), 0);
+  const responsiveImageSrcsetCount = (html.match(/<(?:img|source)\b[^>]*\bsrcset\s*=/gi) ?? []).length;
+  return { inlineStyleBlockCount: styleBlocks.length, inlineMediaQueryCount, responsiveImageSrcsetCount };
+}
+
 export function validatePublicInspectionUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Use a public HTTP or HTTPS URL.");
@@ -203,6 +213,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const contentIndicators = extractContentIndicators(html, headings);
   const productStructuredData = extractProductStructuredData(html);
   const assetReferences = extractAssetReferences(html, url);
+  const responsiveIndicators = extractResponsiveIndicators(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -244,6 +255,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     stylesheetAssetReferenceCount: assetReferences.stylesheetAssetReferenceCount,
     scriptAssetReferenceCount: assetReferences.scriptAssetReferenceCount,
     assetHosts: assetReferences.assetHosts,
+    inlineStyleBlockCount: responsiveIndicators.inlineStyleBlockCount,
+    inlineMediaQueryCount: responsiveIndicators.inlineMediaQueryCount,
+    responsiveImageSrcsetCount: responsiveIndicators.responsiveImageSrcsetCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

@@ -511,6 +511,7 @@
 - [x] Add a bounded Product Page Analyzer public-URL executor that records observed Product JSON-LD declarations only, without catalog or merchant-data claims.
 - [x] Add a bounded Image Optimization Analyzer public-URL executor that records image lazy-loading and width/height attribute indicators only, without byte-size or visual-performance claims.
 - [x] Add a bounded Asset Analyzer public-URL executor that records observed image, stylesheet, and script reference hosts only, without loading, vulnerability, or performance claims.
+- [x] Add a bounded Responsive Analyzer public-URL executor that records observed viewport metadata and inline responsive-style indicators only, without rendered-device or breakpoint behavior claims.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.

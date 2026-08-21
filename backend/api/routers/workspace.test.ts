@@ -528,6 +528,23 @@ describe("workspace router", () => {
     vi.unstubAllGlobals();
   });
 
+  it("executes the exact Responsive Analyzer with observed markup indicators only", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"><style>@media (max-width: 700px) { .hero { display: block; } }</style></head><body><img src="/hero.jpg" alt="Hero" srcset="/hero-640.jpg 640w, /hero-1280.jpg 1280w"></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 81, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "responsive-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 90, toolRunId: 81 } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/81/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/81/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 110, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 81, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 81 });
+
+    expect(result.inspection).toMatchObject({ hasViewport: true, inlineStyleBlockCount: 1, inlineMediaQueryCount: 1, responsiveImageSrcsetCount: 1 });
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_responsive_markup_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);

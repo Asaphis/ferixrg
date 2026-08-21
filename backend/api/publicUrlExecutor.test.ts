@@ -43,4 +43,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ assetReferenceCount: 3, imageAssetReferenceCount: 1, stylesheetAssetReferenceCount: 1, scriptAssetReferenceCount: 1, assetHosts: ["shop.example", "cdn.example"] });
   });
+
+  it("records viewport and inline responsive-style markup indicators without rendering a device view", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><meta name="viewport" content="width=device-width"><style>@media (max-width: 700px) { .hero { display: block; } }</style></head><body><img src="/hero.jpg" srcset="/hero-640.jpg 640w, /hero-1280.jpg 1280w"></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ hasViewport: true, inlineStyleBlockCount: 1, inlineMediaQueryCount: 1, responsiveImageSrcsetCount: 1 });
+  });
 });
