@@ -274,6 +274,22 @@ describe("Workspace mobile behaviour", () => {
     expect(supportView.getByRole("button", { name: "Send support request" })).toBeTruthy();
   });
 
+  it("renders More workspace and billing summaries from live scoped records rather than preview values", () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    const summaryStrip = view.container.querySelector(".concise-summary-strip");
+    expect(summaryStrip?.textContent).toContain("2 active team members");
+    expect(summaryStrip?.textContent).toContain("0% monthly usage");
+    expect(summaryStrip?.textContent).toContain("1 connected store");
+    expect(summaryStrip?.textContent).not.toContain("64%");
+    fireEvent.click(view.getByRole("button", { name: "Usage" }));
+    expect(view.getByRole("heading", { name: "Billing & Usage" })).toBeTruthy();
+    expect(view.getByText("Free plan is active")).toBeTruthy();
+    expect(view.getByText(/0 of 20 tool runs are recorded this period/i)).toBeTruthy();
+    expect(view.getByText("20 monthly tool runs remaining")).toBeTruthy();
+    expect(view.queryByText(/12 of 20 monthly analyses/i)).toBeNull();
+  });
+
   it("invites teammates, manages pending roles, and safely cancels an invitation through live workspace contracts", async () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
