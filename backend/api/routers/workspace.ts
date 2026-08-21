@@ -85,7 +85,7 @@ const dedicatedPublicUrlExecutorToolIds = new Set([
   "image-optimization-analyzer",
 ]);
 import { CloudflareAiError } from "../cloudflareAi";
-import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
+import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
 import { getStoreProviderAdapter, listStoreProviderReadiness } from "../storeProviders";
 import { inspectPublicUrl } from "../publicUrlExecutor";
 
@@ -381,6 +381,28 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "product_description_generator", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.product_description_generator.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, productFactsLength: input.productFacts.length } });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+    } catch (error) {
+      if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
+      return toForbidden(error);
+    }
+  }),
+  generateMarketingCopy: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), draftId: z.number().int().positive().optional(), mode: z.enum(["cta-generator", "seo-content-generator", "meta-generator"]), sourceFacts: z.string().trim().min(1).max(12_000), instruction: z.string().trim().min(1).max(600).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      if (input.toolRunId) {
+        const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+        if (!run || run.toolId !== input.mode) throw new TRPCError({ code: "BAD_REQUEST", message: "This copy generator must run from an active matching FerixRG tool run." });
+      }
+      if (input.draftId && !(await listWorkspaceDraftVersions(input.workspaceId, input.draftId))) throw new Error("workspace permission denied");
+      const now = new Date();
+      const utcDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const usedNeurons = await getWorkspaceAiNeuronUsageSince(input.workspaceId, utcDayStart);
+      if (usedNeurons > CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - CLOUDFLARE_MAX_REQUEST_NEURON_RESERVE) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This copy generator has reached the protected free daily capacity for this workspace. It resets at 00:00 UTC." });
+      const response = await runMarketingCopyThroughGateway({ mode: input.mode, sourceFacts: input.sourceFacts, ...(input.instruction ? { instruction: input.instruction } : {}) });
+      const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
+      await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: `marketing_copy:${input.mode}`, ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
+      await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.marketing_copy.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, mode: input.mode, sourceFactsLength: input.sourceFacts.length } });
       return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });

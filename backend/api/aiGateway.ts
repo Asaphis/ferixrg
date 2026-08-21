@@ -1,5 +1,5 @@
 import { ENV } from "./_core/env";
-import { runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareProductDescriptionGenerator, type ContentImproverRequest, type ContentImproverResponse, type DesignCopilotRequest, type DesignCopilotResponse, type ProductDescriptionGeneratorRequest, type ProductDescriptionGeneratorResponse } from "./cloudflareAi";
+import { runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareMarketingCopy, runCloudflareProductDescriptionGenerator, type ContentImproverRequest, type ContentImproverResponse, type DesignCopilotRequest, type DesignCopilotResponse, type MarketingCopyRequest, type MarketingCopyResponse, type ProductDescriptionGeneratorRequest, type ProductDescriptionGeneratorResponse } from "./cloudflareAi";
 
 export type CentralAiProvider = "cloudflare_workers_ai";
 
@@ -16,6 +16,7 @@ export type CentralAiAdapter = {
   runDesignCopilot(input: DesignCopilotRequest): Promise<DesignCopilotResponse>;
   runContentImprover(input: ContentImproverRequest): Promise<ContentImproverResponse>;
   runProductDescriptionGenerator(input: ProductDescriptionGeneratorRequest): Promise<ProductDescriptionGeneratorResponse>;
+  runMarketingCopy(input: MarketingCopyRequest): Promise<MarketingCopyResponse>;
 };
 
 const cloudflareAdapter: CentralAiAdapter = {
@@ -29,6 +30,7 @@ const cloudflareAdapter: CentralAiAdapter = {
   runDesignCopilot: input => runCloudflareDesignCopilot(input),
   runContentImprover: input => runCloudflareContentImprover(input),
   runProductDescriptionGenerator: input => runCloudflareProductDescriptionGenerator(input),
+  runMarketingCopy: input => runCloudflareMarketingCopy(input),
 };
 
 const adapters: Record<CentralAiProvider, CentralAiAdapter> = { cloudflare_workers_ai: cloudflareAdapter };
@@ -56,5 +58,11 @@ export async function runContentImproverThroughGateway(input: ContentImproverReq
 export async function runProductDescriptionGeneratorThroughGateway(input: ProductDescriptionGeneratorRequest, provider: CentralAiProvider = "cloudflare_workers_ai") {
   const adapter = getCentralAiAdapter(provider);
   const result = await adapter.runProductDescriptionGenerator(input);
+  return { ...result, provider: adapter.provider };
+}
+
+export async function runMarketingCopyThroughGateway(input: MarketingCopyRequest, provider: CentralAiProvider = "cloudflare_workers_ai") {
+  const adapter = getCentralAiAdapter(provider);
+  const result = await adapter.runMarketingCopy(input);
   return { ...result, provider: adapter.provider };
 }

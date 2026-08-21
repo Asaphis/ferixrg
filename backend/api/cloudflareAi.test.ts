@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CloudflareAiError, runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareProductDescriptionGenerator } from "./cloudflareAi";
+import { CloudflareAiError, runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareMarketingCopy, runCloudflareProductDescriptionGenerator } from "./cloudflareAi";
 
 describe("Cloudflare Workers AI gateway", () => {
   it("sends only bounded editor context to the configured server-side model and returns measured usage", async () => {
@@ -40,5 +40,13 @@ describe("Cloudflare Workers AI gateway", () => {
     fetchMock.mockClear();
     await expect(runCloudflareProductDescriptionGenerator({ productFacts: "api_key: should-not-leave-this-browser" }, { accountId: "account", apiToken: "token", model: "model" })).rejects.toMatchObject<Partial<CloudflareAiError>>({ code: "invalid_input" });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends only supplied facts and an exact allowed mode to Marketing Copy Generator", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ success: true, result: { response: "CTA options: Shop the tote. Explore the collection. Review factual accuracy before applying.", usage: { neurons: 0.6, prompt_tokens: 9, completion_tokens: 10 } } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(runCloudflareMarketingCopy({ mode: "cta-generator", sourceFacts: "Canvas tote. Internal pocket." }, { accountId: "account", apiToken: "token", model: "model" })).resolves.toMatchObject({ neurons: 0.6, promptTokens: 9, completionTokens: 10 });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/accounts/account/ai/run/model"), expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer token" }) }));
   });
 });

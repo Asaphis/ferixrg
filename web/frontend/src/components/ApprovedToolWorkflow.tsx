@@ -111,6 +111,7 @@ export function ApprovedToolWorkflow({
   const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
   const contentImproveMutation = trpc.workspace.contentImprove.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
+  const marketingCopyMutation = trpc.workspace.generateMarketingCopy.useMutation();
   const productDescriptionMutation = trpc.workspace.generateProductDescription.useMutation();
   const createDraftMutation = trpc.workspace.createDraft.useMutation();
   const saveDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
@@ -182,13 +183,15 @@ export function ApprovedToolWorkflow({
     if (!content.trim()) return;
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
-    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator") || !workspaceId || !toolRunId) {
+    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
       setMessages(previous => [...previous, { role: "assistant", content: `I prepared a scoped suggestion for **${selectedElement}** on the ${device.toLowerCase()} view. It keeps the current evidence and draft context. Review it beside your current design before applying it.` }]);
       setProposalVisible(true);
       return;
     }
     try {
-      const result = tool.id === "product-description-generator"
+      const result = tool.id === "cta-generator" || tool.id === "seo-content-generator" || tool.id === "meta-generator"
+        ? await marketingCopyMutation.mutateAsync({ workspaceId, toolRunId, mode: tool.id, sourceFacts: content, instruction: `Draft ${tool.name} output using only these supplied facts.` })
+        : tool.id === "product-description-generator"
         ? await productDescriptionMutation.mutateAsync({ workspaceId, toolRunId, productFacts: content, instruction: "Draft a concise product description using only these supplied facts." })
         : tool.id === "ai-content-improver"
           ? await contentImproveMutation.mutateAsync({ workspaceId, toolRunId, sourceText: content, instruction: `Improve this ${selectedElement.toLowerCase()} copy for clarity and usefulness while preserving its factual meaning.` })
