@@ -11,4 +11,12 @@ describe("public URL inspection executor", () => {
     expect(() => validatePublicInspectionUrl("http://127.0.0.1:3000")).toThrow(/public storefront/i);
     expect(() => validatePublicInspectionUrl("http://localhost:3000")).toThrow(/public storefront/i);
   });
+
+  it("records elapsed fetch-and-read time as an observed page-transfer indicator", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValueOnce(1_000).mockReturnValueOnce(1_275);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("<html><body>Store</body></html>")); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ fetchAndReadDurationMs: 275, bytesRead: 31 });
+    clock.mockRestore();
+  });
 });

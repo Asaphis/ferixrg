@@ -500,6 +500,7 @@
 - [x] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [x] Add a bounded evidence-backed Navigation Analyzer public-URL executor using observed navigation landmarks, main landmarks, and anchor text only, with real stored output and no crawl or provider claims.
+- [x] Add a bounded Performance Analyzer public-URL executor that records only measured fetch-and-read duration and inspected document bytes, without claiming a full performance audit.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.

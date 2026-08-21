@@ -355,6 +355,27 @@ describe("workspace router", () => {
     vi.unstubAllGlobals();
   });
 
+  it("executes the exact Performance Analyzer with a bounded server-side timing observation only", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValueOnce(2_000).mockReturnValueOnce(5_250);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"></head><body>Store</body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 74, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "performance-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 84, toolRunId: 74 } as never);
+    vi.mocked(createWorkspaceIssue).mockResolvedValue({ id: 95, title: "Observed public URL fetch and read took 3250 ms", severity: "low" } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/74/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/74/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 104, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 74, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 74 });
+
+    expect(result.inspection).toMatchObject({ fetchAndReadDurationMs: 3_250 });
+    expect(result.issues).toEqual([{ id: 95, title: "Observed public URL fetch and read took 3250 ms", severity: "low" }]);
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_fetch_and_document_size_inspection" }) }));
+    clock.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);

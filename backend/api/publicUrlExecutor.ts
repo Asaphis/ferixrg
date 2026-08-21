@@ -18,6 +18,7 @@ export type PublicUrlInspection = {
   linksWithoutText: number;
   navigationLandmarkCount: number;
   mainLandmarkCount: number;
+  fetchAndReadDurationMs: number;
   bytesRead: number;
 };
 
@@ -90,6 +91,7 @@ async function readBody(response: Response) {
 
 export async function inspectPublicUrl(value: string): Promise<PublicUrlInspection> {
   const url = validatePublicInspectionUrl(value);
+  const startedAt = Date.now();
   const response = await fetch(url, { redirect: "follow", headers: { "User-Agent": "FerixRG-Storefront-Inspector/1.0 (+https://ferixrg.example)" }, signal: AbortSignal.timeout(15_000) });
   const contentType = response.headers.get("content-type");
   const html = contentType?.toLowerCase().includes("text/html") ? await readBody(response) : "";
@@ -117,6 +119,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     linksWithoutText: anchorTextCounts.linksWithoutText,
     navigationLandmarkCount: (html.match(/<nav\b[^>]*>/gi) ?? []).length,
     mainLandmarkCount: (html.match(/<main\b[^>]*>/gi) ?? []).length,
+    fetchAndReadDurationMs: Math.max(Date.now() - startedAt, 0),
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
