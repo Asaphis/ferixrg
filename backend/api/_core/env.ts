@@ -10,4 +10,5 @@ export const ENV = {
   cloudflareAccountId: process.env.CF_ACCOUNT_ID ?? "",
   cloudflareApiToken: process.env.CF_API_TOKEN ?? "",
   cloudflareAiModel: process.env.CF_AI_MODEL ?? "",
+  totpEncryptionKey: process.env.TOTP_ENCRYPTION_KEY ?? "",
 };

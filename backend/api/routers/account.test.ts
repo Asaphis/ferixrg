@@ -66,6 +66,13 @@ describe("account router", () => {
     expect(updateUserPreferences).toHaveBeenCalledWith(42, { defaultPreview: "desktop" });
   });
 
+  it("rejects direct two-step activation before encrypted enrollment exists", async () => {
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.updatePreferences({ twoStepVerification: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(updateUserPreferences).not.toHaveBeenCalledWith(42, expect.objectContaining({ twoStepVerification: true }));
+  });
+
   it("lists and revokes sessions within the authenticated account boundary", async () => {
     vi.mocked(listAccountSessions).mockResolvedValue([{ id: 19, tokenHash: "other-session", createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000), usedAt: null }] as never);
     vi.mocked(revokeAccountSession).mockResolvedValue(undefined);
