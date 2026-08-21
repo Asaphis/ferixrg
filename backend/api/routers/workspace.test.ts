@@ -1017,6 +1017,24 @@ describe("workspace router", () => {
     expect(createWorkspaceReleaseAction).toHaveBeenCalledWith(expect.objectContaining({ requestedByUserId: 42, actionType: "publish" }));
   });
 
+  it("compares two persisted versions from one draft without visual or scoring claims and creates evidence plus a report", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 141, workspaceId: 9, toolId: "before-after-comparator", sourceType: "saved_draft", status: "queued" } as never);
+    vi.mocked(startWorkspaceToolRun).mockResolvedValue({ id: 141, workspaceId: 9, toolId: "before-after-comparator", status: "running" } as never);
+    vi.mocked(getWorkspaceDraftVersion).mockResolvedValueOnce({ version: { id: 51, label: "Baseline", createdAt: new Date("2026-08-01T00:00:00.000Z"), createdByType: "user", designState: "{\"hero\":\"original\"}" }, draft: { id: 14 } } as never).mockResolvedValueOnce({ version: { id: 52, label: "Revision", createdAt: new Date("2026-08-02T00:00:00.000Z"), createdByType: "ai", designState: "{\"hero\":\"revised\"}" }, draft: { id: 14 } } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/141/persisted-draft-comparison.json", url: "https://storage.example/comparison.json" } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 801 } as never);
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 901 } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 141, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executeDraftVersionComparison({ workspaceId: 9, toolRunId: 141, baseVersionId: 51, comparisonVersionId: 52 });
+    expect(result.comparison).toMatchObject({ execution: "deterministic_persisted_draft_version_comparison", draftId: 14, serializedStateMatches: false, base: { versionId: 51, label: "Baseline" }, comparison: { versionId: 52, label: "Revision" } });
+    expect(result.comparison.boundary).toMatch(/does not render, score, assess visual quality, validate, publish, or change a store/i);
+    expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 141, kind: "validation", title: "Persisted draft-version comparison" }));
+    expect(createWorkspaceReport).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 141, title: "Before/After persisted draft comparison", format: "json" }));
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 141, resultSummary: expect.objectContaining({ execution: "deterministic_persisted_draft_version_comparison", evidenceId: 801, reportId: 901 }) }));
+  });
   it("returns a stored report artifact only to an authorized workspace member", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "viewer" } } as never);
     vi.mocked(getWorkspaceReport).mockResolvedValue({ id: 101, workspaceId: 9, format: "json", storageKey: "workspace-9/reports/inspection.json" } as never);

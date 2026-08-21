@@ -711,6 +711,35 @@ export const workspaceRouter = router({
       return toForbidden(error);
     }
   }),
+  executeDraftVersionComparison: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive(), baseVersionId: z.number().int().positive(), comparisonVersionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      if (input.baseVersionId === input.comparisonVersionId) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose two different saved draft versions to compare." });
+      const existing = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+      if (!existing || existing.toolId !== "before-after-comparator" || existing.sourceType !== "saved_draft") throw new TRPCError({ code: "BAD_REQUEST", message: "Before/After Comparator is available only for a saved-draft tool run." });
+      const running = existing.status === "queued" ? await startWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id }) : existing;
+      if (!running || running.status !== "running") throw new TRPCError({ code: "BAD_REQUEST", message: "Only queued or running Before/After Comparator runs can execute." });
+      const [base, comparison] = await Promise.all([getWorkspaceDraftVersion(input.workspaceId, input.baseVersionId), getWorkspaceDraftVersion(input.workspaceId, input.comparisonVersionId)]);
+      if (!base || !comparison || base.draft.id !== comparison.draft.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Both saved versions must belong to the same workspace draft." });
+      const comparisonResult = {
+        execution: "deterministic_persisted_draft_version_comparison",
+        boundary: "Compares persisted version metadata and serialized state only. It does not render, score, assess visual quality, validate, publish, or change a store.",
+        draftId: base.draft.id,
+        base: { versionId: base.version.id, label: base.version.label, createdAt: base.version.createdAt, createdByType: base.version.createdByType, designStateBytes: Buffer.byteLength(base.version.designState, "utf8") },
+        comparison: { versionId: comparison.version.id, label: comparison.version.label, createdAt: comparison.version.createdAt, createdByType: comparison.version.createdByType, designStateBytes: Buffer.byteLength(comparison.version.designState, "utf8") },
+        serializedStateMatches: base.version.designState === comparison.version.designState,
+      };
+      const reportJson = JSON.stringify({ generatedAt: new Date().toISOString(), toolRunId: input.toolRunId, toolId: "before-after-comparator", comparison: comparisonResult }, null, 2);
+      const upload = await storagePut(`workspace-${input.workspaceId}/tool-runs/${input.toolRunId}/persisted-draft-comparison.json`, Buffer.from(reportJson), "application/json");
+      const evidence = await createWorkspaceEvidence({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, kind: "validation", title: "Persisted draft-version comparison", storageKey: upload.key, details: comparisonResult, actorUserId: ctx.user.id });
+      const report = await createWorkspaceReport({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, title: "Before/After persisted draft comparison", format: "json", storageKey: upload.key, summary: "Saved-version metadata and serialized-state comparison only; not a visual or scoring result.", createdByUserId: ctx.user.id });
+      const run = await completeWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, resultSummary: { ...comparisonResult, evidenceId: evidence?.id ?? null, reportId: report?.id ?? null } });
+      return { run, comparison: comparisonResult, report: report ? { id: report.id, storageKey: upload.key, url: upload.url } : null };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      return toForbidden(error);
+    }
+  }),
   completeToolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive(), resultSummary: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => {
     try {
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");

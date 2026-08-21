@@ -594,6 +594,7 @@
 - [x] Add a dedicated proposal-only Layout Composer operation through the existing Cloudflare gateway, preserving manual editing, workspace permission, tool-run context, capacity, usage, and audit boundaries.
 - [x] Add a dedicated proposal-only Component Builder operation through the existing Cloudflare gateway, preserving manual editing, workspace permission, tool-run context, capacity, usage, and audit boundaries.
 - [x] Persist dedicated live AI proposal results as workspace-scoped evidence and generated JSON report artifacts without completing tool runs or creating automated store changes.
+- [x] Add a bounded Before/After Comparator executor that compares persisted draft-version metadata and state sizes only, without visual, scoring, publishing, or quality conclusions.
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.
