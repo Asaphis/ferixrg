@@ -504,6 +504,7 @@
 - [x] Add a bounded CTA Analyzer public-URL executor that records observed links and buttons with visible text only, without conversion or journey claims.
 - [x] Add a bounded Content Quality Analyzer public-URL executor that records extracted body-text, paragraph, and heading indicators only, without subjective writing-quality claims.
 - [x] Add a bounded Product Page Analyzer public-URL executor that records observed Product JSON-LD declarations only, without catalog or merchant-data claims.
+- [x] Add a bounded Image Optimization Analyzer public-URL executor that records image lazy-loading and width/height attribute indicators only, without byte-size or visual-performance claims.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.

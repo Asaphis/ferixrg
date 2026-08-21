@@ -31,4 +31,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ productStructuredDataCount: 1, productNames: ["Canvas Tote"], productOfferCount: 2 });
   });
+
+  it("records observed image loading and dimension attributes without measuring image bytes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><img src="hero.jpg" loading="lazy" width="1200" height="900"><img src="product.jpg" loading="eager"></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ imageCount: 2, imagesLazyLoaded: 1, imagesWithDimensions: 1, imagesWithoutDimensions: 1 });
+  });
 });

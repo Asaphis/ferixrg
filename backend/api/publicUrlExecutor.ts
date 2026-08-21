@@ -31,6 +31,9 @@ export type PublicUrlInspection = {
   productStructuredDataCount: number;
   productNames: string[];
   productOfferCount: number;
+  imagesLazyLoaded: number;
+  imagesWithDimensions: number;
+  imagesWithoutDimensions: number;
   bytesRead: number;
 };
 
@@ -200,6 +203,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     productStructuredDataCount: productStructuredData.productStructuredDataCount,
     productNames: productStructuredData.productNames,
     productOfferCount: productStructuredData.productOfferCount,
+    imagesLazyLoaded: imageTags.filter(tag => /\bloading\s*=\s*["']lazy["']/i.test(tag)).length,
+    imagesWithDimensions: imageTags.filter(tag => Boolean(attribute(tag, "width")) && Boolean(attribute(tag, "height"))).length,
+    imagesWithoutDimensions: imageTags.filter(tag => !attribute(tag, "width") || !attribute(tag, "height")).length,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

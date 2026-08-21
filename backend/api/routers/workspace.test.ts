@@ -432,6 +432,25 @@ describe("workspace router", () => {
     vi.unstubAllGlobals();
   });
 
+  it("executes the exact Image Optimization Analyzer with image markup attributes only", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"></head><body><img src="hero.jpg" width="1200" height="900" loading="lazy"><img src="product.jpg"></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 78, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "image-optimization-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 88, toolRunId: 78 } as never);
+    vi.mocked(createWorkspaceIssue).mockImplementation(async input => ({ id: input.title.includes("width and height") ? 98 : 99, title: input.title, severity: input.severity }) as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/78/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/78/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 108, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 78, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 78 });
+
+    expect(result.inspection).toMatchObject({ imageCount: 2, imagesLazyLoaded: 1, imagesWithDimensions: 1, imagesWithoutDimensions: 1 });
+    expect(result.issues).toEqual([{ id: 99, title: "2 observed images lack alternative text", severity: "medium" }, { id: 98, title: "1 observed image lacks both width and height attributes", severity: "low" }]);
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_image_markup_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);
