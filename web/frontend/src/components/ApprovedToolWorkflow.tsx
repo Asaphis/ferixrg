@@ -114,6 +114,7 @@ export function ApprovedToolWorkflow({
   const aiStoreRedesignMutation = trpc.workspace.aiStoreRedesign.useMutation();
   const visualStyleStudioMutation = trpc.workspace.visualStyleStudio.useMutation();
   const responsiveStudioMutation = trpc.workspace.responsiveStudio.useMutation();
+  const layoutComposerMutation = trpc.workspace.layoutComposer.useMutation();
   const contentEditorProposalMutation = trpc.workspace.contentEditorProposal.useMutation();
   const marketingCopyMutation = trpc.workspace.generateMarketingCopy.useMutation();
   const productDescriptionMutation = trpc.workspace.generateProductDescription.useMutation();
@@ -187,7 +188,7 @@ export function ApprovedToolWorkflow({
     if (!content.trim()) return;
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
-    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-store-redesign" && tool.id !== "visual-style-studio" && tool.id !== "responsive-studio" && tool.id !== "content-editor" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
+    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-store-redesign" && tool.id !== "visual-style-studio" && tool.id !== "responsive-studio" && tool.id !== "layout-composer" && tool.id !== "content-editor" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
       setMessages(previous => [...previous, { role: "assistant", content: `**${tool.name}** does not yet have a dedicated server-side AI operation for this workflow. No AI proposal was generated. You can continue with the manual editor, choose a tool with a live AI operation, or return when this executor is released.` }]);
       setFinishNotice("This tool’s AI operation is not available yet. No simulated result was created.");
       return;
@@ -199,6 +200,8 @@ export function ApprovedToolWorkflow({
         ? await visualStyleStudioMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } })
         : tool.id === "responsive-studio"
         ? await responsiveStudioMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } })
+        : tool.id === "layout-composer"
+        ? await layoutComposerMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } })
         : tool.id === "content-editor"
         ? await contentEditorProposalMutation.mutateAsync({ workspaceId, toolRunId, sourceText: content, instruction: `Propose a reviewable revision for this ${selectedElement.toLowerCase()} while preserving factual meaning and manual editor control.` })
         : tool.id === "cta-generator" || tool.id === "seo-content-generator" || tool.id === "meta-generator"

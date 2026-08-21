@@ -303,6 +303,31 @@ describe("workspace router", () => {
     expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
   });
 
+  it("runs Layout Composer only from its exact tool run, returns a reviewable proposal, and records bounded usage metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 35, workspaceId: 9, toolId: "layout-composer" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runDesignCopilotThroughGateway).mockResolvedValue({ response: "Proposal: Place product proof beside the primary action. Review before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.2, promptTokens: 25, completionTokens: 17 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 9 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.layoutComposer({ workspaceId: 9, toolRunId: 35, message: "Create a clearer product-page layout direction.", context: { device: "Desktop", selectedElement: "Product proof" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2 });
+    expect(runDesignCopilotThroughGateway).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("Create a reviewable layout proposal only."), context: expect.objectContaining({ operation: "Layout Composer", device: "Desktop", selectedElement: "Product proof" }) }));
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "layout_composer", referenceId: "35" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.layout_composer.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+  });
+
+  it("rejects Layout Composer when the supplied tool run belongs to another operation", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 36, workspaceId: 9, toolId: "ai-design-copilot" } as never);
+    vi.mocked(runDesignCopilotThroughGateway).mockClear();
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.layoutComposer({ workspaceId: 9, toolRunId: 36, message: "Create a layout direction." })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("Layout Composer") });
+    expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
+  });
+
   it("runs Product Description Generator only within editor access, accounts for neurons, and retains facts outside audit metadata", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 24, workspaceId: 9, toolId: "product-description-generator" } as never);
