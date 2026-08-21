@@ -623,6 +623,6 @@
 - [x] Replace Billing & Usage panel metrics and records with live subscription, entitlement, and ledger data.
 - [x] Keep billing actions explicitly read-only until a server-side payment provider is configured; no payment credentials, checkout, receipts, or subscription changes are simulated.
 
-- [ ] Commit and push the completed FerixRG implementation to the private GitHub repository at the user’s request.
+- [x] Commit and push the completed FerixRG implementation to the private GitHub repository at the user’s request.
 - [x] Resolve the final comparator workflow regression and rerun the complete validation suite before the pushed release commit.
-- [ ] Document remaining deployment-gated provider OAuth, payment, publish, rollback, and platform adapter work.
+- [x] Document remaining deployment-gated provider OAuth, payment, publish, rollback, and platform adapter work.
