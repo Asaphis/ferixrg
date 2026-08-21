@@ -1,3 +1,5 @@
+import { apiUrl } from "./apiBase";
+
 export type LocalAccountResult = {
   success: boolean;
   verificationRequired?: boolean;
@@ -18,7 +20,7 @@ export class LocalAccountApiError extends Error {
 }
 
 async function requestLocalAccount(path: string, body: Record<string, string>): Promise<LocalAccountResult> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

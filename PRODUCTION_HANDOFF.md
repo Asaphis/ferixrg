@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-The implementation is synchronized to `origin/main` at commit `8102735` (`Record final validation checkpoint`). The working tree was clean at the final validation pass.
+The implementation is synchronized to `origin/main` at commit `0728da0` (`Configure split frontend and API domains`). The working tree was clean after the split-domain deployment wiring checkpoint.
 
 The current application is ready for server setup and production-style smoke testing. It is not safe to claim that provider-side publishing, rollback, payment collection, WooCommerce authorization, Magento authorization, or custom-provider authorization are active until their reviewed adapters and production credentials are configured.
 
@@ -25,43 +25,47 @@ Set the following through the server secret manager, process manager, or protect
 
 | Variable | Required for | Notes |
 |---|---|---|
-| `DATABASE_URL` | All production operation | Use a TLS-enabled MySQL/TiDB connection when required by the database provider. |
+| `DATABASE_URL` | All production operation | Use the pooled Neon PostgreSQL connection string for runtime requests. |
+| `DATABASE_URL_UNPOOLED` | Drizzle migrations | Use the direct Neon PostgreSQL connection string; keep it server-only. |
 | `JWT_SECRET` | Local account sessions | Use a long random value unique to the environment. |
-| `FERIXRG_APP_ORIGIN` | Production links and Shopify callback | Exact HTTPS origin without a trailing slash. |
+| `FERIXRG_APP_ORIGIN` | Production links and Shopify callback | Set exactly to `https://ferixrg.ferixas.com`. |
 | `RESEND_API_KEY` and `RESEND_FROM_EMAIL` | Transactional email | Required if email verification, password reset, and email-change delivery are enabled. |
 | `CF_ACCOUNT_ID` and `CF_API_TOKEN` | Cloudflare Workers AI | Keep the token server-only and grant only the needed Workers AI permission. |
 | `CF_AI_MODEL` | Optional AI model override | Defaults to `@cf/meta/llama-3.2-3b-instruct`. |
 | `STORE_CONNECTION_ENCRYPTION_KEY` | Managed-store credential encryption | A random 32-byte AES-256-GCM key encoded as base64 or 64 hexadecimal characters. |
 | `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` | Shopify authorization | Register the FerixRG Shopify app and keep the secret server-only. |
 | `SHOPIFY_REDIRECT_URI` | Optional Shopify callback override | Defaults to `${FERIXRG_APP_ORIGIN}/api/store-connections/shopify/callback`; register the exact HTTPS URL. |
-| `NODE_ENV=production` | Production behavior | Required for the startup configuration guard. |
+| `VITE_API_BASE_URL` | Frontend API transport | Set to `https://api.ferixrg.ferixas.com` before the client build. |
+| `PORT` | Internal Node listener | Set to `5010`; do not alter other PM2 processes. |
+| `NODE_ENV` | Production behavior | Required for the startup configuration guard. |
 
 The application fails fast in production when `DATABASE_URL` or `JWT_SECRET` is missing. Optional AI, email, and provider adapters remain visible as explicit readiness states instead of producing fabricated success.
 
 ## Server setup sequence
 
-Clone the private repository on the target Ubuntu host, install the locked dependencies, apply the reviewed Drizzle migrations, run the complete validation suite, build the client and bundled server, and start the server under a supervised process manager.
+Clone the private repository on the target Ubuntu host at `/home/ubuntu/ferixrg`, install the locked dependencies, apply the reviewed Neon PostgreSQL migration, run the complete validation suite, build with the dedicated API origin, and start the server under PM2 using the isolated process name `ferixrg` and port `5010`.
 
 ```bash
-git clone https://github.com/Asaphis/ferixrg.git
-cd ferixrg
+git clone https://github.com/Asaphis/ferixrg.git /home/ubuntu/ferixrg
+cd /home/ubuntu/ferixrg
 git checkout main
 pnpm install --frozen-lockfile
 pnpm drizzle-kit migrate
 pnpm test
 pnpm check
 pnpm build
-NODE_ENV=production node dist/index.js
+pm2 start dist/index.js --name ferixrg
+pm2 save
 ```
 
-Run the process behind HTTPS. Terminate TLS at the reverse proxy, forward traffic to the Node process, and set `FERIXRG_APP_ORIGIN` to the public HTTPS origin. Configure automatic restart and log retention in the process manager. Do not expose the Node process directly to the public internet if the reverse proxy is responsible for TLS and security headers.
+Create separate Cloudflare-proxied DNS records for `ferixrg.ferixas.com` and `api.ferixrg.ferixas.com`, then add separate Nginx server blocks. Serve the built frontend at the frontend hostname, proxy `/api/oauth/callback` and `/api/store-connections/shopify/callback` there to `127.0.0.1:5010` for host-only OAuth state handling, and proxy all requests on the API hostname to `127.0.0.1:5010`. Terminate TLS at Nginx, configure automatic restart with PM2, and do not expose port 5010 directly.
 
 ## Smoke-test order
 
 Begin with the public readiness endpoint:
 
 ```bash
-curl -f https://app.example.com/api/health
+curl -f https://api.ferixrg.ferixas.com/api/health
 ```
 
 The response should show `ok: true`, the production environment, Cloudflare readiness, and each managed-store provider’s readiness and capability flags. It must not contain access tokens, API keys, client secrets, or encrypted credential material.
