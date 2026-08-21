@@ -85,4 +85,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ cartLinkCount: 1, checkoutLinkCount: 1, cartOrCheckoutFormActionCount: 2 });
   });
+
+  it("records style-block media-query conditions without rendering viewport behavior", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><style>@media (max-width: 700px) { .hero { display: block; } } @media screen and (min-width: 960px) { .hero { display: grid; } }</style></head><body></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ mediaQueryConditionCount: 2, observedMediaQueryConditions: ["(max-width: 700px)", "screen and (min-width: 960px)"] });
+  });
 });

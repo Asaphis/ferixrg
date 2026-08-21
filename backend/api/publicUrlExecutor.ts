@@ -60,6 +60,8 @@ export type PublicUrlInspection = {
   cartLinkCount: number;
   checkoutLinkCount: number;
   cartOrCheckoutFormActionCount: number;
+  mediaQueryConditionCount: number;
+  observedMediaQueryConditions: string[];
   bytesRead: number;
 };
 
@@ -239,6 +241,19 @@ function extractCommercePathMarkup(html: string) {
   };
 }
 
+function extractMediaQueryConditions(html: string) {
+  const styleBlocks = html.match(/<style\b[^>]*>[\s\S]*?<\/style>/gi) ?? [];
+  const conditions: string[] = [];
+  for (const styleBlock of styleBlocks) {
+    for (const match of Array.from(styleBlock.matchAll(/@media\s+([^\{]+)\{/gi))) {
+      const condition = match[1].trim().replace(/\s+/g, " ").slice(0, 240);
+      if (condition && conditions.length < 30 && !conditions.includes(condition)) conditions.push(condition);
+    }
+  }
+  const mediaQueryConditionCount = styleBlocks.reduce((count, styleBlock) => count + (styleBlock.match(/@media\s+[^\{]+\{/gi)?.length ?? 0), 0);
+  return { mediaQueryConditionCount, observedMediaQueryConditions: conditions };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -334,6 +349,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const colorStyleDeclarations = extractColorStyleDeclarations(html);
   const fontFamilyDeclarations = extractFontFamilyDeclarations(html);
   const commercePathMarkup = extractCommercePathMarkup(html);
+  const mediaQueryConditions = extractMediaQueryConditions(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -396,6 +412,8 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     cartLinkCount: commercePathMarkup.cartLinkCount,
     checkoutLinkCount: commercePathMarkup.checkoutLinkCount,
     cartOrCheckoutFormActionCount: commercePathMarkup.cartOrCheckoutFormActionCount,
+    mediaQueryConditionCount: mediaQueryConditions.mediaQueryConditionCount,
+    observedMediaQueryConditions: mediaQueryConditions.observedMediaQueryConditions,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
