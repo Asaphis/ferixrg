@@ -6,3 +6,10 @@
 @media(min-width:821px){.mobile-flow-page{max-width:980px}.platform-choice-grid{grid-template-columns:1fr 1fr}.store-flow-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}.store-flow-card-head{grid-column:1/-1}.store-flow-metrics{margin:0;border:0;padding:0}.store-flow-card .flow-primary{width:auto;min-width:130px;margin:0}.journey-input-options{grid-template-columns:1fr 1fr}.flow-menu-list{max-width:650px}.more-group{max-width:650px}}
 
 @media(prefers-reduced-motion:no-preference){.mobile-flow-page>*{animation:mobile-behavior-in .28s cubic-bezier(.23,1,.32,1) both}.mobile-flow-page>*:nth-child(2){animation-delay:.035s}.mobile-flow-page>*:nth-child(3){animation-delay:.07s}@keyframes mobile-behavior-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}}
+
+/* URL analysis input: keep the editable field usable beside the icon and clear action on narrow screens. */
+.flow-input{min-width:0;overflow:hidden}
+.flow-input input{min-width:0;flex:1;display:block;text-overflow:ellipsis}
+.flow-input-clear{flex:0 0 24px;width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:50%;background:#e7edf8;color:#526b94;font-size:18px;line-height:1;padding:0}
+.flow-input-clear:disabled{opacity:.35;cursor:not-allowed}
+@media(max-width:420px){.flow-input{gap:6px;padding:0 8px}.flow-input input{font-size:11px}.flow-input-clear{flex-basis:22px;width:22px;height:22px}}
