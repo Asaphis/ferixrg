@@ -10,7 +10,9 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { assertProductionConfiguration } from "./env";
+import { assertProductionConfiguration, ENV } from "./env";
+import { listCentralAiReadiness } from "../aiGateway";
+import { listStoreProviderReadiness } from "../storeProviders";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,6 +40,15 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({
+      ok: true,
+      service: "ferixrg",
+      environment: ENV.isProduction ? "production" : "development",
+      ai: listCentralAiReadiness().map(item => ({ provider: item.provider, configured: item.configured, model: item.model, message: item.message })),
+      storeProviders: listStoreProviderReadiness().map(item => ({ provider: item.provider, configured: item.configured, supportsPublish: item.supportsPublish, supportsRollback: item.supportsRollback, message: item.message })),
+    });
+  });
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerLocalAuthRoutes(app);

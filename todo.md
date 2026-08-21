@@ -683,3 +683,7 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 - [x] Replace the active AI workflow’s fixed validation checklist, projected health claims, simulated publishing messages, fabricated design-package claims, and static before/after renders with persisted-state metadata, live validation status, and explicit unavailable-provider/artifact states.
 - [x] Keep proposal application as a manual editor decision and make provider-side draft creation/publishing remain gated until a configured adapter reports capability.
 - [x] Validate the complete suite, TypeScript check, and production build after the workflow hardening.
+
+## Production smoke-test surface
+- [x] Add `GET /api/health` with service status and secret-free AI/provider readiness fields for deployment smoke tests.
+- [x] Document the health check, production migration/build/start sequence, and post-deployment verification order.

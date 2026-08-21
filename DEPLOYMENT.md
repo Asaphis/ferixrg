@@ -51,7 +51,7 @@ pnpm build
 NODE_ENV=production node dist/index.js
 ```
 
-Run the server behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly matches the public origin, and use a database with TLS enabled when the database provider requires it. After a deployment, verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
+Run the server behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly matches the public origin, and use a database with TLS enabled when the database provider requires it. After a deployment, first verify `curl -f https://app.example.com/api/health`; it returns service status and secret-free AI/provider readiness without returning credentials. Then verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
 
 ## Configuration intentionally deferred
 
