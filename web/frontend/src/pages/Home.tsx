@@ -18,7 +18,7 @@ const landingVisuals = [
 ];
 
 function Brand() {
-  return <a className="landing-brand" href="/"><span className="landing-mark" aria-hidden="true">◇</span><span>FERIX<b>RG</b></span></a>;
+  return <a className="landing-brand" href="/"><img className="landing-logo-art" src="/branding/ferixrg-logo-transparent.png" alt="FerixRG emblem" /><span>FERIX<b>RG</b></span></a>;
 }
 
 function PrimaryButton({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {

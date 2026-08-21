@@ -21,9 +21,9 @@ import "./moreDetail.css";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
-const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
-const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
-const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
+const markAsset = "/branding/ferixrg-logo-transparent.png";
+const evidenceAsset = "/landing/ferixrg-visual-analysis.png";
+const redesignAsset = "/landing/ferixrg-visual-redesign.png";
 
 const desktopNavGroups = [
   { label: "Workspace", items: [{ label: "Dashboard", destination: "Overview", icon: LayoutDashboard }, { label: "Stores", destination: "Stores", icon: Store }] },

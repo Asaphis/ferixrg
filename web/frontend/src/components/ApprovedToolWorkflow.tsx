@@ -46,8 +46,8 @@ type ComparisonResult = {
   serializedStateMatches: boolean;
 };
 
-const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
-const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
+const evidenceAsset = "/landing/ferixrg-visual-analysis.png";
+const redesignAsset = "/landing/ferixrg-visual-redesign.png";
 
 const stages: Array<{ id: Stage; label: string }> = [
   { id: "setup", label: "Set up" },
