@@ -21,6 +21,15 @@ function decodeBase32(value: string) {
   return Buffer.from(bytes);
 }
 
+function encodeBase32(value: Buffer) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (let index = 0; index < value.length; index += 1) bits += value[index].toString(2).padStart(8, "0");
+  let output = "";
+  for (let offset = 0; offset < bits.length; offset += 5) output += alphabet[Number.parseInt(bits.slice(offset, offset + 5).padEnd(5, "0"), 2)];
+  return output;
+}
+
 function totpCodeAt(secret: string, counter: number) {
   const counterBytes = Buffer.alloc(8);
   counterBytes.writeBigUInt64BE(BigInt(counter));
@@ -75,6 +84,10 @@ export function createTwoStepChallengeToken() {
     tokenHash: createHash("sha256").update(rawToken).digest("hex"),
     expiresAt: new Date(Date.now() + TWO_STEP_CHALLENGE_TTL_MS),
   };
+}
+
+export function createTwoStepEnrollmentSecret() {
+  return encodeBase32(randomBytes(20));
 }
 
 export function hashAccountToken(rawToken: string) {

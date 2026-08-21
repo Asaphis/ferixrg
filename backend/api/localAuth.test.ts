@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAccountToken, createTwoStepRecoveryCodes, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword, verifyTotpCode } from "./localAuth";
+import { createAccountToken, createTwoStepEnrollmentSecret, createTwoStepRecoveryCodes, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword, verifyTotpCode } from "./localAuth";
 
 describe("local account authentication helpers", () => {
   it("normalizes account email and enforces the same strong password policy as the approved UI", () => {
@@ -40,5 +40,10 @@ describe("local account authentication helpers", () => {
     expect(codes).toHaveLength(8);
     expect(new Set(codes.map(code => code.rawCode)).size).toBe(8);
     expect(codes.every(code => /^([A-F0-9]{4}-){3}[A-F0-9]{4}$/.test(code.rawCode) && code.codeHash !== code.rawCode)).toBe(true);
+  });
+
+  it("creates a Base32 authenticator seed without revealing an encryption key", () => {
+    const secret = createTwoStepEnrollmentSecret();
+    expect(secret).toMatch(/^[A-Z2-7]{32}$/);
   });
 });
