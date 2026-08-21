@@ -328,6 +328,31 @@ describe("workspace router", () => {
     expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
   });
 
+  it("runs Component Builder only from its exact tool run, returns a reviewable proposal, and records bounded usage metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 37, workspaceId: 9, toolId: "component-builder" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runDesignCopilotThroughGateway).mockResolvedValue({ response: "Proposal: Use a reusable product-benefit card. Review before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.2, promptTokens: 25, completionTokens: 17 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 10 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.componentBuilder({ workspaceId: 9, toolRunId: 37, message: "Create a reusable product-benefit card direction.", context: { device: "Desktop", selectedElement: "Benefit card" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2 });
+    expect(runDesignCopilotThroughGateway).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("Create a reviewable component proposal only."), context: expect.objectContaining({ operation: "Component Builder", device: "Desktop", selectedElement: "Benefit card" }) }));
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "component_builder", referenceId: "37" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.component_builder.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+  });
+
+  it("rejects Component Builder when the supplied tool run belongs to another operation", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 38, workspaceId: 9, toolId: "ai-design-copilot" } as never);
+    vi.mocked(runDesignCopilotThroughGateway).mockClear();
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.componentBuilder({ workspaceId: 9, toolRunId: 38, message: "Create a card direction." })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("Component Builder") });
+    expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
+  });
+
   it("runs Product Description Generator only within editor access, accounts for neurons, and retains facts outside audit metadata", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 24, workspaceId: 9, toolId: "product-description-generator" } as never);
