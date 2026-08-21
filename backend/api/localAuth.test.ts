@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAccountToken, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword } from "./localAuth";
+import { createAccountToken, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword, verifyTotpCode } from "./localAuth";
 
 describe("local account authentication helpers", () => {
   it("normalizes account email and enforces the same strong password policy as the approved UI", () => {
@@ -25,5 +25,13 @@ describe("local account authentication helpers", () => {
   it("fails closed when the two-step deployment encryption key is absent", () => {
     expect(twoStepEncryptionConfigured()).toBe(false);
     expect(() => encryptTwoStepSecret("authenticator-seed")).toThrow("Two-step verification is not configured.");
+  });
+
+  it("verifies only valid six-digit TOTP codes inside the bounded clock-skew window", () => {
+    const rfcSecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+    expect(verifyTotpCode(rfcSecret, "287082", 59_000)).toBe(true);
+    expect(verifyTotpCode(rfcSecret, "287082", 89_000)).toBe(true);
+    expect(verifyTotpCode(rfcSecret, "287082", 119_000)).toBe(false);
+    expect(verifyTotpCode(rfcSecret, "not-a-code", 59_000)).toBe(false);
   });
 });

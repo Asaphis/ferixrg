@@ -1,9 +1,43 @@
 import bcrypt from "bcryptjs";
-import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { ENV } from "./_core/env";
 
 export const LOCAL_AUTH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
 export const TWO_STEP_CHALLENGE_TTL_MS = 1000 * 60 * 5;
+const TOTP_PERIOD_SECONDS = 30;
+
+function decodeBase32(value: string) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const normalized = value.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  if (!normalized) throw new Error("Invalid authenticator secret.");
+  let bits = "";
+  for (const character of normalized) {
+    const index = alphabet.indexOf(character);
+    if (index < 0) throw new Error("Invalid authenticator secret.");
+    bits += index.toString(2).padStart(5, "0");
+  }
+  const bytes: number[] = [];
+  for (let offset = 0; offset + 8 <= bits.length; offset += 8) bytes.push(Number.parseInt(bits.slice(offset, offset + 8), 2));
+  return Buffer.from(bytes);
+}
+
+function totpCodeAt(secret: string, counter: number) {
+  const counterBytes = Buffer.alloc(8);
+  counterBytes.writeBigUInt64BE(BigInt(counter));
+  const digest = createHmac("sha1", decodeBase32(secret)).update(counterBytes).digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const value = ((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3];
+  return String(value % 1_000_000).padStart(6, "0");
+}
+
+export function verifyTotpCode(secret: string, code: string, now = Date.now()) {
+  if (!/^\d{6}$/.test(code)) return false;
+  const counter = Math.floor(now / 1000 / TOTP_PERIOD_SECONDS);
+  return [-1, 0, 1].some(offset => {
+    const expected = Buffer.from(totpCodeAt(secret, counter + offset));
+    return timingSafeEqual(expected, Buffer.from(code));
+  });
+}
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
