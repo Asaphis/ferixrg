@@ -649,3 +649,7 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 - [x] Replace the simulated frontend Store connection timeout with the protected `stores.beginConnection` mutation and provider-readiness response.
 - [x] Create a real Shopify store record from the supplied storefront URL when no Shopify store record exists, while preserving the fail-closed not-configured adapter state.
 - [x] Add frontend regression coverage for the backend connection request contract and canonicalize obsolete store tool entry points.
+
+## Provider-selector truthfulness
+- [x] Generalize Store onboarding across Shopify, WooCommerce, Adobe Commerce, and custom adapter readiness instead of presenting every platform as Shopify.
+- [x] Keep provider names, URL input, store creation, requested scopes, loading, and not-configured errors aligned with the selected server-side adapter.
