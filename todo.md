@@ -698,3 +698,6 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 - [x] Repository is clean and synchronized with `origin/main`.
 
 Validation note: Vite still reports the existing optional analytics placeholders and a bundle-size advisory. These are non-fatal build warnings; no test, type-check, or build failure remains.
+
+## Production handoff
+- [x] Create `PRODUCTION_HANDOFF.md` with the exact environment contract, migration/build/start sequence, `/api/health` smoke test, Shopify development-store test sequence, rollback guidance, and explicit remaining provider/payment boundaries.
