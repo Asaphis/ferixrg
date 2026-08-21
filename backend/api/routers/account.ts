@@ -70,7 +70,8 @@ export const accountRouter = router({
           twoStepVerification: z.boolean().optional(),
           securityAlerts: z.boolean().optional(),
         })
-        .refine(input => Object.values(input).some(value => value !== undefined), "Provide at least one preference to update."),
+        .refine(input => Object.values(input).some(value => value !== undefined), "Provide at least one preference to update.")
+        .refine(input => input.twoStepVerification !== true, "Two-step verification cannot be enabled until encrypted enrollment is completed."),
     )
     .mutation(({ ctx, input }) => updateUserPreferences(ctx.user.id, input)),
 });
