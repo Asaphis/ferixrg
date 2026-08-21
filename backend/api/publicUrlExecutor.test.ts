@@ -55,4 +55,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ hasViewport: true, telephoneLinkCount: 1, telephoneInputCount: 1, mobileInputModeCount: 1 });
   });
+
+  it("records parsed Organization, Review, and AggregateRating declarations without assessing trust or rating quality", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><script type="application/ld+json">{"@graph":[{"@type":"Organization","name":"Example"},{"@type":"Review","reviewBody":"Observed declaration"},{"@type":"AggregateRating","ratingValue":"4.8"}]}</script></head><body></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ organizationStructuredDataCount: 1, reviewStructuredDataCount: 1, aggregateRatingStructuredDataCount: 1 });
+  });
 });

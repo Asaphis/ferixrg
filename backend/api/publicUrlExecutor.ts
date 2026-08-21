@@ -45,6 +45,9 @@ export type PublicUrlInspection = {
   telephoneLinkCount: number;
   telephoneInputCount: number;
   mobileInputModeCount: number;
+  organizationStructuredDataCount: number;
+  reviewStructuredDataCount: number;
+  aggregateRatingStructuredDataCount: number;
   bytesRead: number;
 };
 
@@ -134,6 +137,26 @@ function extractProductStructuredData(html: string) {
   const productNames = productNodes.flatMap(node => typeof node.name === "string" ? [node.name.trim().slice(0, 240)] : []).filter(Boolean).slice(0, 20);
   const productOfferCount = productNodes.reduce((count, node) => count + (Array.isArray(node.offers) ? node.offers.length : node.offers ? 1 : 0), 0);
   return { productStructuredDataCount: productNodes.length, productNames, productOfferCount };
+}
+
+function extractCredibilityStructuredData(html: string) {
+  const scripts = Array.from(html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi));
+  const counts = { organizationStructuredDataCount: 0, reviewStructuredDataCount: 0, aggregateRatingStructuredDataCount: 0 };
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!value || typeof value !== "object") return;
+    const node = value as Record<string, unknown>;
+    const types = (Array.isArray(node["@type"]) ? node["@type"] : [node["@type"]]).flatMap(type => typeof type === "string" ? [type.toLowerCase()] : []);
+    if (types.includes("organization")) counts.organizationStructuredDataCount += 1;
+    if (types.includes("review")) counts.reviewStructuredDataCount += 1;
+    if (types.includes("aggregaterating")) counts.aggregateRatingStructuredDataCount += 1;
+    if (node["@graph"]) visit(node["@graph"]);
+  };
+  for (const script of scripts) {
+    if (!/\btype\s*=\s*["']application\/ld\+json["']/i.test(script[1])) continue;
+    try { visit(JSON.parse(script[2])); } catch { /* Report parsed declarations only. */ }
+  }
+  return counts;
 }
 
 function extractAssetReferences(html: string, baseUrl: URL) {
@@ -226,6 +249,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const assetReferences = extractAssetReferences(html, url);
   const responsiveIndicators = extractResponsiveIndicators(html);
   const mobileMarkupIndicators = extractMobileMarkupIndicators(html);
+  const credibilityStructuredData = extractCredibilityStructuredData(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -273,6 +297,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     telephoneLinkCount: mobileMarkupIndicators.telephoneLinkCount,
     telephoneInputCount: mobileMarkupIndicators.telephoneInputCount,
     mobileInputModeCount: mobileMarkupIndicators.mobileInputModeCount,
+    organizationStructuredDataCount: credibilityStructuredData.organizationStructuredDataCount,
+    reviewStructuredDataCount: credibilityStructuredData.reviewStructuredDataCount,
+    aggregateRatingStructuredDataCount: credibilityStructuredData.aggregateRatingStructuredDataCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
