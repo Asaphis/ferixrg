@@ -510,6 +510,7 @@
 - [x] Replace the retired simulated permission-refresh action with an honest live readiness-review action.
 - [x] Remove simulated billing plan, receipt, and alert controls from the live read-only Billing panels.
 - [x] Prevent the account-security UI from enabling two-step verification before the encrypted enrollment and login challenge flow exists.
+- [x] Document the encrypted two-step enrollment, login challenge, recovery, rate-limit, and security-alert delivery design before activation.
 - [x] Add and connect a bounded deterministic saved-draft integrity validator to complete real validation runs without implying provider-side release execution.
 - [x] Connect approved tool-workflow report-download controls to real generated public-URL artifacts and show an honest unavailable state for other runs.
 - [x] Replace generic public-URL workflow result placeholders with observed inspection facts and a truthful no-evidence state for unexecuted sources.
