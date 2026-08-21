@@ -739,6 +739,23 @@ export async function confirmTwoStepAuthenticator(input: { userId: number; recov
   });
 }
 
+export async function consumeTwoStepRecoveryCode(input: { userId: number; codeHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const rows = await tx
+      .select({ id: twoStepRecoveryCodes.id })
+      .from(twoStepRecoveryCodes)
+      .innerJoin(twoStepAuthenticators, eq(twoStepRecoveryCodes.authenticatorId, twoStepAuthenticators.id))
+      .where(and(eq(twoStepAuthenticators.userId, input.userId), eq(twoStepRecoveryCodes.codeHash, input.codeHash), sql`${twoStepRecoveryCodes.usedAt} IS NULL`))
+      .limit(1);
+    const recoveryCode = rows[0];
+    if (!recoveryCode) return undefined;
+    await tx.update(twoStepRecoveryCodes).set({ usedAt: new Date() }).where(eq(twoStepRecoveryCodes.id, recoveryCode.id));
+    return recoveryCode;
+  });
+}
+
 export async function createLocalAccount(input: { openId: string; name: string; email: string; passwordHash: string; verificationTokenHash: string; verificationExpiresAt: Date }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
