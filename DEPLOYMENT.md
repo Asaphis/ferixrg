@@ -14,6 +14,8 @@ FerixRG can be built and deployed without committing or placing secrets in the r
 | `FERIXRG_APP_ORIGIN` | Public configuration | Canonical HTTPS application origin used in verification, password-reset, email-change links, and OAuth callbacks. | Set to `https://ferixrg.ferixas.com` with no trailing slash. |
 | `RESEND_API_KEY` | **Secret** | Authenticates the transactional email adapter. | Required to deliver verification, password-reset, and email-change emails. |
 | `RESEND_FROM_EMAIL` | Public configuration | Verified Resend sender address for transactional mail. | Required with `RESEND_API_KEY`, for example `FerixRG <noreply@example.com>`. |
+| `BUILT_IN_FORGE_API_URL` | Server configuration | Optional legacy Forge provider URL. | Leave empty when using Cloudflare Workers AI. |
+| `BUILT_IN_FORGE_API_KEY` | **Secret** | Optional legacy Forge provider credential. | Leave empty when using Cloudflare Workers AI; never expose it to the browser. |
 | `CF_ACCOUNT_ID` | Server configuration | Identifies the Cloudflare account used for the Workers AI Design Copilot gateway. | Required to enable live Design Copilot replies. |
 | `CF_API_TOKEN` | **Secret** | Authorizes the server-side Cloudflare Workers AI REST call. | Required to enable live Design Copilot replies. Grant Workers AI permissions only. |
 | `CF_AI_MODEL` | Public configuration | Optional override for the server-selected Workers AI model. | Optional. Defaults to `@cf/meta/llama-3.2-3b-instruct`. |
