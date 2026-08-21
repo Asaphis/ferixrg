@@ -66,6 +66,7 @@ export type PublicUrlInspection = {
   observedMediaQueryConditions: string[];
   collectionLinkCount: number;
   observedCollectionPaths: string[];
+  productLinkCount: number;
   productImageStructuredDataCount: number;
   productDescriptionStructuredDataCount: number;
   productDescriptionCharacterCount: number;
@@ -275,6 +276,14 @@ function extractCollectionPathLinks(html: string) {
   return { collectionLinkCount: collectionPaths.length, observedCollectionPaths: Array.from(new Set(collectionPaths)).slice(0, 30) };
 }
 
+function extractProductPathLinks(html: string) {
+  const productLinkCount = Array.from(html.matchAll(/<a\b([^>]*)>/gi)).flatMap(match => {
+    const href = attribute(match[1], "href");
+    return href && /(?:^|[/#?&=_-])products?(?:[/#?&=_-]|$)/i.test(href) ? [href] : [];
+  }).length;
+  return { productLinkCount };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -372,6 +381,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const commercePathMarkup = extractCommercePathMarkup(html);
   const mediaQueryConditions = extractMediaQueryConditions(html);
   const collectionPathLinks = extractCollectionPathLinks(html);
+  const productPathLinks = extractProductPathLinks(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -443,6 +453,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     observedMediaQueryConditions: mediaQueryConditions.observedMediaQueryConditions,
     collectionLinkCount: collectionPathLinks.collectionLinkCount,
     observedCollectionPaths: collectionPathLinks.observedCollectionPaths,
+    productLinkCount: productPathLinks.productLinkCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

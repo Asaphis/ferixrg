@@ -121,4 +121,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ checkoutLinkCount: 1, checkoutFormActionCount: 1 });
   });
+
+  it("records journey-path links without mapping customer progression or friction", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><a href="/products/tote">Tote</a><a href="/collections/new">New</a><a href="/cart">Cart</a><a href="/checkout">Checkout</a></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ productLinkCount: 1, collectionLinkCount: 1, cartLinkCount: 1, checkoutLinkCount: 1 });
+  });
 });
