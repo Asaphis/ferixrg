@@ -495,7 +495,7 @@
 - [ ] Finish remaining account security controls: two-step-verification configuration, security-alert persistence, and session-list/revocation UI wiring. Verification resend, password recovery/reset, email change, durable session records, backend revocation, and honest delivery-status handling are implemented.
 - [ ] Replace remaining simulated workspace summary records with scoped live backend contracts. Team membership, invitations, role changes, removals, acceptance, and dashboard workspace activity now use live scoped backend contracts.
 - [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
-- [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
+- [x] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
@@ -506,6 +506,8 @@
 - [x] Replace static per-store issue and draft counts in the Stores workbench registry with scoped live workspace records.
 - [x] Replace the static Connected sessions metrics and rows with real account-session records in the approved security panel.
 - [x] Replace remaining browser-preview wording in the live editor with accurate persisted workspace-state language.
+- [x] Replace the simulated Platform Integrations summary with live configuration-gated store-provider and central-AI readiness records.
+- [x] Replace the retired simulated permission-refresh action with an honest live readiness-review action.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.

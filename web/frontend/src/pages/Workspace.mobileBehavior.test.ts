@@ -72,9 +72,11 @@ vi.mock("@/lib/trpc", () => ({
       removeMember: { useMutation: () => ({ mutateAsync: sessionMocks.removeMember }) },
       cancelInvitation: { useMutation: () => ({ mutateAsync: sessionMocks.cancelInvitation }) },
       stores: {
+        providerReadiness: { useQuery: () => ({ data: [{ provider: "shopify", configured: false, authorizationMode: "oauth_redirect", supportsPublish: false, supportsRollback: false, message: "Setup required" }], isLoading: false }) },
         list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
       },
+      aiProviderReadiness: { useQuery: () => ({ data: [{ provider: "cloudflare_workers_ai", configured: false, model: "@cf/meta/llama-3.2-3b-instruct", message: "Setup required" }], isLoading: false }) },
       dashboard: { useQuery: () => ({ data: sessionMocks.dashboard, isLoading: false }) },
       validationRuns: { useQuery: () => ({ data: sessionMocks.validationRuns, isLoading: false }) },
       releases: { useQuery: () => ({ data: sessionMocks.releases, isLoading: false }) },
