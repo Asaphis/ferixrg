@@ -104,10 +104,13 @@ export default function Workspace() {
   const submitWorkspaceRequestMutation = trpc.workspace.submitRequest.useMutation();
   const acknowledgeResourceMutation = trpc.workspace.acknowledgeResource.useMutation();
   useEffect(() => {
-    if (authQuery.isLoading || authQuery.data) return;
+    // A transport/API failure is not proof that the session is invalid. Do not
+    // turn a dashboard request failure into a misleading login redirect.
+    if (authQuery.isLoading || authQuery.isError || authQuery.data) return;
     const returnTo = `${window.location.pathname}${window.location.search}`;
     setLocation(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
-  }, [authQuery.data, authQuery.isLoading, setLocation]);
+  }, [authQuery.data, authQuery.isError, authQuery.isLoading, setLocation]);
+  if (authQuery.isError) return <main className="workspace-shell"><section className="workspace-empty-state"><h1>We could not verify your session</h1><p>The dashboard could not reach the account service. Your session was not discarded. Please retry.</p><button className="primary-button" onClick={() => void authQuery.refetch()}>Retry session check</button></section></main>;
   const initialView = useMemo(() => {
     if (location.includes("tools")) return "Tools Library"; if (location.includes("stores")) return "Stores"; if (location.includes("more")) return "More"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
   }, [location]);
