@@ -660,3 +660,7 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 - [x] Add pure Shopify OAuth helpers for `*.myshopify.com` validation, state-bearing authorization URLs, callback HMAC verification, least-privilege scope handling, and server-side token exchange requests.
 - [x] Add the server callback route that validates state and HMAC, checks granted scopes, encrypts the token, updates connection status, records activity, and redirects with only a connection status.
 - [x] Upgrade the provider adapter to return a real Shopify authorization URL only when all server-side prerequisites are configured; unsupported providers and release operations remain fail-closed.
+
+## Live per-store connection state
+- [x] Add a scoped `stores.connections` query to the Workspace and render the selected store’s provider, connection status, readiness message, and publish capability from backend records rather than hard-coded permission text.
+- [x] Extend the mobile workspace harness with live connection records and keep the full frontend test suite green.

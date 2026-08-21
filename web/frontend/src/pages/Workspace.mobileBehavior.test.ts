@@ -21,6 +21,7 @@ const sessionMocks = vi.hoisted(() => ({
   invitations: [{ id: 3, workspaceId: 1, email: "jules@example.com", role: "viewer", status: "pending" }],
   activity: [{ id: 8, eventType: "workspace.created" }],
   stores: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91, url: "https://atelier.example", updatedAt: new Date() }],
+  connections: [{ id: 30, storeId: 10, provider: "shopify", status: "connected", scopes: ["read_products"] }],
   dashboard: { stores: { total: 1, connected: 1, attention: 0, records: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91 }] }, health: { average: 91, measuredStoreCount: 1 }, issues: { total: 0, open: 0, inProgress: 0, resolved: 0, records: [] }, drafts: { total: 0, active: 0, records: [] }, runs: { total: 0, queued: 0, running: 0, completed: 0, records: [] }, reports: { total: 0, records: [] }, activity: [] },
   validationRuns: [],
   releases: [],
@@ -93,6 +94,7 @@ vi.mock("@/lib/trpc", () => ({
       stores: {
         providerReadiness: { useQuery: () => ({ data: [{ provider: "shopify", configured: false, authorizationMode: "oauth_redirect", supportsPublish: false, supportsRollback: false, message: "Setup required" }], isLoading: false }) },
         list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
+        connections: { useQuery: () => ({ data: sessionMocks.connections, isLoading: false }) },
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
         create: { useMutation: () => ({ mutateAsync: sessionMocks.createStore }) },
         beginConnection: { useMutation: () => ({ mutateAsync: sessionMocks.beginConnection }) },
