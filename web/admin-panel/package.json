@@ -1,0 +1,11 @@
+{
+  "name": "@ferixrg/admin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'FerixRG Admin is reserved for the independent admin application'",
+    "build": "echo 'FerixRG Admin has no implemented application yet'",
+    "start": "echo 'FerixRG Admin has no implemented application yet'"
+  }
+}
