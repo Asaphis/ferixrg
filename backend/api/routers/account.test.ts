@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({
   beginAccountEmailChange: vi.fn(),
   getAccountProfile: vi.fn(),
+  getTwoStepAuthenticator: vi.fn(),
   savePendingTwoStepAuthenticator: vi.fn(),
   getUserPreferences: vi.fn(),
   issueAccountToken: vi.fn(),
@@ -24,7 +25,7 @@ vi.mock("../localAuth", async importOriginal => {
   };
 });
 
-import { beginAccountEmailChange, getAccountProfile, getUserPreferences, issueAccountToken, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
+import { beginAccountEmailChange, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -82,6 +83,14 @@ describe("account router", () => {
 
     await expect(caller.account.updatePreferences({ twoStepVerification: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(updateUserPreferences).not.toHaveBeenCalledWith(42, expect.objectContaining({ twoStepVerification: true }));
+  });
+
+  it("returns only configuration and enrollment state for the authenticated account", async () => {
+    vi.mocked(getTwoStepAuthenticator).mockResolvedValue({ id: 3, userId: 42, enabledAt: null, encryptedSecret: "not-returned" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.twoStepStatus()).resolves.toEqual({ encryptionConfigured: true, enrollmentState: "pending" });
+    expect(getTwoStepAuthenticator).toHaveBeenCalledWith(42);
   });
 
   it("starts encrypted two-step enrollment only for the authenticated account", async () => {

@@ -11,6 +11,7 @@ const sessionMocks = vi.hoisted(() => ({
   bootstrap: { workspace: { id: 1, name: "Maya Turner workspace" }, membership: { workspaceId: 1, userId: 1, role: "owner" } },
   profile: { id: 1, name: "Maya Turner", email: "maya@example.com" },
   preferences: { id: 1, userId: 1, defaultPreview: "mobile", analysisReadyNotifications: 1, draftReviewNotifications: 1, publishingReadinessNotifications: 1, releaseNotes: 1, productResearch: 0, reduceMotion: 0, increaseContrast: 0, visibleKeyboardFocus: 1, twoStepVerification: 0, securityAlerts: 1 },
+  twoStepStatus: { encryptionConfigured: false, enrollmentState: "not_enrolled" as const },
   sessions: [{ id: 1, createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), active: true, current: true }],
   members: [
     { member: { id: 1, workspaceId: 1, userId: 1, role: "owner" }, user: { id: 1, name: "Maya Turner", email: "maya@example.com" } },
@@ -30,6 +31,8 @@ const sessionMocks = vi.hoisted(() => ({
   updatePreferences: vi.fn().mockResolvedValue({ id: 1, userId: 1, defaultPreview: "mobile" }),
   requestEmailChange: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
   requestPasswordReset: vi.fn().mockResolvedValue({ success: true, delivery: "not_configured" }),
+  startTwoStepEnrollment: vi.fn().mockResolvedValue({ secret: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", otpauthUri: "otpauth://totp/FerixRG:test" }),
+  confirmTwoStepEnrollment: vi.fn().mockResolvedValue({ success: true, recoveryCodes: ["ABCD-EFGH-IJKL-MNOP"] }),
   revokeOtherSessions: vi.fn().mockResolvedValue({ success: true, revoked: 0 }),
   revokeSession: vi.fn().mockResolvedValue({ success: true }),
   inviteMember: vi.fn().mockResolvedValue({ id: 4, email: "taylor@atelierforma.com", role: "viewer" }),
@@ -107,10 +110,13 @@ vi.mock("@/lib/trpc", () => ({
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
       preferences: { useQuery: () => ({ data: sessionMocks.preferences, isLoading: false }) },
       sessions: { useQuery: () => ({ data: sessionMocks.sessions, isLoading: false }) },
+      twoStepStatus: { useQuery: () => ({ data: sessionMocks.twoStepStatus, isLoading: false, refetch: sessionMocks.invalidate }) },
       updateProfile: { useMutation: () => ({ mutateAsync: sessionMocks.updateProfile }) },
       updatePreferences: { useMutation: () => ({ mutateAsync: sessionMocks.updatePreferences }) },
       requestEmailChange: { useMutation: () => ({ mutateAsync: sessionMocks.requestEmailChange }) },
       requestPasswordReset: { useMutation: () => ({ mutateAsync: sessionMocks.requestPasswordReset }) },
+      startTwoStepEnrollment: { useMutation: () => ({ mutateAsync: sessionMocks.startTwoStepEnrollment }) },
+      confirmTwoStepEnrollment: { useMutation: () => ({ mutateAsync: sessionMocks.confirmTwoStepEnrollment }) },
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
@@ -254,6 +260,17 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(view.getByRole("button", { name: "Save defaults" }));
     await act(async () => { await Promise.resolve(); });
     expect(sessionMocks.updatePreferences).toHaveBeenCalledWith({ defaultPreview: "mobile" });
+  });
+
+  it("keeps authenticator enrollment unavailable until encrypted-secret storage is configured", () => {
+    sessionMocks.twoStepStatus = { encryptionConfigured: false, enrollmentState: "not_enrolled" };
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(view.getByRole("button", { name: "Profile" }));
+    fireEvent.click(view.getByRole("button", { name: /Password & security/i }));
+
+    expect(view.getByText(/Authenticator enrollment is unavailable until this deployment has encrypted secret storage configured/i)).toBeTruthy();
+    expect(view.queryByRole("button", { name: "Set up authenticator app" })).toBeNull();
   });
 
   it("opens specific nested Billing and Support actions instead of generic notices", () => {

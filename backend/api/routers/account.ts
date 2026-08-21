@@ -10,6 +10,13 @@ export const accountRouter = router({
   profile: protectedProcedure.query(({ ctx }) => getAccountProfile(ctx.user.id)),
   identities: protectedProcedure.query(({ ctx }) => listAccountIdentities(ctx.user.id)),
   preferences: protectedProcedure.query(({ ctx }) => getUserPreferences(ctx.user.id)),
+  twoStepStatus: protectedProcedure.query(async ({ ctx }) => {
+    const authenticator = await getTwoStepAuthenticator(ctx.user.id);
+    return {
+      encryptionConfigured: twoStepEncryptionConfigured(),
+      enrollmentState: authenticator?.enabledAt ? "enabled" as const : authenticator ? "pending" as const : "not_enrolled" as const,
+    };
+  }),
   sessions: protectedProcedure.query(async ({ ctx }) => {
     const session = await sdk.getSessionFromRequest(ctx.req);
     const currentTokenHash = session?.sessionId ? hashAccountToken(session.sessionId) : undefined;
