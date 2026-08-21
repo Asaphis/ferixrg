@@ -45,18 +45,20 @@ Cloudflare’s Workers Free allocation is **10,000 Neurons per day**, resetting 
 
 For the managed application, add the values in the project secret/configuration interface, create a verified project checkpoint, and use the Publish control. Do not place secret values in frontend `VITE_*` variables or commit an `.env` file.
 
-For the Ubuntu application host, install the locked dependencies, apply the reviewed Neon PostgreSQL migration, build with the dedicated API origin, and start the bundled server under PM2 as `ferixrg`. A reverse proxy should terminate TLS and forward requests to port `5010`. The frontend hostname serves the static bundle and proxies callback paths such as `/api/oauth/callback` to the same Node process so the host-only OAuth state cookie remains valid; normal browser API traffic uses `https://ferixrgapi.ferixas.com`. The following sequence requires the variable values to be supplied by the host’s secure environment mechanism:
+For the Ubuntu application host, install the locked dependencies, configure the backend environment separately from the frontend build environment, apply the reviewed Neon PostgreSQL migration, build each application independently, and start only the backend API under PM2 as `ferixrg`. The frontend is a dynamic React SPA delivered as browser assets from its own `frontend/dist` directory; it obtains live data over HTTP/tRPC from `https://ferixrgapi.ferixas.com`. A reverse proxy should serve the frontend hostname from that directory and forward the API hostname to port `5010`. The frontend hostname should also proxy callback paths such as `/api/oauth/callback` to the backend process so the host-only OAuth state cookie remains valid. The following sequence requires the variable values to be supplied by the host’s secure environment mechanism:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm drizzle-kit migrate
+pnpm db:migrate
 pnpm test
 pnpm check
-pnpm build
-NODE_ENV=production PORT=5010 node dist/index.js
+pnpm frontend:build
+pnpm backend:build
+pm2 start backend/dist/index.js --name ferixrg --cwd /home/ubuntu/ferixrg
+pm2 save
 ```
 
-Run both hostnames behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly equals `https://ferixrg.ferixas.com`, and set `VITE_API_BASE_URL=https://ferixrgapi.ferixas.com` before the client build. After deployment, first verify `curl -f https://ferixrgapi.ferixas.com/api/health`; it returns service status and secret-free AI/provider readiness without returning credentials. Then verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
+Use `frontend/.env.production` for public frontend build values and `backend/.env` for backend runtime and migration secrets. Ensure `FERIXRG_APP_ORIGIN` exactly equals `https://ferixrg.ferixas.com` and `VITE_API_BASE_URL=https://ferixrgapi.ferixas.com` is present in the frontend environment before `pnpm frontend:build`. After deployment, first verify `curl -f https://ferixrgapi.ferixas.com/api/health`; it returns service status and secret-free AI/provider readiness without returning credentials. Then verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
 
 ## Configuration intentionally deferred
 

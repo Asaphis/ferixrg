@@ -112,3 +112,10 @@ temp/
 # Manus version file (auto-generated, not part of source)
 web/frontend/public/__manus__/version.json
 .project-config.json
+
+# Isolated application environment files
+frontend/.env.production
+frontend/.env.development
+backend/.env
+backend/.env.production
+backend/.env.development

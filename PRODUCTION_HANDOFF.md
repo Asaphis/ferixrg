@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-The implementation is synchronized to `origin/main` at commit `0728da0` (`Configure split frontend and API domains`). The working tree was clean after the split-domain deployment wiring checkpoint.
+The implementation is synchronized to `origin/main` at commit `e168ed9` (`Isolate frontend and backend deployments`). The working tree was clean after the independent frontend/backend deployment checkpoint.
 
-The current application is ready for server setup and production-style smoke testing. It is not safe to claim that provider-side publishing, rollback, payment collection, WooCommerce authorization, Magento authorization, or custom-provider authorization are active until their reviewed adapters and production credentials are configured.
+The current application is ready for server setup and production-style smoke testing. The frontend and backend now have independent build commands, environment templates, and production outputs. The frontend remains a dynamic React SPA whose live data comes from the separate API hostname. It is not safe to claim that provider-side publishing, rollback, payment collection, WooCommerce authorization, Magento authorization, or custom-provider authorization are active until their reviewed adapters and production credentials are configured.
 
 ## Validation completed before server setup
 
@@ -21,7 +21,7 @@ The build emits two existing non-fatal advisories: optional analytics placeholde
 
 ## Required server configuration
 
-Set the following through the server secret manager, process manager, or protected environment file. Never put server secrets in `VITE_*` variables or commit an `.env` file.
+Set frontend build values in `frontend/.env.production` and backend runtime/migration values in `backend/.env`. Never put server secrets in `VITE_*` variables or commit populated environment files.
 
 | Variable | Required for | Notes |
 |---|---|---|
@@ -43,22 +43,23 @@ The application fails fast in production when `DATABASE_URL` or `JWT_SECRET` is 
 
 ## Server setup sequence
 
-Clone the private repository on the target Ubuntu host at `/home/ubuntu/ferixrg`, install the locked dependencies, apply the reviewed Neon PostgreSQL migration, run the complete validation suite, build with the dedicated API origin, and start the server under PM2 using the isolated process name `ferixrg` and port `5010`.
+Clone the public repository on the target Ubuntu host at `/home/ubuntu/ferixrg`, install the locked dependencies, create `frontend/.env.production` and `backend/.env` separately, apply the reviewed Neon PostgreSQL migration, run the complete validation suite, build the frontend and backend independently, and start only the backend API under PM2 using the isolated process name `ferixrg` and port `5010`.
 
 ```bash
 git clone https://github.com/Asaphis/ferixrg.git /home/ubuntu/ferixrg
 cd /home/ubuntu/ferixrg
 git checkout main
 pnpm install --frozen-lockfile
-pnpm drizzle-kit migrate
+pnpm db:migrate
 pnpm test
 pnpm check
-pnpm build
-pm2 start dist/index.js --name ferixrg
+pnpm frontend:build
+pnpm backend:build
+pm2 start backend/dist/index.js --name ferixrg --cwd /home/ubuntu/ferixrg
 pm2 save
 ```
 
-Create separate Cloudflare-proxied DNS records for `ferixrg.ferixas.com` and `ferixrgapi.ferixas.com`, then add separate Nginx server blocks. Serve the built frontend at the frontend hostname, proxy `/api/oauth/callback` and `/api/store-connections/shopify/callback` there to `127.0.0.1:5010` for host-only OAuth state handling, and proxy all requests on the API hostname to `127.0.0.1:5010`. Terminate TLS at Nginx, configure automatic restart with PM2, and do not expose port 5010 directly.
+The existing Cloudflare-proxied DNS records are `ferixrg.ferixas.com` for the frontend and `ferixrgapi.ferixas.com` for the API; leave `ferixrgadmin.ferixas.com` untouched. Add separate Nginx server blocks. Serve the independent `frontend/dist` directory at the frontend hostname, proxy `/api/oauth/callback` and `/api/store-connections/shopify/callback` there to `127.0.0.1:5010` for host-only OAuth state handling, and proxy all requests on the API hostname to `127.0.0.1:5010`. Terminate TLS at Nginx, configure automatic restart with PM2, and do not expose port 5010 directly.
 
 ## Smoke-test order
 
