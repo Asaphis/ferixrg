@@ -503,6 +503,8 @@
 - [x] Connect the dashboard public-URL analysis action to a real queued, started, evidence-derived Storefront Analyzer run and JSON export.
 - [x] Expose stored report artifacts through a protected workspace-scoped download action in the approved Reports panel.
 - [x] Replace static editor draft/version labels with the persisted workflow draft and version state.
+- [x] Replace static per-store issue and draft counts in the Stores workbench registry with scoped live workspace records.
+- [x] Replace the static Connected sessions metrics and rows with real account-session records in the approved security panel.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.
