@@ -37,4 +37,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ imageCount: 2, imagesLazyLoaded: 1, imagesWithDimensions: 1, imagesWithoutDimensions: 1 });
   });
+
+  it("records observed image, stylesheet, and script reference hosts without loading assets", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><link rel="stylesheet" href="/theme.css"><script src="https://cdn.example/app.js"></script></head><body><img src="/hero.jpg"></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ assetReferenceCount: 3, imageAssetReferenceCount: 1, stylesheetAssetReferenceCount: 1, scriptAssetReferenceCount: 1, assetHosts: ["shop.example", "cdn.example"] });
+  });
 });

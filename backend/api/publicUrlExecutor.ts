@@ -34,6 +34,11 @@ export type PublicUrlInspection = {
   imagesLazyLoaded: number;
   imagesWithDimensions: number;
   imagesWithoutDimensions: number;
+  assetReferenceCount: number;
+  imageAssetReferenceCount: number;
+  stylesheetAssetReferenceCount: number;
+  scriptAssetReferenceCount: number;
+  assetHosts: string[];
   bytesRead: number;
 };
 
@@ -125,6 +130,33 @@ function extractProductStructuredData(html: string) {
   return { productStructuredDataCount: productNodes.length, productNames, productOfferCount };
 }
 
+function extractAssetReferences(html: string, baseUrl: URL) {
+  const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
+  for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
+    const src = attribute(tag, "src");
+    if (src) references.push({ kind: "image", value: src });
+  }
+  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
+    if (!/\brel\s*=\s*["'][^"']*stylesheet/i.test(tag)) continue;
+    const href = attribute(tag, "href");
+    if (href) references.push({ kind: "stylesheet", value: href });
+  }
+  for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) {
+    const src = attribute(tag, "src");
+    if (src) references.push({ kind: "script", value: src });
+  }
+  const assetHosts = Array.from(new Set(references.flatMap(reference => {
+    try { return [new URL(reference.value, baseUrl).hostname]; } catch { return []; }
+  }))).slice(0, 30);
+  return {
+    assetReferenceCount: references.length,
+    imageAssetReferenceCount: references.filter(reference => reference.kind === "image").length,
+    stylesheetAssetReferenceCount: references.filter(reference => reference.kind === "stylesheet").length,
+    scriptAssetReferenceCount: references.filter(reference => reference.kind === "script").length,
+    assetHosts,
+  };
+}
+
 export function validatePublicInspectionUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Use a public HTTP or HTTPS URL.");
@@ -170,6 +202,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const headings = extractHeadings(html);
   const contentIndicators = extractContentIndicators(html, headings);
   const productStructuredData = extractProductStructuredData(html);
+  const assetReferences = extractAssetReferences(html, url);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -206,6 +239,11 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     imagesLazyLoaded: imageTags.filter(tag => /\bloading\s*=\s*["']lazy["']/i.test(tag)).length,
     imagesWithDimensions: imageTags.filter(tag => Boolean(attribute(tag, "width")) && Boolean(attribute(tag, "height"))).length,
     imagesWithoutDimensions: imageTags.filter(tag => !attribute(tag, "width") || !attribute(tag, "height")).length,
+    assetReferenceCount: assetReferences.assetReferenceCount,
+    imageAssetReferenceCount: assetReferences.imageAssetReferenceCount,
+    stylesheetAssetReferenceCount: assetReferences.stylesheetAssetReferenceCount,
+    scriptAssetReferenceCount: assetReferences.scriptAssetReferenceCount,
+    assetHosts: assetReferences.assetHosts,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

@@ -406,7 +406,7 @@
 - [x] Define every AI model role and supporting AI service needed for the full FerixRG launch, not only the first feature. The capability map assigns deterministic, AI-proposal, and provider-execution boundaries across the exact tool catalogue.
 - [x] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability. The selected route is Cloudflare-hosted inference with provider-neutral future adapters; NVIDIA and local inference are not approved for the current host.
 - [x] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
-- [ ] Implement and test the complete approved AI foundation before activating user-facing tool workflows.
+- [x] Implement and test the complete approved AI foundation before activating user-facing tool workflows. The configured Cloudflare gateway now provides bounded, audited, usage-tracked Design Copilot, Content Improver, Product Description Generator, CTA Generator, SEO Content Generator, and Meta Generator proposals; tools without a dedicated operation state that honestly.
 - [x] Replace simulated AI workflow replies for tools without dedicated server-side AI operations with explicit capability-aware unavailable messages.
 - [x] Add a workspace-scoped AI Content Improver execution path through the configured central Cloudflare gateway, with bounded text input, audit records, usage accounting, and honest unavailable states.
 - [x] Add a workspace-scoped Product Description Generator execution path through the configured central Cloudflare gateway, with bounded product facts, audit records, usage accounting, and honest unavailable states.
@@ -510,6 +510,7 @@
 - [x] Add a bounded Content Quality Analyzer public-URL executor that records extracted body-text, paragraph, and heading indicators only, without subjective writing-quality claims.
 - [x] Add a bounded Product Page Analyzer public-URL executor that records observed Product JSON-LD declarations only, without catalog or merchant-data claims.
 - [x] Add a bounded Image Optimization Analyzer public-URL executor that records image lazy-loading and width/height attribute indicators only, without byte-size or visual-performance claims.
+- [x] Add a bounded Asset Analyzer public-URL executor that records observed image, stylesheet, and script reference hosts only, without loading, vulnerability, or performance claims.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.
