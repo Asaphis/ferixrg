@@ -72,6 +72,7 @@ vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError e
 vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
 
 import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { failWorkspaceToolRun } from "../db";
 import { storageGet, storagePut } from "../storage";
 import { listCentralAiReadiness, runDesignCopilotThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
@@ -314,6 +315,19 @@ describe("workspace router", () => {
     await expect(caller.workspace.createDeveloperHandoff({ workspaceId: 9, toolRunId: 71, title: "Fix handoff", affectedLocation: "Product page", currentBehavior: "Current", expectedBehavior: "Expected", recommendedImplementation: "Implement", priority: "high", acceptanceCriteria: ["Pass review"] })).resolves.toMatchObject({ id: 111 });
     expect(queueWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ toolId: "storefront-analyzer", requestedByUserId: 42 }));
     expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 71, actorUserId: 42 }));
+  });
+
+  it("fails unsupported public-URL tools without creating generic inspection output", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 79, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "visual-design-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(failWorkspaceToolRun).mockResolvedValue({ id: 79, status: "failed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 79 })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("does not yet have a dedicated public-URL executor") });
+
+    expect(failWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 79, actorUserId: 42, errorMessage: expect.stringContaining("dedicated public-URL executor") }));
+    expect(createWorkspaceEvidence).not.toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 79 }));
+    expect(storagePut).not.toHaveBeenCalledWith(expect.stringContaining("tool-runs/79"), expect.anything(), expect.anything());
   });
 
   it("executes the exact Heading Structure Analyzer from public URL evidence and records a missing-H1 observation only when observed", async () => {

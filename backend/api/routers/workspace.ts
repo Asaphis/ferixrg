@@ -69,6 +69,21 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { storageGet, storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
+
+const dedicatedPublicUrlExecutorToolIds = new Set([
+  "storefront-analyzer",
+  "heading-structure-analyzer",
+  "image-seo-analyzer",
+  "seo-analyzer",
+  "accessibility-analyzer",
+  "site-structure-analyzer",
+  "navigation-analyzer",
+  "performance-analyzer",
+  "cta-analyzer",
+  "content-quality-analyzer",
+  "product-page-analyzer",
+  "image-optimization-analyzer",
+]);
 import { CloudflareAiError } from "../cloudflareAi";
 import { listCentralAiReadiness, runDesignCopilotThroughGateway } from "../aiGateway";
 import { getStoreProviderAdapter, listStoreProviderReadiness } from "../storeProviders";
@@ -398,6 +413,11 @@ export const workspaceRouter = router({
       if (!sourceUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "This public URL tool run does not contain a valid source URL." });
       const running = existing.status === "queued" ? await startWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id }) : existing;
       if (!running || running.status !== "running") throw new TRPCError({ code: "BAD_REQUEST", message: "Only queued or running public URL tool runs can execute." });
+      if (!dedicatedPublicUrlExecutorToolIds.has(running.toolId)) {
+        const message = "This tool does not yet have a dedicated public-URL executor. Choose a supported source or wait for its specific executor to be released.";
+        await failWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, errorMessage: message });
+        throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
       try {
         const inspection = await inspectPublicUrl(sourceUrl);
         const evidence = await createWorkspaceEvidence({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, kind: "page_capture", title: "Observed public URL inspection", sourceUrl: inspection.url, details: inspection, actorUserId: ctx.user.id });
