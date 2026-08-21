@@ -61,6 +61,7 @@ export type PublicUrlInspection = {
   checkoutLinkCount: number;
   cartOrCheckoutFormActionCount: number;
   cartFormActionCount: number;
+  checkoutFormActionCount: number;
   mediaQueryConditionCount: number;
   observedMediaQueryConditions: string[];
   collectionLinkCount: number;
@@ -249,6 +250,7 @@ function extractCommercePathMarkup(html: string) {
     checkoutLinkCount: hrefs.filter(href => /(?:^|[/#?&=_-])checkout(?:[/#?&=_-]|$)/.test(href)).length,
     cartOrCheckoutFormActionCount: actions.filter(action => /(?:^|[/#?&=_-])(?:cart|checkout)(?:[/#?&=_-]|$)/.test(action)).length,
     cartFormActionCount: actions.filter(action => /(?:^|[/#?&=_-])cart(?:[/#?&=_-]|$)/.test(action)).length,
+    checkoutFormActionCount: actions.filter(action => /(?:^|[/#?&=_-])checkout(?:[/#?&=_-]|$)/.test(action)).length,
   };
 }
 
@@ -436,6 +438,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     checkoutLinkCount: commercePathMarkup.checkoutLinkCount,
     cartOrCheckoutFormActionCount: commercePathMarkup.cartOrCheckoutFormActionCount,
     cartFormActionCount: commercePathMarkup.cartFormActionCount,
+    checkoutFormActionCount: commercePathMarkup.checkoutFormActionCount,
     mediaQueryConditionCount: mediaQueryConditions.mediaQueryConditionCount,
     observedMediaQueryConditions: mediaQueryConditions.observedMediaQueryConditions,
     collectionLinkCount: collectionPathLinks.collectionLinkCount,

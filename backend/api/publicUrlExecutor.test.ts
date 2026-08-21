@@ -115,4 +115,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ cartLinkCount: 1, cartFormActionCount: 1 });
   });
+
+  it("records checkout links and checkout form actions without assessing checkout usability", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><a href="/cart">Cart</a><a href="/checkout">Checkout</a><form action="/cart/add"><button>Add</button></form><form action="/checkout"><button>Pay</button></form></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ checkoutLinkCount: 1, checkoutFormActionCount: 1 });
+  });
 });
