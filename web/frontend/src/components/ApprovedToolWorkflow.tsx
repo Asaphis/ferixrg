@@ -58,6 +58,20 @@ const stages: Array<{ id: Stage; label: string }> = [
   { id: "finish", label: "Finish" },
 ];
 
+const resolveToolSource = (value: string | undefined, sources: ToolSource[]): ToolSource => {
+  const aliases: Record<string, ToolSource> = {
+    url: "Public URL",
+    public_url: "Public URL",
+    screenshot: "Screenshots",
+    screenshots: "Screenshots",
+    connect: "Connected store",
+    connected: "Connected store",
+    connected_store: "Connected store",
+  };
+  const normalized = value ? aliases[value.trim().toLowerCase()] ?? value : undefined;
+  return normalized && sources.includes(normalized as ToolSource) ? normalized as ToolSource : sources[0] ?? "Public URL";
+};
+
 const sourceCopy: Record<string, { detail: string; support: string }> = {
   "Connected store": { detail: "Use an already connected store and its granted context.", support: "Choose an existing connection" },
   "Public URL": { detail: "Use pages your visitors can see. You can save and download the result.", support: "Paste a public storefront URL" },
@@ -87,7 +101,7 @@ export function ApprovedToolWorkflow({
   workspaceId?: number;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
-  const [source, setSource] = useState(tool.sources.includes(startSource as ToolSource) ? startSource as ToolSource : tool.sources[0] ?? "Public URL");
+  const [source, setSource] = useState<ToolSource>(() => resolveToolSource(startSource, tool.sources));
   const [url, setUrl] = useState("https://atelierforma.com");
   const [reportReady, setReportReady] = useState(false);
   const [selectedElement, setSelectedElement] = useState("Buy button");
