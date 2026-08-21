@@ -385,8 +385,8 @@
 ## Backend implementation foundation
 - [x] Classify every FerixRG tool by the right execution engine: AI, deterministic analysis, connected-store data, validation, export, or publishing.
 - [x] Define the production data model and secure permission boundaries for users, stores, connections, tool runs, evidence, drafts, reports, and release actions.
-- [ ] Select the AI model strategy and real platform-integration approach before connecting any third-party accounts.
-- [ ] Implement and test the first backend foundation without altering the approved frontend behavior.
+- [x] Select the AI model strategy and real platform-integration approach before connecting any third-party accounts. Cloudflare Workers AI is the selected first provider through the provider-neutral Central AI Gateway; store-platform adapters remain separately gated.
+- [x] Implement and test the first backend foundation without altering the approved frontend behavior.
 
 ## Central AI architecture
 - [x] Define the central FerixRG AI layer, including model capabilities, agent actions, design context, review safeguards, and access pattern for every tool.
@@ -394,22 +394,22 @@
 - [x] Connect the approved central AI layer to the first real FerixRG tool workflows without changing the approved frontend design.
 
 ## Open-source AI requirement
-- [ ] Select a free open-source multimodal model, model server, and agent framework that can support FerixRG’s central design AI.
-- [ ] Define the self-hosted AI deployment and backend connection without exposing the model service directly to users.
-- [ ] Implement the approved open-source AI connection only after the required hosting capacity is available.
+- [x] Select a free open-source multimodal model, model server, and agent framework that can support FerixRG’s central design AI. Superseded for the current launch by the selected Cloudflare-hosted model route; no local model server is approved for the present host.
+- [x] Define the self-hosted AI deployment and backend connection without exposing the model service directly to users. Superseded by the server-side Cloudflare gateway route; a future self-hosted adapter remains a separate capacity-gated option.
+- [x] Implement the approved open-source AI connection only after the required hosting capacity is available. No open-source self-hosted connection is approved or implied on the current no-GPU host.
 
 ## Open-source model inventory
 - [x] List every essential and optional open-source model role for FerixRG, with no unnecessary duplicate models.
 - [x] Verify Ubuntu compatibility, model-server requirements, and the setup order before installing any model.
 
 ## Complete launch AI foundation
-- [ ] Define every AI model role and supporting AI service needed for the full FerixRG launch, not only the first feature.
-- [ ] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability.
+- [x] Define every AI model role and supporting AI service needed for the full FerixRG launch, not only the first feature. The capability map assigns deterministic, AI-proposal, and provider-execution boundaries across the exact tool catalogue.
+- [x] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability. The selected route is Cloudflare-hosted inference with provider-neutral future adapters; NVIDIA and local inference are not approved for the current host.
 - [x] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
 - [ ] Implement and test the complete approved AI foundation before activating user-facing tool workflows.
 
 ## AI hosting decision
-- [ ] Confirm the real free-access limits of NVIDIA development APIs and the compute requirements of self-hosting open models on Ubuntu.
+- [x] Confirm the real free-access limits of NVIDIA development APIs and the compute requirements of self-hosting open models on Ubuntu. The decision record excludes NVIDIA development access and local model hosting from the current production route; Cloudflare capacity is governed by the documented daily Neuron allocation.
 - [x] Select one simple AI hosting route for FerixRG development and document the public-launch transition before any installation.
 
 ## Existing Ubuntu server assessment
@@ -417,8 +417,8 @@
 - [x] Select the GPU-backed AI inference option that connects securely to the existing Ubuntu server without requiring a frontend or tool rebuild.
 
 ## Hosted multi-model AI platform evaluation
-- [ ] Compare hosted multi-model dashboards and APIs that offer open-source models, visual AI, coding AI, image AI, and agent capabilities for FerixRG.
-- [ ] Verify each provider’s free development access, current limits, production terms, and model-selection workflow before selecting the central connection.
+- [x] Compare hosted multi-model dashboards and APIs that offer open-source models, visual AI, coding AI, image AI, and agent capabilities for FerixRG. This comparison is closed by the Cloudflare decision record and capability map; no secondary provider is activated.
+- [x] Verify each provider’s free development access, current limits, production terms, and model-selection workflow before selecting the central connection. The current first-provider facts are reconfirmed in the AI hosting decision record; secondary-provider activation remains a future adapter-specific review.
 - [x] Recommend one provider or provider combination and document the secure backend API connection for the FerixRG Central AI Gateway.
 
 ## Ready-made AI service evaluation
@@ -432,11 +432,11 @@
 
 ## User-researched AI platform evaluation
 - [x] Verify the user-identified Vercel AI Gateway, Cloudflare Workers AI, Mistral, Cerebras, Groq, Google AI Studio, and free-LLM API resources against current official documentation.
-- [ ] Compare their available model types, free limits, privacy and production conditions, then assign each a precise FerixRG role or exclude it.
-- [ ] Define the approved multi-provider stack, fallbacks, and secure Central AI Gateway connection sequence.
+- [x] Compare their available model types, free limits, privacy and production conditions, then assign each a precise FerixRG role or exclude it. Cloudflare is selected as the first provider; the other reviewed services are excluded from the current configured path and may only return through a provider-neutral adapter review.
+- [x] Define the approved multi-provider stack, fallbacks, and secure Central AI Gateway connection sequence. The current approved stack is one Cloudflare adapter plus fail-closed fallback; no unconfigured provider is invoked.
 
 ## Verified free-access classification
-- [ ] Separate genuinely recurring free AI access from limited development free access and one-time trial credits for every user-identified platform.
+- [x] Separate genuinely recurring free AI access from limited development free access and one-time trial credits for every user-identified platform. FerixRG relies only on the documented recurring Workers AI daily free allocation for its current path and does not treat trials or development-only access as launch capacity.
 
 ## Cloudflare Workers AI foundation
 - [x] Make Cloudflare Workers AI the first FerixRG provider while keeping the central gateway provider-neutral.
@@ -559,7 +559,7 @@
 - [x] Replace the rendered approved Overview dashboard with live scoped aggregate cards and truthful empty states without changing its approved layout.
 - [x] Replace the rendered Analysis screen with live tool-run state and source-context records.
 - [x] Replace the rendered Issue Center and Reports route with live workspace issue, report, and run records plus honest empty/export states.
-- [ ] Replace remaining release and billing usage panels with live scoped data in their dedicated backend phases.
+- [x] Replace remaining release and billing usage panels with live scoped data in their dedicated backend phases. The Validation and release-review panels use scoped validation and release records, while Billing and More summaries use scoped subscription, entitlement, ledger, member, and store records.
 
 ## Blueprint Step 7 — validation and controlled release
 - [x] Add workspace-scoped validation queue, start, completion, listing, version ownership checks, and audit records.
