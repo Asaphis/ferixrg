@@ -10,6 +10,13 @@ const heroAsset = "/landing/portfolio/shopify-multi-device-beauty.jpg";
 const mobileAsset = "/landing/portfolio/allbirds-mobile-storefront.png";
 const evidenceAsset = "/landing/portfolio/portfolio-before-after-skincare.png";
 const redesignAsset = "/landing/portfolio/shopify-Store-Redesign.jpg";
+const issueCardVisuals = [
+  { title: "Design", copy: "Hierarchy and brand consistency.", src: "/landing/portfolio/fashion-responsive-storefront.jpg", alt: "Responsive fashion storefront design example" },
+  { title: "Mobile", copy: "Small-screen friction.", src: mobileAsset, alt: "Allbirds mobile storefront across three views" },
+  { title: "UX", copy: "Journey and CTA issues.", src: "/landing/portfolio/portfolio-before-after-skincare.png", alt: "Skincare storefront before and after UX redesign" },
+  { title: "Performance", copy: "Slow loading paths.", src: "/landing/portfolio/shopify-multi-device-beauty.jpg", alt: "Multi-device storefront performance example" },
+  { title: "Conversion", copy: "Missed opportunities.", src: "/landing/portfolio/portfolio-before-after-fashion.jpg", alt: "Fashion storefront conversion before and after comparison" },
+];
 const landingVisuals = [
   { src: "/landing/portfolio/shopify-multi-device-beauty.jpg", alt: "Shopify storefront displayed across desktop, tablet, and phone" },
   { src: "/landing/portfolio/shopify-fashion-responsive.jpg", alt: "Responsive Shopify fashion storefront on desktop and mobile" },
@@ -99,7 +106,7 @@ export default function Home() {
       <p className="platform-note">◉ Analyze any public store URL instantly, or connect your store for deeper insights, monitoring, and publishing.</p>
       <section className="outcome-strip">{landingOutcomes.map((outcome) => <div className="outcome" key={outcome.label}><i>{outcome.icon}</i><p><b>{outcome.value}<small>{outcome.suffix}</small></b><span>{outcome.label}</span></p></div>)}</section>
 
-      <section className="landing-section finding-section" id="capabilities"><div className="finding-main"><div className="landing-eyebrow">WHAT WE FIND</div><h2>Your store may have problems you can’t see.</h2><VisualCarousel className="finding-carousel" label="Store analysis visual carousel" /><div className="issue-cards">{[["Design", "Hierarchy and brand consistency."], ["Mobile", "Small-screen friction."], ["UX", "Journey and CTA issues."], ["Performance", "Slow loading paths."], ["Conversion", "Missed opportunities."]].map(([title, copy], index) => <article key={title}><img src={evidenceAsset} alt={`${title} storefront evidence`} /><div><b><i />{title}</b><p>{copy}</p></div></article>)}</div></div><aside className="change-story"><img src={heroAsset} alt="Storefront findings overview" /><ul><li>Below-the-fold content not optimized</li><li>Slow Largest Contentful Paint</li><li>Weak product section hierarchy</li><li>Low contrast on key CTAs</li></ul><button onClick={goToWorkspace}>View full analysis <ArrowRight size={13} /></button></aside></section>
+      <section className="landing-section finding-section" id="capabilities"><div className="finding-main"><div className="landing-eyebrow">WHAT WE FIND</div><h2>Your store may have problems you can’t see.</h2><VisualCarousel className="finding-carousel" label="Store analysis visual carousel" /><div className="issue-cards">{issueCardVisuals.map(({ title, copy, src, alt }) => <article key={title}><img src={src} alt={alt} /><div><b><i />{title}</b><p>{copy}</p></div></article>)}</div></div><aside className="change-story"><img src={heroAsset} alt="Storefront findings overview" /><ul><li>Below-the-fold content not optimized</li><li>Slow Largest Contentful Paint</li><li>Weak product section hierarchy</li><li>Low contrast on key CTAs</li></ul><button onClick={goToWorkspace}>View full analysis <ArrowRight size={13} /></button></aside></section>
 
       <section className="ai-band"><div><div className="landing-eyebrow">ASK FERIXRG AI</div><h2>Don’t just find the problem.<br />Fix it.</h2><p>FerixRG AI turns insight into action—instantly.</p></div><div className="prompt-grid">{[["Improve product page conversion", "product-composer"], ["Speed up my store", "performance-evidence"], ["Redesign with a modern look", "responsive-redesign"], ["Improve mobile checkout", "checkout-friction"]].map(([prompt, toolId]) => <button onClick={() => goToAuthenticatedTool(toolId)} key={prompt}>{prompt} <ArrowRight size={12} /></button>)}</div></section>
 
