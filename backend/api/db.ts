@@ -810,7 +810,7 @@ export async function listWorkspaceReleases(workspaceId: number, limit = 50) {
   return db.select().from(releaseActions).where(eq(releaseActions.workspaceId, workspaceId)).orderBy(desc(releaseActions.requestedAt)).limit(limit);
 }
 
-async function getWorkspaceDraftVersion(workspaceId: number, draftVersionId: number) {
+export async function getWorkspaceDraftVersion(workspaceId: number, draftVersionId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db.select({ version: draftVersions, draft: drafts }).from(draftVersions).innerJoin(drafts, eq(draftVersions.draftId, drafts.id)).where(and(eq(draftVersions.id, draftVersionId), eq(drafts.workspaceId, workspaceId))).limit(1);

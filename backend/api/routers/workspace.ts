@@ -26,6 +26,7 @@ import {
   getWorkspaceUsageSummary,
   getWorkspaceStore,
   getWorkspaceDashboardReadModel,
+  getWorkspaceDraftVersion,
   getWorkspaceAiNeuronUsageSince,
   getWorkspaceReleaseEligibility,
   getWorkspaceToolRun,
@@ -638,6 +639,32 @@ export const workspaceRouter = router({
       if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued or running validation can be completed." });
       return run;
     } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  executeDraftIntegrityValidation: protectedProcedure.input(workspaceInput.extend({ validationRunId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const validationRun = (await listWorkspaceValidationRuns(input.workspaceId, 100)).find(run => run.id === input.validationRunId);
+      if (!validationRun || (validationRun.status !== "queued" && validationRun.status !== "running")) throw new TRPCError({ code: "BAD_REQUEST", message: "Only queued or running validation records can be executed." });
+      const running = validationRun.status === "queued" ? await startWorkspaceValidationRun({ workspaceId: input.workspaceId, validationRunId: input.validationRunId, actorUserId: ctx.user.id }) : validationRun;
+      if (!running) throw new TRPCError({ code: "BAD_REQUEST", message: "This validation record could not be started." });
+      const source = await getWorkspaceDraftVersion(input.workspaceId, running.draftVersionId);
+      if (!source) throw new TRPCError({ code: "BAD_REQUEST", message: "The saved draft version is not available in this workspace." });
+      let parsedState: unknown = null;
+      try { parsedState = JSON.parse(source.version.designState); } catch { parsedState = null; }
+      const checks = [
+        { key: "saved_version", label: "Saved draft version is available", passed: Boolean(source.version.id && source.draft.id) },
+        { key: "valid_design_state", label: "Saved design state is valid JSON", passed: parsedState !== null && typeof parsedState === "object" },
+        { key: "version_metadata", label: "Version has a non-empty label", passed: Boolean(source.version.label?.trim()) },
+      ];
+      const passed = checks.every(check => check.passed);
+      const summary = { validator: "deterministic_draft_integrity", draftId: source.draft.id, draftVersionId: source.version.id, passedChecks: checks.filter(check => check.passed).length, totalChecks: checks.length, checks, note: "This validates persisted draft integrity only. It does not certify visual quality, accessibility, SEO, provider permissions, publishing, or rollback." };
+      const completed = await completeWorkspaceValidationRun({ workspaceId: input.workspaceId, validationRunId: input.validationRunId, actorUserId: ctx.user.id, passed, summary });
+      if (!completed) throw new TRPCError({ code: "BAD_REQUEST", message: "This validation record could not be completed." });
+      return completed;
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
       return toForbidden(error);
     }
   }),

@@ -94,6 +94,7 @@ export default function Workspace() {
   const restoreWorkspaceDraftVersionMutation = trpc.workspace.restoreDraftVersion.useMutation();
   const queueValidationRunMutation = trpc.workspace.queueValidationRun.useMutation();
   const startValidationRunMutation = trpc.workspace.startValidationRun.useMutation();
+  const executeDraftIntegrityValidationMutation = trpc.workspace.executeDraftIntegrityValidation.useMutation();
   const createReleaseActionMutation = trpc.workspace.createReleaseAction.useMutation();
   const approveReleaseActionMutation = trpc.workspace.approveReleaseAction.useMutation();
   const cancelReleaseActionMutation = trpc.workspace.cancelReleaseAction.useMutation();
@@ -483,10 +484,11 @@ export default function Workspace() {
       try {
         if (!activeWorkspaceId || !currentVersionId) throw new Error("Save a draft version before validation.");
         const queued = await queueValidationRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, draftVersionId: currentVersionId });
-        await startValidationRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, validationRunId: queued.id });
+        const started = await startValidationRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, validationRunId: queued.id });
+        const completed = await executeDraftIntegrityValidationMutation.mutateAsync({ workspaceId: activeWorkspaceId, validationRunId: started.id });
         await authUtils.workspace.validationRuns.invalidate();
         await authUtils.workspace.activity.invalidate();
-        setNotice("Validation is running for the current saved version. Results appear only when a validator records them.");
+        setNotice(completed.status === "passed" ? "Saved-draft integrity validation passed. This does not certify provider publish readiness, visual quality, accessibility, or SEO." : "Saved-draft integrity validation found an incomplete persisted draft record. Review the saved version before release planning.");
       } catch (error) { setNotice(error instanceof Error ? error.message : "We couldn’t start validation."); }
     };
     const createRelease = async (actionType: "export" | "publish") => {

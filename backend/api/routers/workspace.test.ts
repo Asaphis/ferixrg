@@ -61,6 +61,7 @@ vi.mock("../db", () => ({
   getWorkspaceAccess: vi.fn(),
   getWorkspaceReport: vi.fn(),
   getWorkspaceDashboardReadModel: vi.fn(),
+  getWorkspaceDraftVersion: vi.fn(),
   getWorkspaceReleaseEligibility: vi.fn(),
   getWorkspaceUsageSummary: vi.fn(),
   getWorkspaceAiNeuronUsageSince: vi.fn(),
@@ -70,7 +71,7 @@ vi.mock("../db", () => ({
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
 vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
 
-import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storageGet, storagePut } from "../storage";
 import { listCentralAiReadiness, runDesignCopilotThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
@@ -320,6 +321,7 @@ describe("workspace router", () => {
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);
     vi.mocked(startWorkspaceValidationRun).mockResolvedValue({ id: 121, status: "running" } as never);
     vi.mocked(completeWorkspaceValidationRun).mockResolvedValue({ id: 121, status: "passed" } as never);
+    vi.mocked(getWorkspaceDraftVersion).mockResolvedValue({ version: { id: 51, label: "Saved version", designState: "{}" }, draft: { id: 14 } } as never);
     vi.mocked(createWorkspaceReleaseAction).mockResolvedValue({ id: 131, actionType: "publish", status: "pending" } as never);
     vi.mocked(getWorkspaceReleaseEligibility).mockResolvedValue({ eligible: false, reasons: ["The selected draft version needs a passed validation run before publish planning."], hasSupportedConnection: true, passedValidationId: null, priorPublishedReleaseId: null } as never);
     vi.mocked(approveWorkspaceReleaseAction).mockResolvedValue({ id: 131, status: "approved" } as never);
@@ -331,6 +333,9 @@ describe("workspace router", () => {
     await expect(caller.workspace.queueValidationRun({ workspaceId: 9, draftVersionId: 51 })).resolves.toMatchObject({ id: 121, status: "queued" });
     await expect(caller.workspace.startValidationRun({ workspaceId: 9, validationRunId: 121 })).resolves.toMatchObject({ status: "running" });
     await expect(caller.workspace.completeValidationRun({ workspaceId: 9, validationRunId: 121, passed: true, summary: { checks: "passed" } })).resolves.toMatchObject({ status: "passed" });
+    vi.mocked(listWorkspaceValidationRuns).mockResolvedValue([{ id: 121, draftVersionId: 51, status: "running" }] as never);
+    await expect(caller.workspace.executeDraftIntegrityValidation({ workspaceId: 9, validationRunId: 121 })).resolves.toMatchObject({ status: "passed" });
+    expect(completeWorkspaceValidationRun).toHaveBeenLastCalledWith(expect.objectContaining({ validationRunId: 121, passed: true, summary: expect.objectContaining({ validator: "deterministic_draft_integrity" }) }));
     await expect(caller.workspace.createReleaseAction({ workspaceId: 9, storeId: 10, draftVersionId: 51, actionType: "publish" })).resolves.toMatchObject({ id: 131, status: "pending" });
     await expect(caller.workspace.releaseEligibility({ workspaceId: 9, storeId: 10, draftVersionId: 51, actionType: "publish" })).resolves.toMatchObject({ eligible: false, reasons: [expect.stringMatching(/passed validation/i)] });
     await expect(caller.workspace.approveReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "approved" });
