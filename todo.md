@@ -493,6 +493,7 @@
 
 ## Complete frontend-derived backend implementation
 - [ ] Finish remaining account security controls: two-step-verification configuration, security-alert persistence, and session-list/revocation UI wiring. Verification resend, password recovery/reset, email change, durable session records, backend revocation, and honest delivery-status handling are implemented.
+- [x] Add encrypted two-step authenticator, recovery-code, and login-challenge persistence records before enabling any account-security toggle.
 - [ ] Replace remaining simulated workspace summary records with scoped live backend contracts. Team membership, invitations, role changes, removals, acceptance, and dashboard workspace activity now use live scoped backend contracts.
 - [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
 - [x] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.

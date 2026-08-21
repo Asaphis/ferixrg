@@ -87,6 +87,47 @@ export const accountEmailChanges = mysqlTable(
   }),
 );
 
+export const twoStepAuthenticators = mysqlTable(
+  "twoStepAuthenticators",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    encryptedSecret: text("encryptedSecret").notNull(),
+    keyVersion: varchar("keyVersion", { length: 64 }).notNull(),
+    enabledAt: timestamp("enabledAt"),
+    lastVerifiedAt: timestamp("lastVerifiedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({ userUnique: uniqueIndex("two_step_authenticators_user_unique").on(table.userId) }),
+);
+
+export const twoStepRecoveryCodes = mysqlTable(
+  "twoStepRecoveryCodes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    authenticatorId: int("authenticatorId").notNull().references(() => twoStepAuthenticators.id, { onDelete: "cascade" }),
+    codeHash: varchar("codeHash", { length: 128 }).notNull(),
+    usedAt: timestamp("usedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({ authenticatorIndex: index("two_step_recovery_codes_authenticator_index").on(table.authenticatorId), codeUnique: uniqueIndex("two_step_recovery_codes_hash_unique").on(table.codeHash) }),
+);
+
+export const twoStepLoginChallenges = mysqlTable(
+  "twoStepLoginChallenges",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
+    attempts: int("attempts").default(0).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    consumedAt: timestamp("consumedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({ userExpiryIndex: index("two_step_login_challenges_user_expiry_index").on(table.userId, table.expiresAt) }),
+);
+
 export const workspaces = mysqlTable(
   "workspaces",
   {
