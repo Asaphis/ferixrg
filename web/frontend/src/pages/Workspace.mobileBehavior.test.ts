@@ -311,14 +311,14 @@ describe("Workspace mobile behaviour", () => {
     await waitFor(() => expect(sessionMocks.cancelInvitation).toHaveBeenCalledWith({ workspaceId: 1, invitationId: 3 }));
   });
 
-  it("requires a simulated unsaved-work decision before signing out", () => {
+  it("uses a normal confirmation before signing out when no editor changes are pending", () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
     fireEvent.click(view.getByRole("button", { name: /Support/i }));
     fireEvent.click(view.getByRole("button", { name: /Sign out/i }));
-    expect(view.getByRole("dialog").textContent).toMatch(/You have unsaved changes/i);
-    expect(view.getByRole("button", { name: "Save & Sign Out" })).toBeTruthy();
-    expect(view.getByRole("button", { name: "Sign Out Without Saving" })).toBeTruthy();
+    expect(view.getByRole("dialog").textContent).toMatch(/Sign out of your account/i);
+    expect(view.getByRole("button", { name: "Sign Out" })).toBeTruthy();
+    expect(view.queryByRole("button", { name: "Save & Sign Out" })).toBeNull();
   });
 
   it("uses the authenticated logout mutation after a sign-out decision", async () => {
@@ -326,11 +326,24 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
     fireEvent.click(view.getByRole("button", { name: /Support/i }));
     fireEvent.click(view.getByRole("button", { name: /Sign out/i }));
-    fireEvent.click(view.getByRole("button", { name: "Sign Out Without Saving" }));
+    fireEvent.click(view.getByRole("button", { name: "Sign Out" }));
     await act(async () => { await Promise.resolve(); });
     expect(sessionMocks.logout).toHaveBeenCalledTimes(1);
     expect(sessionMocks.invalidate).toHaveBeenCalledTimes(1);
     expect(window.location.pathname).toBe("/auth/login");
+  });
+
+  it("saves a real draft version before continuing away from a dirty editor", async () => {
+    window.history.replaceState({}, "", "/app/editor");
+    const view = renderWorkspace();
+    fireEvent.click(view.getByRole("button", { name: "Desktop" }));
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    expect(view.getByRole("dialog").textContent).toMatch(/unsaved editor changes/i);
+    expect(view.getByRole("button", { name: "Save & Continue" })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Save & Continue" }));
+    await waitFor(() => expect(sessionMocks.createDraft).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, source: "manual" })));
+    await waitFor(() => expect(view.getByRole("heading", { name: "More" })).toBeTruthy());
+    expect(view.queryByRole("dialog")).toBeNull();
   });
 
   it("shows Store connection loading feedback before confirming a successful connection", async () => {

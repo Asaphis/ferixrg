@@ -544,7 +544,8 @@
 - [x] Add canonical workspace draft creation, durable version save/list, restore, current-version tracking, and activity audit contracts.
 - [x] Connect the approved editor save, version history, left/right comparison, and restore behavior to real workspace draft and version APIs.
 - [x] Add version-linked draft asset metadata and protected server-side S3 uploads for references, screenshots, theme exports, previews, and manual files.
-- [ ] Replace remaining browser-preview copy and add explicit dirty-state navigation/sign-out protection tied to live save state.
+- [x] Replace remaining browser-preview copy and add explicit dirty-state navigation/sign-out protection tied to live save state.
+- [x] Replace the simulated editor sign-out prompt with live persisted-save protection for editor navigation and logout.
 
 ## Blueprint Step 5 — exact tool-run foundation
 - [x] Add a backend canonical registry that enforces the exact approved 57-tool IDs and connection-required boundaries.
