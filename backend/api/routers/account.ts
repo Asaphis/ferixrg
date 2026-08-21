@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { beginAccountEmailChange, getAccountProfile, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
-import { createAccountToken, hashAccountToken, normalizeEmail } from "../localAuth";
+import { beginAccountEmailChange, confirmTwoStepAuthenticator, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
+import { createAccountToken, createTwoStepRecoveryCodes, decryptTwoStepSecret, hashAccountToken, normalizeEmail, verifyTotpCode } from "../localAuth";
+import { TRPCError } from "@trpc/server";
 import { sdk } from "../_core/sdk";
 import { accountEmailOrigin, sendEmailChangeVerification, sendPasswordResetEmail } from "../transactionalEmail";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -53,6 +54,15 @@ export const accountRouter = router({
     const requestGet = typeof ctx.req.get === "function" ? ctx.req.get.bind(ctx.req) : undefined;
     const delivery = await sendPasswordResetEmail({ to: profile.email, name: profile.name ?? "", token: token.rawToken, origin: accountEmailOrigin(requestGet?.("origin"), requestGet?.("host")) });
     return { success: true, delivery: delivery.status };
+  }),
+  confirmTwoStepEnrollment: protectedProcedure.input(z.object({ code: z.string().trim().regex(/^\d{6}$/) })).mutation(async ({ ctx, input }) => {
+    const authenticator = await getTwoStepAuthenticator(ctx.user.id);
+    if (!authenticator || authenticator.enabledAt) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending two-step enrollment is available." });
+    if (!verifyTotpCode(decryptTwoStepSecret(authenticator.encryptedSecret), input.code)) throw new TRPCError({ code: "BAD_REQUEST", message: "The verification code is invalid or expired." });
+    const recoveryCodes = createTwoStepRecoveryCodes();
+    const confirmed = await confirmTwoStepAuthenticator({ userId: ctx.user.id, recoveryCodeHashes: recoveryCodes.map(item => item.codeHash) });
+    if (!confirmed) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending two-step enrollment is available." });
+    return { success: true, recoveryCodes: recoveryCodes.map(item => item.rawCode) };
   }),
   updatePreferences: protectedProcedure
     .input(

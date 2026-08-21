@@ -710,6 +710,13 @@ export async function savePendingTwoStepAuthenticator(input: { userId: number; e
   return rows[0];
 }
 
+export async function getTwoStepAuthenticator(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(twoStepAuthenticators).where(eq(twoStepAuthenticators.userId, userId)).limit(1);
+  return rows[0];
+}
+
 export async function confirmTwoStepAuthenticator(input: { userId: number; recoveryCodeHashes: string[] }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
