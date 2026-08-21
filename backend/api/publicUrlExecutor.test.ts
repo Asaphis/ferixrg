@@ -109,4 +109,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ productStructuredDataCount: 1, productNames: ["Canvas Tote"], productDescriptionStructuredDataCount: 1, productDescriptionCharacterCount: 37 });
   });
+
+  it("records cart links and cart form actions without assessing cart quality", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><a href="/cart">Cart</a><a href="/checkout">Checkout</a><form action="/cart/add"><button>Add</button></form><form action="/checkout"><button>Pay</button></form></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ cartLinkCount: 1, cartFormActionCount: 1 });
+  });
 });

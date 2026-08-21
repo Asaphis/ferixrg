@@ -581,6 +581,7 @@
 - [x] Add a bounded Collection Analyzer public-URL executor that records observed collection-path links only, without category, filter, sorting, discovery, or presentation conclusions.
 - [x] Add a bounded Product Presentation Analyzer public-URL executor that records observed Product JSON-LD image declarations and page image markup only, without visual-quality, gallery, price, badge, or hierarchy conclusions.
 - [x] Add a bounded Product Content Analyzer public-URL executor that records observed Product JSON-LD title and description declarations only, without clarity, completeness, persuasion, or readability conclusions.
+- [x] Add a bounded Cart Analyzer public-URL executor that records observed cart-path links and cart form actions only, without cart-clarity, quantity-control, shipping, upsell, or CTA conclusions.
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.
