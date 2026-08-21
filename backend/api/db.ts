@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { neonConfig, Pool } from "@neondatabase/serverless";
+import ws from "ws";
 import {
   activityEvents,
   accountSecurityEvents,
@@ -43,14 +44,24 @@ import { entitlementForPlan, type FerixPlan } from "../shared/billingPlans";
 import { decryptConnectionCredential, encryptConnectionCredential } from "./connectionSecrets";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: Pool | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
+// The HTTP Neon driver is intentionally not used here: FerixRG relies on
+// interactive transactions for account, workspace, draft, and release flows.
+// Node does not provide a WebSocket global, so configure Neon's documented
+// WebSocket Pool driver explicitly.
+neonConfig.webSocketConstructor = ws;
+
+// Lazily create the Drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(neon(process.env.DATABASE_URL));
+      const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+      _pool = new Pool({ connectionString });
+      _db = drizzle({ client: _pool });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
+      _pool = null;
       _db = null;
     }
   }
