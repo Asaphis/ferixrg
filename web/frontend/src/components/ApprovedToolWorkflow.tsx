@@ -95,6 +95,7 @@ export function ApprovedToolWorkflow({
     },
   ]);
   const [toolRunId, setToolRunId] = useState<number | null>(null);
+  const [reportId, setReportId] = useState<number | null>(null);
   const [draftId, setDraftId] = useState<number | null>(null);
   const [savedVersionCount, setSavedVersionCount] = useState(0);
   const [editorDirty, setEditorDirty] = useState(false);
@@ -103,6 +104,7 @@ export function ApprovedToolWorkflow({
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
+  const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
   const createDraftMutation = trpc.workspace.createDraft.useMutation();
   const saveDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
@@ -144,11 +146,25 @@ export function ApprovedToolWorkflow({
       setRunError("");
       const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined } });
       const started = await startToolRunMutation.mutateAsync({ workspaceId, toolRunId: queued.id });
-      if (sourceType === "public_url") await executePublicUrlToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id });
+      if (sourceType === "public_url") {
+        const execution = await executePublicUrlToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id });
+        setReportId(execution.report?.id ?? null);
+      } else setReportId(null);
       setToolRunId(started.id);
       move("processing");
     } catch (error) {
       setRunError(error instanceof Error ? error.message : "We couldn’t start this tool run. Please try again.");
+    }
+  };
+
+  const downloadGeneratedReport = async () => {
+    try {
+      if (!workspaceId || !reportId) throw new Error("A generated report artifact is not available for this run.");
+      const artifact = await reportDownloadMutation.mutateAsync({ workspaceId, reportId });
+      window.open(artifact.url, "_blank", "noopener,noreferrer");
+      setReportReady(true);
+    } catch (error) {
+      setFinishNotice(error instanceof Error ? error.message : "We couldn’t prepare this report download.");
     }
   };
 
@@ -326,7 +342,7 @@ export function ApprovedToolWorkflow({
           <div className="tool-workflow-score"><b>76</b><span>out of 100</span></div>
           <p>{tool.outcome}</p>
           <div className="tool-workflow-stats"><span><b>{tool.resultMetrics[1] ?? "Priority issues"}</b><small>3 findings</small></span><span><b>{tool.resultMetrics[2] ?? "Evidence confidence"}</b><small>92% confidence</small></span><span><b>Checks in scope</b><small>{tool.analysisFocus.length} areas reviewed</small></span></div>
-          <button className="tool-workflow-secondary" onClick={() => setReportReady(true)}><Download /> {reportReady ? "Report ready" : "Download report"}</button>
+          <button className="tool-workflow-secondary" disabled={!reportId || reportDownloadMutation.isPending} onClick={() => { void downloadGeneratedReport(); }}><Download /> {reportDownloadMutation.isPending ? "Preparing download…" : reportReady ? "Report downloaded" : reportId ? "Download report" : "No export artifact"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-evidence-card">
           <span className="tool-workflow-kicker">Where it happens</span>
@@ -340,7 +356,7 @@ export function ApprovedToolWorkflow({
           <button className="active" onClick={openCorrectWorkspace}><Layers3 /><span><b>{route.primaryAction}</b><small>{route.primaryDescription}</small></span><ChevronRight /></button>
           <div className="tool-workflow-action-contract"><span>Available for this tool</span>{tool.nextActions.slice(0, 5).map(action => <b key={action}>{action}</b>)}</div>
           {route.allowsAi && capability.actions.includes("ask_ai") && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
-          {capability.actions.includes("export_report") && <button onClick={() => setReportReady(true)}><Download /><span><b>Download report</b><small>Keep the evidence, score, and recommendations.</small></span><ChevronRight /></button>}
+          {capability.actions.includes("export_report") && <button disabled={!reportId || reportDownloadMutation.isPending} onClick={() => { void downloadGeneratedReport(); }}><Download /><span><b>{reportId ? "Download report" : "Report artifact unavailable"}</b><small>{reportId ? "Keep the executor-generated evidence and inspection export." : "A report download appears only after an executor creates a stored artifact."}</small></span><ChevronRight /></button>}
           {capability.actions.includes("save_project") && <button onClick={() => { void saveVersion(); }}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>}
           {capability.actions.includes("developer_handoff") && <button onClick={() => setFinishNotice("Your technical handoff package is ready to download.")}><FileDown /><span><b>Download developer handoff</b><small>Keep acceptance criteria and implementation context together.</small></span><ChevronRight /></button>}
           {!isConnected && route.supportsStoreRelease && <button onClick={() => setFinishNotice(capability.lockedMessage)}><Store /><span><b>Connect a store later</b><small>{capability.lockedMessage}</small></span><ChevronRight /></button>}
