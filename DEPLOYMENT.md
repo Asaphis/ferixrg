@@ -51,6 +51,8 @@ Run the server behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly matches the pub
 
 ## Configuration intentionally deferred
 
+Two-step verification remains disabled until its dedicated enrollment and login-challenge implementation is deployed. That implementation will require `TOTP_ENCRYPTION_KEY` as a **server-only secret**, distinct from `JWT_SECRET`, to encrypt pending and active authenticator seeds at rest. It must be versioned for controlled rotation and must never be included in browser configuration. Recovery codes must be stored as one-way hashes rather than as plaintext.
+
 Shopify, WooCommerce, Magento, custom-store authorization, payment collection, provider-backed publishing, and provider-backed rollback each require their own server-side adapter and least-privilege credentials. These are **not** enabled by setting any of the variables above. Their release plans remain gated until an adapter is implemented, configured, and tested.
 
 FerixRG now exposes a server-side **provider readiness interface** for Shopify, WooCommerce, Adobe Commerce/Magento, and custom integrations. It records a pending connection request and returns the exact configuration boundary instead of falsely presenting an active authorization URL or a successful connection. Shopify uses an authorization-code flow with verified HMAC/state and a registered callback URL; WooCommerce can use its HTTPS application-authentication endpoint; and Adobe Commerce third-party applications use merchant-approved integrations. [3] [4] [5]
