@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { beginAccountEmailChange, confirmTwoStepAuthenticator, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
-import { createAccountToken, createTwoStepRecoveryCodes, decryptTwoStepSecret, hashAccountToken, normalizeEmail, verifyTotpCode } from "../localAuth";
+import { beginAccountEmailChange, confirmTwoStepAuthenticator, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
+import { createAccountToken, createTwoStepEnrollmentSecret, createTwoStepRecoveryCodes, encryptTwoStepSecret, decryptTwoStepSecret, hashAccountToken, normalizeEmail, twoStepEncryptionConfigured, verifyTotpCode } from "../localAuth";
 import { TRPCError } from "@trpc/server";
 import { sdk } from "../_core/sdk";
 import { accountEmailOrigin, sendEmailChangeVerification, sendPasswordResetEmail } from "../transactionalEmail";
@@ -54,6 +54,14 @@ export const accountRouter = router({
     const requestGet = typeof ctx.req.get === "function" ? ctx.req.get.bind(ctx.req) : undefined;
     const delivery = await sendPasswordResetEmail({ to: profile.email, name: profile.name ?? "", token: token.rawToken, origin: accountEmailOrigin(requestGet?.("origin"), requestGet?.("host")) });
     return { success: true, delivery: delivery.status };
+  }),
+  startTwoStepEnrollment: protectedProcedure.mutation(async ({ ctx }) => {
+    if (!twoStepEncryptionConfigured()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Two-step verification is not configured for this deployment." });
+    const profile = await getAccountProfile(ctx.user.id);
+    const secret = createTwoStepEnrollmentSecret();
+    await savePendingTwoStepAuthenticator({ userId: ctx.user.id, encryptedSecret: encryptTwoStepSecret(secret), keyVersion: "v1" });
+    const accountLabel = encodeURIComponent(profile?.email ?? `account-${ctx.user.id}`);
+    return { secret, otpauthUri: `otpauth://totp/FerixRG:${accountLabel}?secret=${secret}&issuer=FerixRG&algorithm=SHA1&digits=6&period=30` };
   }),
   confirmTwoStepEnrollment: protectedProcedure.input(z.object({ code: z.string().trim().regex(/^\d{6}$/) })).mutation(async ({ ctx, input }) => {
     const authenticator = await getTwoStepAuthenticator(ctx.user.id);

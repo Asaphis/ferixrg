@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({
   beginAccountEmailChange: vi.fn(),
   getAccountProfile: vi.fn(),
+  savePendingTwoStepAuthenticator: vi.fn(),
   getUserPreferences: vi.fn(),
   issueAccountToken: vi.fn(),
   listAccountSessions: vi.fn(),
@@ -13,7 +14,17 @@ vi.mock("../db", () => ({
   updateUserPreferences: vi.fn(),
 }));
 
-import { beginAccountEmailChange, getAccountProfile, getUserPreferences, issueAccountToken, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, updateAccountProfile, updateUserPreferences } from "../db";
+vi.mock("../localAuth", async importOriginal => {
+  const actual = await importOriginal<typeof import("../localAuth")>();
+  return {
+    ...actual,
+    createTwoStepEnrollmentSecret: vi.fn(() => "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"),
+    encryptTwoStepSecret: vi.fn(() => "v1.encrypted-secret"),
+    twoStepEncryptionConfigured: vi.fn(() => true),
+  };
+});
+
+import { beginAccountEmailChange, getAccountProfile, getUserPreferences, issueAccountToken, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -71,6 +82,19 @@ describe("account router", () => {
 
     await expect(caller.account.updatePreferences({ twoStepVerification: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(updateUserPreferences).not.toHaveBeenCalledWith(42, expect.objectContaining({ twoStepVerification: true }));
+  });
+
+  it("starts encrypted two-step enrollment only for the authenticated account", async () => {
+    vi.mocked(getAccountProfile).mockResolvedValue({ id: 42, email: "owner@example.com" } as never);
+    vi.mocked(savePendingTwoStepAuthenticator).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.startTwoStepEnrollment()).resolves.toMatchObject({
+      secret: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+      otpauthUri: expect.stringContaining("owner%40example.com"),
+    });
+
+    expect(savePendingTwoStepAuthenticator).toHaveBeenCalledWith({ userId: 42, encryptedSecret: "v1.encrypted-secret", keyVersion: "v1" });
   });
 
   it("lists and revokes sessions within the authenticated account boundary", async () => {
