@@ -120,6 +120,16 @@ function toForbidden(error: unknown): never {
   throw error;
 }
 
+async function persistAiProposalArtifact(input: { workspaceId: number; toolRunId?: number; actorUserId: number; toolId: string; operation: string; provider: string; model: string; neurons: number; proposal: string }) {
+  if (!input.toolRunId) return null;
+  const generatedAt = new Date().toISOString();
+  const artifactJson = JSON.stringify({ generatedAt, toolRunId: input.toolRunId, toolId: input.toolId, operation: input.operation, boundary: "Proposal only. Review before applying; no store change or publishing action has been performed.", provider: input.provider, model: input.model, neurons: input.neurons, proposal: input.proposal }, null, 2);
+  const upload = await storagePut(`workspace-${input.workspaceId}/tool-runs/${input.toolRunId}/ai-proposal-${input.toolId}.json`, Buffer.from(artifactJson), "application/json");
+  const evidence = await createWorkspaceEvidence({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, kind: "provider_summary", title: `${input.operation} proposal artifact`, storageKey: upload.key, details: { operation: input.operation, provider: input.provider, model: input.model, neurons: input.neurons, generatedAt }, actorUserId: input.actorUserId });
+  const report = await createWorkspaceReport({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, title: `${input.operation} proposal`, format: "json", storageKey: upload.key, summary: "Reviewable AI proposal artifact. It does not represent an applied or published store change.", createdByUserId: input.actorUserId });
+  return { evidenceId: evidence?.id ?? null, reportId: report?.id ?? null, storageKey: upload.key, url: upload.url };
+}
+
 export const workspaceRouter = router({
   bootstrap: protectedProcedure.query(async ({ ctx }) => ensurePersonalWorkspace(ctx.user)),
   list: protectedProcedure.query(({ ctx }) => listUserWorkspaces(ctx.user.id)),
@@ -357,7 +367,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "design_copilot", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.design_copilot.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "ai-design-copilot", operation: "Design Copilot", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -379,7 +390,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "ai_store_redesign", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.store_redesign.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "ai-store-redesign", operation: "AI Store Redesign", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -401,7 +413,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "visual_style_studio", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.visual_style_studio.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "visual-style-studio", operation: "Visual Style Studio", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -423,7 +436,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "responsive_studio", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.responsive_studio.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "responsive-studio", operation: "Responsive Studio", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -445,7 +459,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "layout_composer", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.layout_composer.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "layout-composer", operation: "Layout Composer", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -467,7 +482,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "component_builder", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.component_builder.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "component-builder", operation: "Component Builder", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -489,7 +505,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "content_editor", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.content_editor.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, sourceTextLength: input.sourceText.length } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "content-editor", operation: "Content Editor", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -511,7 +528,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "content_improver", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.content_improver.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, sourceTextLength: input.sourceText.length } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "ai-content-improver", operation: "AI Content Improver", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -533,7 +551,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "product_description_generator", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.product_description_generator.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, productFactsLength: input.productFacts.length } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "product-description-generator", operation: "Product Description Generator", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
@@ -555,7 +574,8 @@ export const workspaceRouter = router({
       const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: `marketing_copy:${input.mode}`, ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.marketing_copy.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, mode: input.mode, sourceFactsLength: input.sourceFacts.length } });
-      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: input.mode, operation: input.mode === "cta-generator" ? "CTA Generator" : input.mode === "seo-content-generator" ? "SEO Content Generator" : "Meta Generator", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);

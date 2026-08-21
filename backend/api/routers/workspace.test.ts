@@ -96,6 +96,10 @@ function authenticatedContext(userId = 42): TrpcContext {
   };
 }
 
+vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/1/ai-proposal.json", url: "https://storage.example/ai-proposal.json" } as never);
+vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 601 } as never);
+vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 701 } as never);
+
 describe("workspace router", () => {
   it("bootstraps a personal workspace only for the authenticated user", async () => {
     vi.mocked(ensurePersonalWorkspace).mockResolvedValue({ workspace: { id: 9 }, membership: { userId: 42, role: "owner" } } as never);
@@ -183,9 +187,12 @@ describe("workspace router", () => {
     vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
     const caller = appRouter.createCaller(authenticatedContext());
 
-    await expect(caller.workspace.designCopilot({ workspaceId: 9, toolRunId: 22, message: "Make the product call to action easier to notice.", context: { device: "Mobile", element: "Buy button" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 3 });
+    await expect(caller.workspace.designCopilot({ workspaceId: 9, toolRunId: 22, message: "Make the product call to action easier to notice.", context: { device: "Mobile", element: "Buy button" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 3, proposalArtifact: { evidenceId: 601, reportId: 701, storageKey: expect.any(String) } });
     expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 3, unit: "neurons", provider: "cloudflare_workers_ai" }));
     expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.design_copilot.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+    expect(storagePut).toHaveBeenCalledWith(expect.stringContaining("workspace-9/tool-runs/22/ai-proposal-ai-design-copilot.json"), expect.any(Buffer), "application/json");
+    expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 22, kind: "provider_summary", title: "Design Copilot proposal artifact", details: expect.not.objectContaining({ proposal: expect.anything() }) }));
+    expect(createWorkspaceReport).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 22, title: "Design Copilot proposal", format: "json" }));
   });
 
   it("runs Content Improver only within editor access, accounts for neurons, and retains source text outside audit metadata", async () => {
