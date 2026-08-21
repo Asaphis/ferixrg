@@ -553,6 +553,7 @@
 - [x] Add durable issue and developer-handoff tables with an additive reviewed migration.
 - [x] Connect the approved tool workflow Run action to real queued and started tool-run records without changing its approved visual structure.
 - [ ] Add per-tool deterministic executors and the Cloudflare AI executor after the remaining aggregate, validation, release, usage, and audit boundaries are completed.
+- [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 
 ## Blueprint Step 6 — live dashboard and aggregate reads
 - [x] Add a protected workspace dashboard read model derived from real stores, measured health, issues, drafts, tool runs, reports, and activity records.

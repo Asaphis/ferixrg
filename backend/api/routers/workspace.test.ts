@@ -316,6 +316,26 @@ describe("workspace router", () => {
     expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 71, actorUserId: 42 }));
   });
 
+  it("executes the exact Heading Structure Analyzer from public URL evidence and records a missing-H1 observation only when observed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop collections"><link rel="canonical" href="https://shop.example/"></head><body><h2>Collections</h2><h3>Featured</h3></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 72, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "heading-structure-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 82, toolRunId: 72 } as never);
+    vi.mocked(createWorkspaceIssue).mockResolvedValue({ id: 92, title: "No H1 heading was observed", severity: "medium" } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/72/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/72/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 102, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 72, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 72 });
+
+    expect(result.inspection.headings).toEqual([{ level: 2, text: "Collections" }, { level: 3, text: "Featured" }]);
+    expect(result.issues).toEqual([{ id: 92, title: "No H1 heading was observed", severity: "medium" }]);
+    expect(createWorkspaceIssue).toHaveBeenCalledWith(expect.objectContaining({ title: "No H1 heading was observed", details: expect.objectContaining({ observed: "no h1 element" }) }));
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_heading_structure_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);

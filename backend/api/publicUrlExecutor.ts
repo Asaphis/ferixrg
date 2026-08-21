@@ -9,6 +9,7 @@ export type PublicUrlInspection = {
   canonicalUrl: string | null;
   hasViewport: boolean;
   headingCount: number;
+  headings: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>;
   imageCount: number;
   imagesWithoutAlt: number;
   linkCount: number;
@@ -24,6 +25,17 @@ function textMatch(html: string, pattern: RegExp) {
 
 function attribute(tag: string, name: string) {
   return tag.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, "i"))?.[1] ?? null;
+}
+
+function extractHeadings(html: string) {
+  const headings: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }> = [];
+  const pattern = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html)) && headings.length < 100) {
+    const text = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    headings.push({ level: Number(match[1]) as 1 | 2 | 3 | 4 | 5 | 6, text: text.slice(0, 280) });
+  }
+  return headings;
 }
 
 export function validatePublicInspectionUrl(value: string) {
@@ -65,6 +77,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const html = contentType?.toLowerCase().includes("text/html") ? await readBody(response) : "";
   const imageTags = html.match(/<img\b[^>]*>/gi) ?? [];
   const linkTags = html.match(/<a\b[^>]*>/gi) ?? [];
+  const headings = extractHeadings(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -75,7 +88,8 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     metaDescriptionLength: (html.match(/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/i)?.[0] ?? "").length,
     canonicalUrl: attribute(html.match(/<link\b[^>]*\brel\s*=\s*["']canonical["'][^>]*>/i)?.[0] ?? "", "href"),
     hasViewport: /<meta\b[^>]*\bname\s*=\s*["']viewport["'][^>]*>/i.test(html),
-    headingCount: (html.match(/<h[1-6]\b/gi) ?? []).length,
+    headingCount: headings.length,
+    headings,
     imageCount: imageTags.length,
     imagesWithoutAlt: imageTags.filter(tag => !/\balt\s*=/i.test(tag)).length,
     linkCount: linkTags.length,

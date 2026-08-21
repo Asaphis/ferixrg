@@ -35,7 +35,7 @@ import "./tool-workflow-specialist.css";
 type Stage = "setup" | "processing" | "results" | "editor" | "review" | "finish";
 type InspectorTab = "edit" | "ai" | "history";
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; imageCount: number; imagesWithoutAlt: number; linkCount: number; bytesRead: number };
+type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; headings?: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>; imageCount: number; imagesWithoutAlt: number; linkCount: number; bytesRead: number };
 type ObservedIssue = { id: number; title: string; severity: "critical" | "high" | "medium" | "low" | "info" };
 
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
@@ -357,6 +357,7 @@ export function ApprovedToolWorkflow({
           <div className="tool-workflow-evidence-visual"><img src={evidenceAsset} alt="Mobile product page evidence" /><span>Buy button</span></div>
           <div className="tool-workflow-evidence-note"><b>{inspection ? "Observed page evidence" : "No observed evidence yet"}</b><p>{inspection ? `${inspection.hasViewport ? "Viewport metadata is present" : "Viewport metadata is absent"}; ${inspection.canonicalUrl ? "a canonical URL is declared" : "no canonical URL was observed"}; ${inspection.linkCount} links were counted.` : "Run a supported executor to create evidence before a result or recommendation is shown."}</p></div>
           <div className="tool-workflow-result-metrics"><span>{inspection ? (observedIssues.length ? "Observed issue records" : "Observed fields") : "Result boundary"}</span>{inspection ? (observedIssues.length ? observedIssues.map(issue => <b key={issue.id}>{issue.severity} · {issue.title}</b>) : [inspection.language ? `Language · ${inspection.language}` : "Language not declared", `Meta description markup · ${inspection.metaDescriptionLength} chars`, `${inspection.bytesRead} bytes inspected`].map(metric => <b key={metric}>{metric}</b>)) : <b>No generated evidence</b>}</div>
+          {tool.id === "heading-structure-analyzer" && inspection?.headings && <div className="tool-workflow-result-metrics"><span>Observed heading order</span>{inspection.headings.length ? inspection.headings.map((heading, index) => <b key={`${heading.level}-${index}`}>H{heading.level} · {heading.text || "No text observed"}</b>) : <b>No heading elements were observed.</b>}</div>}
         </article>
         <article className="tool-workflow-card tool-workflow-next-card">
           <span className="tool-workflow-kicker">What would you like to do next?</span>
