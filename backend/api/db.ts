@@ -23,6 +23,7 @@ import {
   resourceAcknowledgements,
   subscriptions,
   toolRuns,
+  twoStepAuthenticators,
   twoStepLoginChallenges,
   usageLedger,
   validationRuns,
@@ -691,6 +692,13 @@ export async function getLocalAccountByEmail(email: string) {
     .where(and(eq(authIdentities.provider, "email"), eq(authIdentities.providerAccountId, email)))
     .limit(1);
   return rows[0];
+}
+
+export async function hasEnabledTwoStepAuthenticator(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select({ id: twoStepAuthenticators.id }).from(twoStepAuthenticators).where(and(eq(twoStepAuthenticators.userId, userId), sql`${twoStepAuthenticators.enabledAt} IS NOT NULL`)).limit(1);
+  return Boolean(rows[0]);
 }
 
 export async function createLocalAccount(input: { openId: string; name: string; email: string; passwordHash: string; verificationTokenHash: string; verificationExpiresAt: Date }) {

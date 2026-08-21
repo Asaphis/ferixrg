@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAccountToken, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, verifyPassword } from "./localAuth";
+import { createAccountToken, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword } from "./localAuth";
 
 describe("local account authentication helpers", () => {
   it("normalizes account email and enforces the same strong password policy as the approved UI", () => {
@@ -20,5 +20,10 @@ describe("local account authentication helpers", () => {
     expect(token.rawToken).not.toEqual(token.tokenHash);
     expect(hashAccountToken(token.rawToken)).toBe(token.tokenHash);
     expect(token.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("fails closed when the two-step deployment encryption key is absent", () => {
+    expect(twoStepEncryptionConfigured()).toBe(false);
+    expect(() => encryptTwoStepSecret("authenticator-seed")).toThrow("Two-step verification is not configured.");
   });
 });
