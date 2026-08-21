@@ -678,3 +678,8 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 ## Production startup guard
 - [x] Expose Shopify and connection-encryption environment fields through the server environment contract.
 - [x] Fail fast in production when `DATABASE_URL` or `JWT_SECRET` is missing, while leaving optional AI, email, and provider adapters readiness-gated rather than pretending they are configured.
+
+## Truthful live tool workflow
+- [x] Replace the active AI workflow’s fixed validation checklist, projected health claims, simulated publishing messages, fabricated design-package claims, and static before/after renders with persisted-state metadata, live validation status, and explicit unavailable-provider/artifact states.
+- [x] Keep proposal application as a manual editor decision and make provider-side draft creation/publishing remain gated until a configured adapter reports capability.
+- [x] Validate the complete suite, TypeScript check, and production build after the workflow hardening.
