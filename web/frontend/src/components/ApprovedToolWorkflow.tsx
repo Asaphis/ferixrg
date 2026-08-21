@@ -92,16 +92,22 @@ export function ApprovedToolWorkflow({
   onBack,
   startAt = "setup",
   startSource,
+  selectedSource,
+  onSourceChange,
   workspaceId,
 }: {
   tool: ToolDefinition;
   onBack: () => void;
   startAt?: "setup" | "results" | "editor" | "finish";
   startSource?: string;
+  selectedSource?: string;
+  onSourceChange?: (source: ToolSource) => void;
   workspaceId?: number;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
-  const [source, setSource] = useState<ToolSource>(() => resolveToolSource(startSource, tool.sources));
+  const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
+  const source = resolveToolSource(selectedSource ?? internalSource, tool.sources);
+  const chooseSource = (next: ToolSource) => { setInternalSource(next); onSourceChange?.(next); };
   const [url, setUrl] = useState("https://atelierforma.com");
   const [reportReady, setReportReady] = useState(false);
   const [selectedElement, setSelectedElement] = useState("Buy button");
@@ -315,8 +321,9 @@ export function ApprovedToolWorkflow({
           <div className="tool-workflow-sources">
             {tool.sources.map(item => (
               <button
+                type="button"
                 className={source === item ? "active" : ""}
-                onClick={() => setSource(item)}
+                onClick={() => chooseSource(item)}
                 key={item}
               >
                 <SourceIcon source={item} />

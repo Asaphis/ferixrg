@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import Home from "./Home";
+import { SolutionsPage } from "./PublicPages";
 
 const setViewport = (width: number, reducedMotion: boolean) => {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
@@ -62,8 +63,8 @@ describe("Home hero montage motion", () => {
 
   it("routes a public AI prompt through registration with its exact tool return link", () => {
     setViewport(1440, false);
-    window.history.replaceState({}, "", "/");
-    const view = render(createElement(Home));
+    window.history.replaceState({}, "", "/solutions");
+    const view = render(createElement(SolutionsPage));
     fireEvent.click(view.getByRole("button", { name: /Redesign with a modern look/i }));
     expect(window.location.pathname).toBe("/auth/register");
     const returnTo = new URLSearchParams(window.location.search).get("returnTo");

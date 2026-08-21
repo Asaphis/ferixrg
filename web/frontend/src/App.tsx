@@ -8,15 +8,20 @@ import Home from "./pages/Home";
 import Workspace from "./pages/Workspace";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import { AboutPage, ContactPage, FeaturesPage, HowItWorksPage, PlatformsPage, PricingPage, ResourcesPage, SolutionsPage } from "./pages/PublicPages";
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/features" component={Home} />
-      <Route path="/how-it-works" component={Home} />
-      <Route path="/solutions" component={Home} />
-      <Route path="/pricing" component={Home} />
+      <Route path="/features" component={FeaturesPage} />
+      <Route path="/how-it-works" component={HowItWorksPage} />
+      <Route path="/solutions" component={SolutionsPage} />
+      <Route path="/platforms" component={PlatformsPage} />
+      <Route path="/pricing" component={PricingPage} />
+      <Route path="/resources" component={ResourcesPage} />
+      <Route path="/about" component={AboutPage} />
+      <Route path="/contact" component={ContactPage} />
       <Route path="/auth/:page" component={Auth} />
       <Route path="/auth" component={Auth} />
       <Route path="/app" component={Workspace} />
