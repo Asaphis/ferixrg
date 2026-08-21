@@ -695,6 +695,13 @@ export async function getLocalAccountByEmail(email: string) {
   return rows[0];
 }
 
+export async function getLocalAccountById(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0];
+}
+
 export async function hasEnabledTwoStepAuthenticator(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
