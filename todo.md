@@ -557,6 +557,7 @@
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.
+- [x] Add a bounded Accessibility Analyzer public-URL result using only observed language, viewport, heading, and image-alt indicators.
 
 ## Blueprint Step 6 — live dashboard and aggregate reads
 - [x] Add a protected workspace dashboard read model derived from real stores, measured health, issues, drafts, tool runs, reports, and activity records.
