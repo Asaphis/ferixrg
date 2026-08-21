@@ -12,6 +12,7 @@ const sessionMocks = vi.hoisted(() => ({
   profile: { id: 1, name: "Maya Turner", email: "maya@example.com" },
   preferences: { id: 1, userId: 1, defaultPreview: "mobile", analysisReadyNotifications: 1, draftReviewNotifications: 1, publishingReadinessNotifications: 1, releaseNotes: 1, productResearch: 0, reduceMotion: 0, increaseContrast: 0, visibleKeyboardFocus: 1, twoStepVerification: 0, securityAlerts: 1 },
   twoStepStatus: { encryptionConfigured: false, enrollmentState: "not_enrolled" as const },
+  securityEvents: [],
   sessions: [{ id: 1, createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), active: true, current: true }],
   members: [
     { member: { id: 1, workspaceId: 1, userId: 1, role: "owner" }, user: { id: 1, name: "Maya Turner", email: "maya@example.com" } },
@@ -111,6 +112,7 @@ vi.mock("@/lib/trpc", () => ({
       preferences: { useQuery: () => ({ data: sessionMocks.preferences, isLoading: false }) },
       sessions: { useQuery: () => ({ data: sessionMocks.sessions, isLoading: false }) },
       twoStepStatus: { useQuery: () => ({ data: sessionMocks.twoStepStatus, isLoading: false, refetch: sessionMocks.invalidate }) },
+      securityEvents: { useQuery: () => ({ data: sessionMocks.securityEvents, isLoading: false }) },
       updateProfile: { useMutation: () => ({ mutateAsync: sessionMocks.updateProfile }) },
       updatePreferences: { useMutation: () => ({ mutateAsync: sessionMocks.updatePreferences }) },
       requestEmailChange: { useMutation: () => ({ mutateAsync: sessionMocks.requestEmailChange }) },
@@ -271,6 +273,18 @@ describe("Workspace mobile behaviour", () => {
 
     expect(view.getByText(/Authenticator enrollment is unavailable until this deployment has encrypted secret storage configured/i)).toBeTruthy();
     expect(view.queryByRole("button", { name: "Set up authenticator app" })).toBeNull();
+  });
+
+  it("renders private security activity with honest alert-delivery state", () => {
+    sessionMocks.securityEvents = [{ id: 41, eventType: "two_step_enabled", deliveryState: "not_configured", createdAt: new Date("2026-08-21T00:00:00.000Z") }];
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "More" }));
+    fireEvent.click(view.getByRole("button", { name: "Profile" }));
+    fireEvent.click(view.getByRole("button", { name: /Password & security/i }));
+
+    expect(view.getByText("Two-step verification enabled")).toBeTruthy();
+    expect(view.getByText(/Alert delivery is not configured/i)).toBeTruthy();
+    sessionMocks.securityEvents = [];
   });
 
   it("opens specific nested Billing and Support actions instead of generic notices", () => {

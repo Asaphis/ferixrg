@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { accountEmailOrigin, sendTransactionalEmail, transactionalEmailConfigured } from "./transactionalEmail";
+import { accountEmailOrigin, sendSecurityAlertEmail, sendTransactionalEmail, transactionalEmailConfigured } from "./transactionalEmail";
 
 describe("transactional email adapter", () => {
   it("reports unavailable delivery honestly when deployment variables are absent", async () => {
@@ -9,6 +9,18 @@ describe("transactional email adapter", () => {
     delete process.env.RESEND_FROM_EMAIL;
     expect(transactionalEmailConfigured()).toBe(false);
     await expect(sendTransactionalEmail({ to: "owner@example.com", subject: "Test", html: "<p>Test</p>", text: "Test", idempotencyKey: "test/1" })).resolves.toEqual({ status: "not_configured" });
+    if (originalKey) process.env.RESEND_API_KEY = originalKey;
+    if (originalFrom) process.env.RESEND_FROM_EMAIL = originalFrom;
+  });
+
+  it("uses the same configuration-gated delivery boundary for sign-in security alerts", async () => {
+    const originalKey = process.env.RESEND_API_KEY;
+    const originalFrom = process.env.RESEND_FROM_EMAIL;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_FROM_EMAIL;
+
+    await expect(sendSecurityAlertEmail({ to: "owner@example.com", name: "Owner", event: "two_step_login_completed", eventId: 17 })).resolves.toEqual({ status: "not_configured" });
+
     if (originalKey) process.env.RESEND_API_KEY = originalKey;
     if (originalFrom) process.env.RESEND_FROM_EMAIL = originalFrom;
   });

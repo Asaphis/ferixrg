@@ -2,6 +2,7 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityEvents,
+  accountSecurityEvents,
   accountEmailChanges,
   accountTokens,
   authIdentities,
@@ -722,6 +723,28 @@ export async function getTwoStepAuthenticator(userId: number) {
   if (!db) throw new Error("Database is not available");
   const rows = await db.select().from(twoStepAuthenticators).where(eq(twoStepAuthenticators.userId, userId)).limit(1);
   return rows[0];
+}
+
+export type AccountSecurityEventType = "two_step_enrollment_started" | "two_step_enabled" | "session_revoked" | "other_sessions_revoked" | "two_step_login_completed" | "local_sign_in_completed";
+export type AccountSecurityDeliveryState = "not_requested" | "not_configured" | "sent" | "failed";
+
+export async function recordAccountSecurityEvent(input: { userId: number; eventType: AccountSecurityEventType; deliveryState?: AccountSecurityDeliveryState }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const inserted = await db.insert(accountSecurityEvents).values({ userId: input.userId, eventType: input.eventType, deliveryState: input.deliveryState ?? "not_requested" });
+  return Number(inserted[0].insertId);
+}
+
+export async function updateAccountSecurityEventDelivery(input: { userId: number; eventId: number; deliveryState: AccountSecurityDeliveryState }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(accountSecurityEvents).set({ deliveryState: input.deliveryState }).where(and(eq(accountSecurityEvents.id, input.eventId), eq(accountSecurityEvents.userId, input.userId)));
+}
+
+export async function listAccountSecurityEvents(userId: number, limit = 12) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(accountSecurityEvents).where(eq(accountSecurityEvents.userId, userId)).orderBy(desc(accountSecurityEvents.createdAt)).limit(Math.min(Math.max(limit, 1), 50));
 }
 
 export async function confirmTwoStepAuthenticator(input: { userId: number; recoveryCodeHashes: string[] }) {

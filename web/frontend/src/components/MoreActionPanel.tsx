@@ -20,6 +20,7 @@ type AccountPreferences = {
 };
 type AccountSession = { id: number; createdAt: Date; expiresAt: Date; active: boolean; current: boolean };
 type TwoStepStatus = { encryptionConfigured: boolean; enrollmentState: "not_enrolled" | "pending" | "enabled" };
+type AccountSecurityEvent = { id: number; eventType: string; deliveryState: "not_requested" | "not_configured" | "sent" | "failed"; createdAt: Date };
 type BillingSummary = { subscription: { plan: "free" | "starter" | "growth" | "enterprise"; status: string; provider: string | null; currentPeriodEnd: Date | null } | null; plan: { label: string; monthlyToolRuns: number | null; monthlyAiCredits: number | null; storageBytes: number | null; seats: number | null }; usage: { toolRuns: number; aiCredits: number; storageBytes: number; exports: number; publishActions: number }; ledger: { id: number; category: string; quantity: number; unit: string; createdAt: Date }[] };
 type StoreProviderReadiness = { provider: string; configured: boolean; authorizationMode: string; supportsPublish: boolean; supportsRollback: boolean; message: string };
 type AiProviderReadiness = { provider: string; configured: boolean; model: string; message: string };
@@ -75,6 +76,7 @@ export function MoreActionPanel({ section, action, onBack, profile, preferences,
   const [verificationCode, setVerificationCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const twoStepStatusQuery = trpc.account.twoStepStatus.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
+  const securityEventsQuery = trpc.account.securityEvents.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
   const startTwoStepEnrollmentMutation = trpc.account.startTwoStepEnrollment.useMutation();
   const confirmTwoStepEnrollmentMutation = trpc.account.confirmTwoStepEnrollment.useMutation();
   const liveTwoStepStatus = twoStepStatus ?? twoStepStatusQuery.data;
@@ -157,6 +159,7 @@ export function MoreActionPanel({ section, action, onBack, profile, preferences,
   };
   const accountSetting = section === "profile" || section === "preferences";
   const isPasswordSecurity = section === "profile" && action === "Password & security";
+  const securityEventLabel = (event: AccountSecurityEvent) => ({ two_step_enrollment_started: "Authenticator setup started", two_step_enabled: "Two-step verification enabled", session_revoked: "A session was revoked", other_sessions_revoked: "Other sessions were revoked", local_sign_in_completed: "Password sign-in completed", two_step_login_completed: "Two-step sign-in completed" })[event.eventType] ?? "Account security updated";
   const beginTwoStepEnrollment = async () => {
     if (!liveTwoStepStatus?.encryptionConfigured) return;
     setSaving(true); setSaved("");
@@ -183,6 +186,7 @@ export function MoreActionPanel({ section, action, onBack, profile, preferences,
           {!enrollment ? <button disabled={saving} onClick={beginTwoStepEnrollment}><span>Set up authenticator app</span><ChevronRight /></button> : <div className="more-action-form"><label>Setup key<input value={enrollment.secret} readOnly aria-label="Authenticator setup key" /></label><label>Six-digit code<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={verificationCode} onChange={event => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label><button className="approved-primary more-action-primary" disabled={saving || verificationCode.length !== 6} onClick={confirmTwoStepEnrollment}>{saving ? "Confirming…" : "Confirm setup"}</button></div>}
         </>}
         {recoveryCodes.length > 0 && <div className="more-action-form"><span className="approved-eyebrow">One-time recovery codes</span><p>Save these codes now. Each works once, and they will not be shown again.</p><input value={recoveryCodes.join("  ")} readOnly aria-label="Two-step recovery codes" /></div>}
+        {securityEventsQuery.data?.length ? <div className="more-action-row-list"><span className="approved-eyebrow">Recent security activity</span>{securityEventsQuery.data.slice(0, 4).map(event => <p key={event.id}><b>{securityEventLabel(event)}</b><small>{event.deliveryState === "sent" ? " Security alert sent." : event.deliveryState === "not_configured" ? " Alert delivery is not configured." : event.deliveryState === "failed" ? " Alert delivery failed." : " No alert delivery was requested."} {new Date(event.createdAt).toLocaleDateString()}</small></p>)}</div> : null}
       </section>}
       {(livePlatformRows ?? liveSessionRows ?? billingRows ?? detail.rows) && <div className="more-action-row-list"><span className="approved-eyebrow">Available details</span>{(livePlatformRows ?? liveSessionRows ?? billingRows ?? detail.rows ?? []).map(row => <button onClick={() => setSaved(section === "billing" ? "This ledger record is available in the workspace." : `${row} is ready in this preview.`)} key={row}><span>{row}</span><ChevronRight /></button>)}</div>}
       <button className="approved-primary more-action-primary" disabled={saving} onClick={persist}>{detail.destructive ? <ShieldCheck /> : <Save />}{saving ? "Saving…" : detail.primary}</button>

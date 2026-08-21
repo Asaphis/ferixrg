@@ -81,3 +81,15 @@ export async function sendEmailChangeVerification(input: { to: string; name: str
     idempotencyKey: `email-change/${input.token.slice(0, 24)}`,
   });
 }
+
+export async function sendSecurityAlertEmail(input: { to: string; name: string; event: "local_sign_in_completed" | "two_step_login_completed"; eventId: number }) {
+  const safeName = escapeHtml(input.name || "there");
+  const detail = input.event === "two_step_login_completed" ? "A sign-in completed after two-step verification." : "A sign-in completed with your FerixRG password.";
+  return sendTransactionalEmail({
+    to: input.to,
+    subject: "New FerixRG sign-in",
+    html: `<p>Hi ${safeName},</p><p>${detail}</p><p>If this was not you, reset your password and review your account sessions.</p>`,
+    text: `Hi ${input.name || "there"},\n\n${detail}\n\nIf this was not you, reset your password and review your account sessions.`,
+    idempotencyKey: `security-alert/${input.eventId}`,
+  });
+}

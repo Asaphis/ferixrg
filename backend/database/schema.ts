@@ -128,6 +128,18 @@ export const twoStepLoginChallenges = mysqlTable(
   table => ({ userExpiryIndex: index("two_step_login_challenges_user_expiry_index").on(table.userId, table.expiresAt) }),
 );
 
+export const accountSecurityEvents = mysqlTable(
+  "accountSecurityEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    eventType: varchar("eventType", { length: 96 }).notNull(),
+    deliveryState: mysqlEnum("deliveryState", ["not_requested", "not_configured", "sent", "failed"]).default("not_requested").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({ userCreatedIndex: index("account_security_events_user_created_index").on(table.userId, table.createdAt) }),
+);
+
 export const workspaces = mysqlTable(
   "workspaces",
   {

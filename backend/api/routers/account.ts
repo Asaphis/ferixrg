@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { beginAccountEmailChange, confirmTwoStepAuthenticator, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
+import { beginAccountEmailChange, confirmTwoStepAuthenticator, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountIdentities, listAccountSecurityEvents, listAccountSessions, recordAccountSecurityEvent, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
 import { createAccountToken, createTwoStepEnrollmentSecret, createTwoStepRecoveryCodes, encryptTwoStepSecret, decryptTwoStepSecret, hashAccountToken, normalizeEmail, twoStepEncryptionConfigured, verifyTotpCode } from "../localAuth";
 import { TRPCError } from "@trpc/server";
 import { sdk } from "../_core/sdk";
@@ -17,6 +17,7 @@ export const accountRouter = router({
       enrollmentState: authenticator?.enabledAt ? "enabled" as const : authenticator ? "pending" as const : "not_enrolled" as const,
     };
   }),
+  securityEvents: protectedProcedure.query(({ ctx }) => listAccountSecurityEvents(ctx.user.id)),
   sessions: protectedProcedure.query(async ({ ctx }) => {
     const session = await sdk.getSessionFromRequest(ctx.req);
     const currentTokenHash = session?.sessionId ? hashAccountToken(session.sessionId) : undefined;
@@ -35,12 +36,14 @@ export const accountRouter = router({
     .mutation(({ ctx, input }) => updateAccountProfile(ctx.user.id, input)),
   revokeSession: protectedProcedure.input(z.object({ sessionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     await revokeAccountSession(ctx.user.id, input.sessionId);
+    await recordAccountSecurityEvent({ userId: ctx.user.id, eventType: "session_revoked" });
     return { success: true } as const;
   }),
   revokeOtherSessions: protectedProcedure.mutation(async ({ ctx }) => {
     const session = await sdk.getSessionFromRequest(ctx.req);
     const currentTokenHash = session?.sessionId ? hashAccountToken(session.sessionId) : undefined;
     const revoked = await revokeOtherAccountSessions(ctx.user.id, currentTokenHash);
+    if (revoked) await recordAccountSecurityEvent({ userId: ctx.user.id, eventType: "other_sessions_revoked" });
     return { success: true, revoked } as const;
   }),
   requestEmailChange: protectedProcedure.input(z.object({ email: z.string().email().max(320) })).mutation(async ({ ctx, input }) => {
@@ -67,6 +70,7 @@ export const accountRouter = router({
     const profile = await getAccountProfile(ctx.user.id);
     const secret = createTwoStepEnrollmentSecret();
     await savePendingTwoStepAuthenticator({ userId: ctx.user.id, encryptedSecret: encryptTwoStepSecret(secret), keyVersion: "v1" });
+    await recordAccountSecurityEvent({ userId: ctx.user.id, eventType: "two_step_enrollment_started" });
     const accountLabel = encodeURIComponent(profile?.email ?? `account-${ctx.user.id}`);
     return { secret, otpauthUri: `otpauth://totp/FerixRG:${accountLabel}?secret=${secret}&issuer=FerixRG&algorithm=SHA1&digits=6&period=30` };
   }),
@@ -77,6 +81,7 @@ export const accountRouter = router({
     const recoveryCodes = createTwoStepRecoveryCodes();
     const confirmed = await confirmTwoStepAuthenticator({ userId: ctx.user.id, recoveryCodeHashes: recoveryCodes.map(item => item.codeHash) });
     if (!confirmed) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending two-step enrollment is available." });
+    await recordAccountSecurityEvent({ userId: ctx.user.id, eventType: "two_step_enabled" });
     return { success: true, recoveryCodes: recoveryCodes.map(item => item.rawCode) };
   }),
   updatePreferences: protectedProcedure

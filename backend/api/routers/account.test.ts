@@ -4,7 +4,9 @@ vi.mock("../db", () => ({
   beginAccountEmailChange: vi.fn(),
   getAccountProfile: vi.fn(),
   getTwoStepAuthenticator: vi.fn(),
+  listAccountSecurityEvents: vi.fn(),
   savePendingTwoStepAuthenticator: vi.fn(),
+  recordAccountSecurityEvent: vi.fn(),
   getUserPreferences: vi.fn(),
   issueAccountToken: vi.fn(),
   listAccountSessions: vi.fn(),
@@ -25,7 +27,7 @@ vi.mock("../localAuth", async importOriginal => {
   };
 });
 
-import { beginAccountEmailChange, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountSessions, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
+import { beginAccountEmailChange, getAccountProfile, getTwoStepAuthenticator, getUserPreferences, issueAccountToken, listAccountSecurityEvents, listAccountSessions, recordAccountSecurityEvent, revokeAccountSession, revokeOtherAccountSessions, savePendingTwoStepAuthenticator, updateAccountProfile, updateUserPreferences } from "../db";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -93,6 +95,14 @@ describe("account router", () => {
     expect(getTwoStepAuthenticator).toHaveBeenCalledWith(42);
   });
 
+  it("lists private security events only for the authenticated account", async () => {
+    vi.mocked(listAccountSecurityEvents).mockResolvedValue([{ id: 8, userId: 42, eventType: "two_step_enabled", deliveryState: "not_requested" }] as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.account.securityEvents()).resolves.toMatchObject([{ userId: 42, eventType: "two_step_enabled" }]);
+    expect(listAccountSecurityEvents).toHaveBeenCalledWith(42);
+  });
+
   it("starts encrypted two-step enrollment only for the authenticated account", async () => {
     vi.mocked(getAccountProfile).mockResolvedValue({ id: 42, email: "owner@example.com" } as never);
     vi.mocked(savePendingTwoStepAuthenticator).mockResolvedValue(undefined);
@@ -104,6 +114,7 @@ describe("account router", () => {
     });
 
     expect(savePendingTwoStepAuthenticator).toHaveBeenCalledWith({ userId: 42, encryptedSecret: "v1.encrypted-secret", keyVersion: "v1" });
+    expect(recordAccountSecurityEvent).toHaveBeenCalledWith({ userId: 42, eventType: "two_step_enrollment_started" });
   });
 
   it("lists and revokes sessions within the authenticated account boundary", async () => {
@@ -118,6 +129,8 @@ describe("account router", () => {
 
     expect(revokeAccountSession).toHaveBeenCalledWith(42, 19);
     expect(revokeOtherAccountSessions).toHaveBeenCalledWith(42, undefined);
+    expect(recordAccountSecurityEvent).toHaveBeenCalledWith({ userId: 42, eventType: "session_revoked" });
+    expect(recordAccountSecurityEvent).toHaveBeenCalledWith({ userId: 42, eventType: "other_sessions_revoked" });
   });
 
   it("creates a pending email-change record only for the authenticated account", async () => {

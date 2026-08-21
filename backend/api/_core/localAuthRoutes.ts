@@ -1,11 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { confirmAccountEmailChange, consumeTwoStepLoginChallenge, consumeTwoStepRecoveryCode, createAccountSession, createLocalAccount, createTwoStepLoginChallenge, getLocalAccountByEmail, getLocalAccountById, getTwoStepAuthenticator, hasEnabledTwoStepAuthenticator, issueAccountToken, resetLocalPassword, verifyLocalAccount } from "../db";
+import { confirmAccountEmailChange, consumeTwoStepLoginChallenge, consumeTwoStepRecoveryCode, createAccountSession, createLocalAccount, createTwoStepLoginChallenge, getLocalAccountByEmail, getLocalAccountById, getTwoStepAuthenticator, getUserPreferences, hasEnabledTwoStepAuthenticator, issueAccountToken, recordAccountSecurityEvent, resetLocalPassword, updateAccountSecurityEventDelivery, verifyLocalAccount } from "../db";
 import { createAccountToken, createLocalOpenId, createTwoStepChallengeToken, decryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, verifyPassword, verifyTotpCode } from "../localAuth";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
-import { accountEmailOrigin, sendPasswordResetEmail, sendVerificationEmail, transactionalEmailConfigured } from "../transactionalEmail";
+import { accountEmailOrigin, sendPasswordResetEmail, sendSecurityAlertEmail, sendVerificationEmail, transactionalEmailConfigured } from "../transactionalEmail";
 
 const registrationInput = z.object({
   name: z.string().trim().min(1).max(160),
@@ -20,6 +20,14 @@ const twoStepChallengeInput = z.object({ challengeToken: z.string().min(24).max(
 
 function respondInvalidInput(res: Response, message = "Invalid account details.") {
   return res.status(400).json({ success: false, message });
+}
+
+async function recordSuccessfulSignInAlert(account: { id: number; email: string | null; name: string | null }, eventType: "local_sign_in_completed" | "two_step_login_completed") {
+  const eventId = await recordAccountSecurityEvent({ userId: account.id, eventType });
+  const preferences = await getUserPreferences(account.id);
+  if (!preferences?.securityAlerts || !account.email) return;
+  const delivery = await sendSecurityAlertEmail({ to: account.email, name: account.name ?? "", event: eventType, eventId });
+  await updateAccountSecurityEventDelivery({ userId: account.id, eventId, deliveryState: delivery.status });
 }
 
 export function registerLocalAuthRoutes(app: Express) {
@@ -61,6 +69,7 @@ export function registerLocalAuthRoutes(app: Express) {
 
     const sessionReference = createAccountToken();
     await createAccountSession({ userId: account.user.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + ONE_YEAR_MS) });
+    await recordSuccessfulSignInAlert(account.user, "local_sign_in_completed");
     const sessionToken = await sdk.createSessionToken(account.user.openId, { name: account.user.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: ONE_YEAR_MS });
     res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: ONE_YEAR_MS });
     return res.json({ success: true });
@@ -79,6 +88,7 @@ export function registerLocalAuthRoutes(app: Express) {
     if (!verified) return res.status(401).json({ success: false, message: "The verification code is invalid or expired." });
     const sessionReference = createAccountToken();
     await createAccountSession({ userId: account.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + ONE_YEAR_MS) });
+    await recordSuccessfulSignInAlert(account, "two_step_login_completed");
     const sessionToken = await sdk.createSessionToken(account.openId, { name: account.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: ONE_YEAR_MS });
     res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: ONE_YEAR_MS });
     return res.json({ success: true });
