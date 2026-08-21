@@ -46,8 +46,8 @@ type ComparisonResult = {
   serializedStateMatches: boolean;
 };
 
-const evidenceAsset = "/landing/ferixrg-visual-analysis.png";
-const redesignAsset = "/landing/ferixrg-visual-redesign.png";
+const evidenceAsset = "/landing/portfolio/portfolio-before-after-skincare.png";
+const redesignAsset = "/landing/portfolio/shopify-store-redesign.jpg";
 
 const stages: Array<{ id: Stage; label: string }> = [
   { id: "setup", label: "Set up" },

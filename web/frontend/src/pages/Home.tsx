@@ -6,15 +6,15 @@ import { applyLandingParallaxToMontage } from "@/lib/landingMotion";
 import "./landing.css";
 import "./landingMotion.css";
 
-const heroAsset = "/landing/ferixrg-visual-reference.png";
-const evidenceAsset = "/landing/ferixrg-visual-analysis.png";
-const redesignAsset = "/landing/ferixrg-visual-redesign.png";
+const heroAsset = "/landing/portfolio/shopify-multi-device-beauty.jpg";
+const evidenceAsset = "/landing/portfolio/portfolio-before-after-skincare.png";
+const redesignAsset = "/landing/portfolio/shopify-Store-Redesign.jpg";
 const landingVisuals = [
-  { src: "/landing/ferixrg-visual-reference.png", alt: "FerixRG storefront intelligence workspace" },
-  { src: "/landing/ferixrg-visual-analysis.png", alt: "AI storefront analysis evidence" },
-  { src: "/landing/ferixrg-visual-redesign.png", alt: "Before and after storefront redesign" },
-  { src: "/landing/ferixrg-visual-mobile.png", alt: "Responsive mobile storefront experience" },
-  { src: "/landing/ferixrg-visual-workflow.png", alt: "FerixRG insight to publish workflow" },
+  { src: "/landing/portfolio/shopify-multi-device-beauty.jpg", alt: "Shopify storefront displayed across desktop, tablet, and phone" },
+  { src: "/landing/portfolio/shopify-fashion-responsive.jpg", alt: "Responsive Shopify fashion storefront on desktop and mobile" },
+  { src: "/landing/portfolio/fashion-responsive-storefront.jpg", alt: "Responsive fashion storefront experience" },
+  { src: "/landing/portfolio/sneaker-store-responsive.jpg", alt: "Responsive sneaker storefront across phone and desktop" },
+  { src: "/landing/portfolio/storefront-mobile-showcase.png", alt: "Mobile storefront showcase across devices" },
 ];
 
 function Brand() {
@@ -102,7 +102,7 @@ export default function Home() {
 
       <section className="ai-band"><div><div className="landing-eyebrow">ASK FERIXRG AI</div><h2>Don’t just find the problem.<br />Fix it.</h2><p>FerixRG AI turns insight into action—instantly.</p></div><div className="prompt-grid">{[["Improve product page conversion", "product-composer"], ["Speed up my store", "performance-evidence"], ["Redesign with a modern look", "responsive-redesign"], ["Improve mobile checkout", "checkout-friction"]].map(([prompt, toolId]) => <button onClick={() => goToAuthenticatedTool(toolId)} key={prompt}>{prompt} <ArrowRight size={12} /></button>)}</div></section>
 
-      <section className="landing-section evidence-section"><div className="landing-eyebrow">EVIDENCE READY</div><h2>Every improvement has proof.</h2><VisualCarousel className="evidence-carousel" label="Evidence and redesign visual carousel" /><div className="evidence-cards"><article><b>01 &nbsp; Responsive test</b><img src="/landing/ferixrg-visual-mobile.png" alt="Responsive storefront test" /><small>Desktop 98 / Tablet 93 / Mobile 88</small></article><article><b>02 &nbsp; AI redesign alternative</b><img src="/landing/ferixrg-visual-redesign.png" alt="AI redesign alternative" /><small>Compare directions before publishing.</small></article><article><b>03 &nbsp; Report-ready improvements</b><img src="/landing/ferixrg-visual-workflow.png" alt="Report ready storefront improvements" /><small>18 total improvements · Download report</small></article></div></section>
+      <section className="landing-section evidence-section"><div className="landing-eyebrow">EVIDENCE READY</div><h2>Every improvement has proof.</h2><VisualCarousel className="evidence-carousel" label="Evidence and redesign visual carousel" /><div className="evidence-cards"><article><b>01 &nbsp; Responsive test</b><img src="/landing/portfolio/fashion-responsive-storefront.jpg" alt="Responsive fashion storefront test" /><small>Desktop, tablet, and mobile layouts compared.</small></article><article><b>02 &nbsp; Storefront redesign alternative</b><img src="/landing/portfolio/shopify-Store-Redesign.jpg" alt="Shopify storefront redesign comparison" /><small>Compare directions before publishing.</small></article><article><b>03 &nbsp; Report-ready improvements</b><img src="/landing/portfolio/portfolio-before-after-jewelry.jpg" alt="Jewelry storefront before and after improvement report" /><small>Before-and-after evidence ready for review.</small></article></div></section>
       <section className="redesign-compare"><article className="before"><span>Before</span><b>72 <small>/100</small></b><img src={redesignAsset} alt="Before storefront design" /></article><article className="after"><span>After</span><b>94 <small>/100</small></b><img src={redesignAsset} alt="After storefront design" /></article></section>
       <section className="landing-section workflow-section" id="workflow"><div className="landing-eyebrow">PROVEN PROCESS</div><h2>From insight to impact.</h2><div className="workflow-cards">{landingWorkflow.map(([number, title, copy]) => <article key={number}><b>{number}</b><div><h3>{title}</h3><p>{copy}</p></div></article>)}</div></section>
       <section className="health-report"><header><b>Your Store Health Report</b><button onClick={goToWorkspace}>Download <ArrowRight size={13} /></button></header><img src={heroAsset} alt="Store health report evidence" /><div>{landingHealthMetrics.map((metric) => <article key={metric.name}><span>{metric.name}</span><b>{metric.value}</b><i className={metric.tone} /></article>)}</div></section>

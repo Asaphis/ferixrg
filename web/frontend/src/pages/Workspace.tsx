@@ -22,8 +22,8 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
 const markAsset = "/branding/ferixrg-logo-transparent.png";
-const evidenceAsset = "/landing/ferixrg-visual-analysis.png";
-const redesignAsset = "/landing/ferixrg-visual-redesign.png";
+const evidenceAsset = "/landing/portfolio/portfolio-before-after-skincare.png";
+const redesignAsset = "/landing/portfolio/shopify-store-redesign.jpg";
 
 const desktopNavGroups = [
   { label: "Workspace", items: [{ label: "Dashboard", destination: "Overview", icon: LayoutDashboard }, { label: "Stores", destination: "Stores", icon: Store }] },
