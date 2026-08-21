@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { ENV } from "./_core/env";
 
 export const LOCAL_AUTH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
+export const TWO_STEP_CHALLENGE_TTL_MS = 1000 * 60 * 5;
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -30,6 +31,15 @@ export function createAccountToken() {
     rawToken,
     tokenHash: createHash("sha256").update(rawToken).digest("hex"),
     expiresAt: new Date(Date.now() + LOCAL_AUTH_TOKEN_TTL_MS),
+  };
+}
+
+export function createTwoStepChallengeToken() {
+  const rawToken = randomBytes(32).toString("base64url");
+  return {
+    rawToken,
+    tokenHash: createHash("sha256").update(rawToken).digest("hex"),
+    expiresAt: new Date(Date.now() + TWO_STEP_CHALLENGE_TTL_MS),
   };
 }
 

@@ -1,8 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { confirmAccountEmailChange, createAccountSession, createLocalAccount, getLocalAccountByEmail, issueAccountToken, resetLocalPassword, verifyLocalAccount } from "../db";
-import { createAccountToken, createLocalOpenId, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, verifyPassword } from "../localAuth";
+import { confirmAccountEmailChange, createAccountSession, createLocalAccount, createTwoStepLoginChallenge, getLocalAccountByEmail, hasEnabledTwoStepAuthenticator, issueAccountToken, resetLocalPassword, verifyLocalAccount } from "../db";
+import { createAccountToken, createLocalOpenId, createTwoStepChallengeToken, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, verifyPassword } from "../localAuth";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { accountEmailOrigin, sendPasswordResetEmail, sendVerificationEmail, transactionalEmailConfigured } from "../transactionalEmail";
@@ -51,6 +51,12 @@ export function registerLocalAuthRoutes(app: Express) {
     const passwordMatches = Boolean(account?.identity.passwordHash) && (await verifyPassword(parsed.data.password, account!.identity.passwordHash!));
     if (!account || !passwordMatches) return res.status(401).json({ success: false, message: "Incorrect email or password." });
     if (account.user.accountStatus !== "active") return res.status(403).json({ success: false, code: "VERIFICATION_REQUIRED", message: "Your email address has not been verified." });
+
+    if (await hasEnabledTwoStepAuthenticator(account.user.id)) {
+      const challenge = createTwoStepChallengeToken();
+      await createTwoStepLoginChallenge({ userId: account.user.id, tokenHash: challenge.tokenHash, expiresAt: challenge.expiresAt });
+      return res.status(202).json({ success: false, code: "TWO_STEP_REQUIRED", challengeToken: challenge.rawToken, expiresAt: challenge.expiresAt.toISOString() });
+    }
 
     const sessionReference = createAccountToken();
     await createAccountSession({ userId: account.user.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + ONE_YEAR_MS) });
