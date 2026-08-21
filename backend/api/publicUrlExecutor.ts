@@ -54,6 +54,9 @@ export type PublicUrlInspection = {
   inlineColorDeclarationCount: number;
   styleBlockColorDeclarationCount: number;
   observedColorValues: string[];
+  inlineFontFamilyDeclarationCount: number;
+  styleBlockFontFamilyDeclarationCount: number;
+  observedFontFamilies: string[];
   bytesRead: number;
 };
 
@@ -197,6 +200,24 @@ function extractColorStyleDeclarations(html: string) {
   return { inlineColorDeclarationCount: count(inlineStyleAttributes), styleBlockColorDeclarationCount: count(styleBlocks), observedColorValues: values };
 }
 
+function extractFontFamilyDeclarations(html: string) {
+  const fontFamilyDeclaration = /\bfont-family\s*:\s*([^;{}]+)(?:;|$)/gi;
+  const families: string[] = [];
+  const collect = (markup: string) => {
+    let match: RegExpExecArray | null;
+    while ((match = fontFamilyDeclaration.exec(markup))) {
+      const family = match[1].trim().replace(/\s+/g, " ").slice(0, 240);
+      if (family && families.length < 30 && !families.includes(family)) families.push(family);
+    }
+  };
+  const inlineStyleAttributes = Array.from(html.matchAll(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi)).map(match => match[2]);
+  const styleBlocks = Array.from(html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)).map(match => match[1]);
+  const count = (styles: string[]) => styles.reduce((total, style) => total + (style.match(fontFamilyDeclaration)?.length ?? 0), 0);
+  inlineStyleAttributes.forEach(collect);
+  styleBlocks.forEach(collect);
+  return { inlineFontFamilyDeclarationCount: count(inlineStyleAttributes), styleBlockFontFamilyDeclarationCount: count(styleBlocks), observedFontFamilies: families };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -290,6 +311,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const credibilityStructuredData = extractCredibilityStructuredData(html);
   const uxMarkupIndicators = extractUxMarkupIndicators(html);
   const colorStyleDeclarations = extractColorStyleDeclarations(html);
+  const fontFamilyDeclarations = extractFontFamilyDeclarations(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -346,6 +368,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     inlineColorDeclarationCount: colorStyleDeclarations.inlineColorDeclarationCount,
     styleBlockColorDeclarationCount: colorStyleDeclarations.styleBlockColorDeclarationCount,
     observedColorValues: colorStyleDeclarations.observedColorValues,
+    inlineFontFamilyDeclarationCount: fontFamilyDeclarations.inlineFontFamilyDeclarationCount,
+    styleBlockFontFamilyDeclarationCount: fontFamilyDeclarations.styleBlockFontFamilyDeclarationCount,
+    observedFontFamilies: fontFamilyDeclarations.observedFontFamilies,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

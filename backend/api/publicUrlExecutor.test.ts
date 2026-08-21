@@ -73,4 +73,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ inlineColorDeclarationCount: 2, styleBlockColorDeclarationCount: 2, observedColorValues: ["rgb(1, 2, 3)", "var(--line)", "#fff", "#123456"] });
   });
+
+  it("records inline and style-block font-family declarations without assessing readability or hierarchy", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><style>h1 { font-family: "Fraunces", serif; } .body { font-family: Inter, sans-serif; }</style></head><body><p style="font-family: Arial, sans-serif">Text</p></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ inlineFontFamilyDeclarationCount: 1, styleBlockFontFamilyDeclarationCount: 2, observedFontFamilies: ["Arial, sans-serif", '"Fraunces", serif', "Inter, sans-serif"] });
+  });
 });
