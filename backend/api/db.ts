@@ -25,6 +25,7 @@ import {
   toolRuns,
   twoStepAuthenticators,
   twoStepLoginChallenges,
+  twoStepRecoveryCodes,
   usageLedger,
   validationRuns,
   users,
@@ -707,6 +708,21 @@ export async function savePendingTwoStepAuthenticator(input: { userId: number; e
   await db.insert(twoStepAuthenticators).values({ ...input, enabledAt: null, lastVerifiedAt: null }).onDuplicateKeyUpdate({ set: { encryptedSecret: input.encryptedSecret, keyVersion: input.keyVersion, enabledAt: null, lastVerifiedAt: null } });
   const rows = await db.select({ id: twoStepAuthenticators.id, enabledAt: twoStepAuthenticators.enabledAt }).from(twoStepAuthenticators).where(eq(twoStepAuthenticators.userId, input.userId)).limit(1);
   return rows[0];
+}
+
+export async function confirmTwoStepAuthenticator(input: { userId: number; recoveryCodeHashes: string[] }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const rows = await tx.select().from(twoStepAuthenticators).where(eq(twoStepAuthenticators.userId, input.userId)).limit(1);
+    const authenticator = rows[0];
+    if (!authenticator) return undefined;
+    const now = new Date();
+    await tx.update(twoStepAuthenticators).set({ enabledAt: now, lastVerifiedAt: now }).where(eq(twoStepAuthenticators.id, authenticator.id));
+    await tx.delete(twoStepRecoveryCodes).where(eq(twoStepRecoveryCodes.authenticatorId, authenticator.id));
+    if (input.recoveryCodeHashes.length) await tx.insert(twoStepRecoveryCodes).values(input.recoveryCodeHashes.map(codeHash => ({ authenticatorId: authenticator.id, codeHash })));
+    return { id: authenticator.id, enabledAt: now };
+  });
 }
 
 export async function createLocalAccount(input: { openId: string; name: string; email: string; passwordHash: string; verificationTokenHash: string; verificationExpiresAt: Date }) {
