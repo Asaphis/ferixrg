@@ -19,6 +19,10 @@ export type PublicUrlInspection = {
   navigationLandmarkCount: number;
   mainLandmarkCount: number;
   fetchAndReadDurationMs: number;
+  ctaElementCount: number;
+  ctaElementsWithText: number;
+  ctaElementsWithoutText: number;
+  ctaTexts: string[];
   bytesRead: number;
 };
 
@@ -55,6 +59,22 @@ function extractAnchorTextCounts(html: string) {
     else linksWithoutText += 1;
   }
   return { linksWithText, linksWithoutText };
+}
+
+function extractCtaElements(html: string) {
+  const pattern = /<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  const ctaTexts: string[] = [];
+  let ctaElementsWithText = 0;
+  let ctaElementsWithoutText = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const text = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    if (text) {
+      ctaElementsWithText += 1;
+      if (ctaTexts.length < 30) ctaTexts.push(text.slice(0, 160));
+    } else ctaElementsWithoutText += 1;
+  }
+  return { ctaElementCount: ctaElementsWithText + ctaElementsWithoutText, ctaElementsWithText, ctaElementsWithoutText, ctaTexts };
 }
 
 export function validatePublicInspectionUrl(value: string) {
@@ -98,6 +118,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const imageTags = html.match(/<img\b[^>]*>/gi) ?? [];
   const linkTags = html.match(/<a\b[^>]*>/gi) ?? [];
   const anchorTextCounts = extractAnchorTextCounts(html);
+  const ctaElements = extractCtaElements(html);
   const headings = extractHeadings(html);
   return {
     url: url.toString(),
@@ -120,6 +141,10 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     navigationLandmarkCount: (html.match(/<nav\b[^>]*>/gi) ?? []).length,
     mainLandmarkCount: (html.match(/<main\b[^>]*>/gi) ?? []).length,
     fetchAndReadDurationMs: Math.max(Date.now() - startedAt, 0),
+    ctaElementCount: ctaElements.ctaElementCount,
+    ctaElementsWithText: ctaElements.ctaElementsWithText,
+    ctaElementsWithoutText: ctaElements.ctaElementsWithoutText,
+    ctaTexts: ctaElements.ctaTexts,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
