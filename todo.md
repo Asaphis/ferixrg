@@ -674,3 +674,7 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 
 ## Production configuration alignment
 - [x] Update `DEPLOYMENT.md` with the Shopify OAuth variables, AES-256-GCM key requirement, exact callback route, migration/build sequence, and the still-gated publish, rollback, payment, and non-Shopify adapter boundaries.
+
+## Production startup guard
+- [x] Expose Shopify and connection-encryption environment fields through the server environment contract.
+- [x] Fail fast in production when `DATABASE_URL` or `JWT_SECRET` is missing, while leaving optional AI, email, and provider adapters readiness-gated rather than pretending they are configured.
