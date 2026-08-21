@@ -65,6 +65,8 @@ export type PublicUrlInspection = {
   collectionLinkCount: number;
   observedCollectionPaths: string[];
   productImageStructuredDataCount: number;
+  productDescriptionStructuredDataCount: number;
+  productDescriptionCharacterCount: number;
   bytesRead: number;
 };
 
@@ -154,7 +156,10 @@ function extractProductStructuredData(html: string) {
   const productNames = productNodes.flatMap(node => typeof node.name === "string" ? [node.name.trim().slice(0, 240)] : []).filter(Boolean).slice(0, 20);
   const productOfferCount = productNodes.reduce((count, node) => count + (Array.isArray(node.offers) ? node.offers.length : node.offers ? 1 : 0), 0);
   const productImageStructuredDataCount = productNodes.reduce((count, node) => count + (Array.isArray(node.image) ? node.image.length : node.image ? 1 : 0), 0);
-  return { productStructuredDataCount: productNodes.length, productNames, productOfferCount, productImageStructuredDataCount };
+  const productDescriptions = productNodes.flatMap(node => typeof node.description === "string" ? [node.description.trim()] : []).filter(Boolean);
+  const productDescriptionStructuredDataCount = productDescriptions.length;
+  const productDescriptionCharacterCount = productDescriptions.reduce((count, description) => count + description.length, 0);
+  return { productStructuredDataCount: productNodes.length, productNames, productOfferCount, productImageStructuredDataCount, productDescriptionStructuredDataCount, productDescriptionCharacterCount };
 }
 
 function extractCredibilityStructuredData(html: string) {
@@ -397,6 +402,8 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     productNames: productStructuredData.productNames,
     productOfferCount: productStructuredData.productOfferCount,
     productImageStructuredDataCount: productStructuredData.productImageStructuredDataCount,
+    productDescriptionStructuredDataCount: productStructuredData.productDescriptionStructuredDataCount,
+    productDescriptionCharacterCount: productStructuredData.productDescriptionCharacterCount,
     imagesLazyLoaded: imageTags.filter(tag => /\bloading\s*=\s*["']lazy["']/i.test(tag)).length,
     imagesWithDimensions: imageTags.filter(tag => Boolean(attribute(tag, "width")) && Boolean(attribute(tag, "height"))).length,
     imagesWithoutDimensions: imageTags.filter(tag => !attribute(tag, "width") || !attribute(tag, "height")).length,

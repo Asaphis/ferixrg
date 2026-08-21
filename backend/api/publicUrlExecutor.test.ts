@@ -103,4 +103,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ imageCount: 2, productStructuredDataCount: 1, productImageStructuredDataCount: 2 });
   });
+
+  it("records Product JSON-LD title and description declarations without assessing content quality", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><script type="application/ld+json">{"@type":"Product","name":"Canvas Tote","description":"A durable tote with an inside pocket."}</script></head><body></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ productStructuredDataCount: 1, productNames: ["Canvas Tote"], productDescriptionStructuredDataCount: 1, productDescriptionCharacterCount: 37 });
+  });
 });
