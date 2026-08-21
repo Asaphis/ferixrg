@@ -11,6 +11,7 @@ export type PublicUrlInspection = {
   headingCount: number;
   headings: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>;
   imageCount: number;
+  imagesWithAlt: number;
   imagesWithoutAlt: number;
   linkCount: number;
   bytesRead: number;
@@ -91,6 +92,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     headingCount: headings.length,
     headings,
     imageCount: imageTags.length,
+    imagesWithAlt: imageTags.filter(tag => /\balt\s*=/i.test(tag)).length,
     imagesWithoutAlt: imageTags.filter(tag => !/\balt\s*=/i.test(tag)).length,
     linkCount: linkTags.length,
     bytesRead: new TextEncoder().encode(html).byteLength,
