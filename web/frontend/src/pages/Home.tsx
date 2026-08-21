@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronDown, Link2, Menu, Sparkles } from "lucide-react";
-import React, { type MouseEvent, useState } from "react";
+import React, { type MouseEvent, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { landingHealthMetrics, landingOutcomes, landingWorkflow, supportedPlatforms } from "@/lib/landingContent";
 import { applyLandingParallaxToMontage } from "@/lib/landingMotion";
@@ -10,6 +10,13 @@ const heroAsset = "/manus-storage/ferixrg-hero-workspace_790b5fe6.png";
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
 const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
 const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
+const landingVisuals = [
+  { src: "/landing/ferixrg-visual-reference.png", alt: "FerixRG storefront intelligence workspace" },
+  { src: "/landing/ferixrg-visual-analysis.png", alt: "AI storefront analysis evidence" },
+  { src: "/landing/ferixrg-visual-redesign.png", alt: "Before and after storefront redesign" },
+  { src: "/landing/ferixrg-visual-mobile.png", alt: "Responsive mobile storefront experience" },
+  { src: "/landing/ferixrg-visual-workflow.png", alt: "FerixRG insight to publish workflow" },
+];
 
 function Brand() {
   return <a className="landing-brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>;
@@ -17,6 +24,26 @@ function Brand() {
 
 function PrimaryButton({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
   return <button className={`landing-primary ${className}`} onClick={onClick}>{children} <ArrowRight size={14} /></button>;
+}
+
+function VisualCarousel({ className = "", label }: { className?: string; label: string }) {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setActive((current) => (current + 1) % landingVisuals.length), 5200);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <div className={`landing-visual-carousel ${className}`} aria-label={label}>
+    <div className="landing-visual-stage">
+      {landingVisuals.map((visual, index) => <img key={visual.src} src={visual.src} alt={visual.alt} className={index === active ? "is-active" : ""} loading={index === 0 ? "eager" : "lazy"} />)}
+      <div className="landing-visual-shade" />
+      <div className="landing-visual-caption"><span>FERIXRG VISUAL INTELLIGENCE</span><b>{String(active + 1).padStart(2, "0")} / {String(landingVisuals.length).padStart(2, "0")}</b></div>
+    </div>
+    <div className="landing-visual-controls" aria-label="Carousel controls">
+      <button aria-label="Previous image" onClick={() => setActive((active - 1 + landingVisuals.length) % landingVisuals.length)}>←</button>
+      <div>{landingVisuals.map((visual, index) => <button key={visual.src} aria-label={`Show image ${index + 1}`} className={index === active ? "is-active" : ""} onClick={() => setActive(index)} />)}</div>
+      <button aria-label="Next image" onClick={() => setActive((active + 1) % landingVisuals.length)}>→</button>
+    </div>
+  </div>;
 }
 
 export default function Home() {
@@ -72,11 +99,11 @@ export default function Home() {
       <p className="platform-note">◉ Analyze any public store URL instantly, or connect your store for deeper insights, monitoring, and publishing.</p>
       <section className="outcome-strip">{landingOutcomes.map((outcome) => <div className="outcome" key={outcome.label}><i>{outcome.icon}</i><p><b>{outcome.value}<small>{outcome.suffix}</small></b><span>{outcome.label}</span></p></div>)}</section>
 
-      <section className="landing-section finding-section" id="capabilities"><div className="finding-main"><div className="landing-eyebrow">WHAT WE FIND</div><h2>Your store may have problems you can’t see.</h2><div className="issue-cards">{[["Design", "Hierarchy and brand consistency."], ["Mobile", "Small-screen friction."], ["UX", "Journey and CTA issues."], ["Performance", "Slow loading paths."], ["Conversion", "Missed opportunities."]].map(([title, copy], index) => <article key={title}><img src={evidenceAsset} alt={`${title} storefront evidence`} /><div><b><i />{title}</b><p>{copy}</p></div></article>)}</div></div><aside className="change-story"><img src={heroAsset} alt="Storefront findings overview" /><ul><li>Below-the-fold content not optimized</li><li>Slow Largest Contentful Paint</li><li>Weak product section hierarchy</li><li>Low contrast on key CTAs</li></ul><button onClick={goToWorkspace}>View full analysis <ArrowRight size={13} /></button></aside></section>
+      <section className="landing-section finding-section" id="capabilities"><div className="finding-main"><div className="landing-eyebrow">WHAT WE FIND</div><h2>Your store may have problems you can’t see.</h2><VisualCarousel className="finding-carousel" label="Store analysis visual carousel" /><div className="issue-cards">{[["Design", "Hierarchy and brand consistency."], ["Mobile", "Small-screen friction."], ["UX", "Journey and CTA issues."], ["Performance", "Slow loading paths."], ["Conversion", "Missed opportunities."]].map(([title, copy], index) => <article key={title}><img src={evidenceAsset} alt={`${title} storefront evidence`} /><div><b><i />{title}</b><p>{copy}</p></div></article>)}</div></div><aside className="change-story"><img src={heroAsset} alt="Storefront findings overview" /><ul><li>Below-the-fold content not optimized</li><li>Slow Largest Contentful Paint</li><li>Weak product section hierarchy</li><li>Low contrast on key CTAs</li></ul><button onClick={goToWorkspace}>View full analysis <ArrowRight size={13} /></button></aside></section>
 
       <section className="ai-band"><div><div className="landing-eyebrow">ASK FERIXRG AI</div><h2>Don’t just find the problem.<br />Fix it.</h2><p>FerixRG AI turns insight into action—instantly.</p></div><div className="prompt-grid">{[["Improve product page conversion", "product-composer"], ["Speed up my store", "performance-evidence"], ["Redesign with a modern look", "responsive-redesign"], ["Improve mobile checkout", "checkout-friction"]].map(([prompt, toolId]) => <button onClick={() => goToAuthenticatedTool(toolId)} key={prompt}>{prompt} <ArrowRight size={12} /></button>)}</div></section>
 
-      <section className="landing-section evidence-section"><div className="landing-eyebrow">EVIDENCE READY</div><h2>Every improvement has proof.</h2><div className="evidence-cards"><article><b>01 &nbsp; Responsive test</b><img src={evidenceAsset} alt="Responsive storefront test" /><small>Desktop 98 / Tablet 93 / Mobile 88</small></article><article><b>02 &nbsp; AI redesign alternative</b><img src={redesignAsset} alt="AI redesign alternative" /><small>Compare directions before publishing.</small></article><article><b>03 &nbsp; Report-ready improvements</b><img src={heroAsset} alt="Report ready storefront improvements" /><small>18 total improvements · Download report</small></article></div></section>
+      <section className="landing-section evidence-section"><div className="landing-eyebrow">EVIDENCE READY</div><h2>Every improvement has proof.</h2><VisualCarousel className="evidence-carousel" label="Evidence and redesign visual carousel" /><div className="evidence-cards"><article><b>01 &nbsp; Responsive test</b><img src="/landing/ferixrg-visual-mobile.png" alt="Responsive storefront test" /><small>Desktop 98 / Tablet 93 / Mobile 88</small></article><article><b>02 &nbsp; AI redesign alternative</b><img src="/landing/ferixrg-visual-redesign.png" alt="AI redesign alternative" /><small>Compare directions before publishing.</small></article><article><b>03 &nbsp; Report-ready improvements</b><img src="/landing/ferixrg-visual-workflow.png" alt="Report ready storefront improvements" /><small>18 total improvements · Download report</small></article></div></section>
       <section className="redesign-compare"><article className="before"><span>Before</span><b>72 <small>/100</small></b><img src={redesignAsset} alt="Before storefront design" /></article><article className="after"><span>After</span><b>94 <small>/100</small></b><img src={redesignAsset} alt="After storefront design" /></article></section>
       <section className="landing-section workflow-section" id="workflow"><div className="landing-eyebrow">PROVEN PROCESS</div><h2>From insight to impact.</h2><div className="workflow-cards">{landingWorkflow.map(([number, title, copy]) => <article key={number}><b>{number}</b><div><h3>{title}</h3><p>{copy}</p></div></article>)}</div></section>
       <section className="health-report"><header><b>Your Store Health Report</b><button onClick={goToWorkspace}>Download <ArrowRight size={13} /></button></header><img src={heroAsset} alt="Store health report evidence" /><div>{landingHealthMetrics.map((metric) => <article key={metric.name}><span>{metric.name}</span><b>{metric.value}</b><i className={metric.tone} /></article>)}</div></section>
