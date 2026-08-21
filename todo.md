@@ -690,3 +690,11 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 
 ## Shopify callback security coverage
 - [x] Add callback-route tests for invalid one-time state, invalid HMAC, missing requested scopes, and successful code exchange with credential persistence and safe redirect behavior.
+
+## Final validation checkpoint
+- [x] Full regression suite passed: 27 test files and 205 tests.
+- [x] TypeScript check passed.
+- [x] Production client and server build passed.
+- [x] Repository is clean and synchronized with `origin/main`.
+
+Validation note: Vite still reports the existing optional analytics placeholders and a bundle-size advisory. These are non-fatal build warnings; no test, type-check, or build failure remains.
