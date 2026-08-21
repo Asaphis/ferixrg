@@ -1,5 +1,8 @@
 export const ENV = {
-  appId: process.env.VITE_APP_ID ?? "",
+  // Local-account sessions still carry an app identifier for compatibility
+  // with the shared session verifier. The previous VITE_APP_ID-only lookup
+  // was empty in production, making every newly issued session invalid.
+  appId: process.env.FERIXRG_APP_ID ?? process.env.VITE_APP_ID ?? "ferixrg",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
