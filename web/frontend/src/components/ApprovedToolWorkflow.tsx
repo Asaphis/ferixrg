@@ -114,6 +114,7 @@ export function ApprovedToolWorkflow({
   const sourceDetail = sourceCopy[source] ?? sourceCopy["Public URL"];
   const stageIndex = stages.findIndex(item => item.id === stage);
   const scope = capability.scope;
+  const editorDraftLabel = draftId ? (savedVersionCount ? `Saved version ${savedVersionCount}` : "Saved workspace draft") : "Unsaved workspace draft";
   const statusSummary = useMemo(() => {
     if (source === "Screenshots") return "Your screenshot evidence is ready for review.";
     if (source === "Saved draft") return "Your saved draft is ready to continue.";
@@ -254,7 +255,7 @@ export function ApprovedToolWorkflow({
             <button className="tool-workflow-dropzone"><Upload /><span><b>Upload screenshots</b><small>PNG, JPG, WEBP</small></span><ImagePlus /></button>
           )}
           {source === "Saved draft" && (
-            <div className="tool-workflow-connected-choice"><History /><div><b>Product page · Draft 3</b><small>Last changed today</small></div><ChevronRight /></div>
+            <div className="tool-workflow-connected-choice"><History /><div><b>Product page · {editorDraftLabel}</b><small>{draftId ? "Stored in this workspace" : "Save a version to store it in this workspace"}</small></div><ChevronRight /></div>
           )}
           {source === "Selected page" && <div className="tool-workflow-connected-choice"><Layers3 /><div><b>Product page</b><small>Selected from the current project</small></div><ChevronRight /></div>}
           {source === "Analysis result" && <div className="tool-workflow-connected-choice"><ShieldCheck /><div><b>Latest saved analysis</b><small>Storefront Analyzer · evidence ready</small></div><ChevronRight /></div>}
@@ -340,7 +341,7 @@ export function ApprovedToolWorkflow({
           <div className="tool-workflow-action-contract"><span>Available for this tool</span>{tool.nextActions.slice(0, 5).map(action => <b key={action}>{action}</b>)}</div>
           {route.allowsAi && capability.actions.includes("ask_ai") && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
           {capability.actions.includes("export_report") && <button onClick={() => setReportReady(true)}><Download /><span><b>Download report</b><small>Keep the evidence, score, and recommendations.</small></span><ChevronRight /></button>}
-          {capability.actions.includes("save_project") && <button onClick={() => setFinishNotice("This analysis is saved to Product page · Draft 4.")}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>}
+          {capability.actions.includes("save_project") && <button onClick={() => { void saveVersion(); }}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>}
           {capability.actions.includes("developer_handoff") && <button onClick={() => setFinishNotice("Your technical handoff package is ready to download.")}><FileDown /><span><b>Download developer handoff</b><small>Keep acceptance criteria and implementation context together.</small></span><ChevronRight /></button>}
           {!isConnected && route.supportsStoreRelease && <button onClick={() => setFinishNotice(capability.lockedMessage)}><Store /><span><b>Connect a store later</b><small>{capability.lockedMessage}</small></span><ChevronRight /></button>}
           {finishNotice && <p className="tool-workflow-inline-notice">{finishNotice}</p>}
@@ -353,7 +354,7 @@ export function ApprovedToolWorkflow({
     <section className="tool-workflow-editor">
       <header className="tool-workflow-editor-header">
         <button onClick={() => requestEditorExit("results")}><ArrowLeft /> Results</button>
-        <div><span>{route.workspace}</span><b>{tool.name} · Draft 4</b></div>
+        <div><span>{route.workspace}</span><b>{tool.name} · {editorDraftLabel}</b></div>
         <em>{versionSaved ? "Saved" : "Draft"}</em>
         <div className="tool-workflow-device-switcher">{["Desktop", "Tablet", "Mobile"].map(item => <button className={device === item ? "active" : ""} onClick={() => { setDevice(item); setEditorDirty(true); }} key={item}>{item}</button>)}</div>
         <button className="tool-workflow-editor-outline" onClick={() => requestEditorExit("review")}><ShieldCheck /> Validate</button>
@@ -376,13 +377,13 @@ export function ApprovedToolWorkflow({
           ) : (
             <div className="tool-workflow-live-canvas"><img src={evidenceAsset} alt="Editable storefront preview" /><div className="tool-workflow-selection"><span>{selectedElement}</span></div></div>
           )}
-          {proposalVisible && <div className="tool-workflow-proposal-actions"><button className="tool-workflow-primary" onClick={() => { setProposalApplied(true); setProposalVisible(false); setEditorDirty(true); setFinishNotice("AI suggestion applied to Draft 4. You can continue editing it manually."); }}>Apply change</button><button className="tool-workflow-secondary" onClick={() => setProposalVisible(false)}>Keep current</button></div>}
+          {proposalVisible && <div className="tool-workflow-proposal-actions"><button className="tool-workflow-primary" onClick={() => { setProposalApplied(true); setProposalVisible(false); setEditorDirty(true); setFinishNotice(`AI suggestion applied to ${editorDraftLabel}. You can continue editing it manually.`); }}>Apply change</button><button className="tool-workflow-secondary" onClick={() => setProposalVisible(false)}>Keep current</button></div>}
           <div className="tool-workflow-health-strip"><b>Design Health 76</b><span>1 mobile issue · 1 contrast note</span><button onClick={() => requestEditorExit("review")}>Review issues</button></div>
         </main>
         <aside className="tool-workflow-inspector">
           <div className="tool-workflow-inspector-tabs"><button className={inspectorTab === "edit" ? "active" : ""} onClick={() => setInspectorTab("edit")}>Edit</button><button className={inspectorTab === "ai" ? "active" : ""} onClick={() => setInspectorTab("ai")}>Ask AI</button><button className={inspectorTab === "history" ? "active" : ""} onClick={() => setInspectorTab("history")}>History</button></div>
           {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={() => { void saveVersion(); }} />}
-          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · Draft 4</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI suggestion"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
+          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI suggestion"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
           {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], [savedVersionCount ? `Saved version ${savedVersionCount}` : "Current working version", proposalApplied ? "AI suggestion applied" : "Current element changes"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={() => { void saveVersion(); }} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={() => { void saveVersion(); }}><Save /> Save version</button></div>}
         </aside>
       </div>
@@ -397,8 +398,8 @@ export function ApprovedToolWorkflow({
         <article className="tool-workflow-card tool-workflow-version-card">
           <span className="tool-workflow-kicker">Compare versions</span>
           <h2>Original and current draft</h2>
-          <div className="tool-workflow-version-compare"><div><span>Original</span><img src={evidenceAsset} alt="Original page view" /></div><ArrowRight /><div><span>Draft 4</span><img src={redesignAsset} alt="Current redesigned page view" /></div></div>
-          <div className="tool-workflow-version-list">{[["Original", "Before redesign"], ["AI redesign V1", "First proposal"], ["Manual changes V2", "Selected element changes"], ["Draft 4", "Current version"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={saveVersion} key={name}><i /> <span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}</div>
+          <div className="tool-workflow-version-compare"><div><span>Original</span><img src={evidenceAsset} alt="Original page view" /></div><ArrowRight /><div><span>{editorDraftLabel}</span><img src={redesignAsset} alt="Current redesigned page view" /></div></div>
+          <div className="tool-workflow-version-list">{[["Original", "Before redesign"], ["AI redesign V1", "First proposal"], ["Manual changes V2", "Selected element changes"], [editorDraftLabel, draftId ? "Current stored version" : "Current unsaved version"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={saveVersion} key={name}><i /> <span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}</div>
         </article>
         <article className="tool-workflow-card tool-workflow-validation-card">
           <span className="tool-workflow-kicker">Validation</span>

@@ -206,7 +206,7 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("heading", { name: /Responsive Analyzer found a clear next step/i })).toBeTruthy();
     expect(view.getAllByRole("button", { name: /Download report/i }).length).toBeGreaterThan(0);
     fireEvent.click(view.getByRole("button", { name: /Open Responsive Studio/i }));
-    expect(view.getByText("Responsive Analyzer · Draft 4")).toBeTruthy();
+    expect(view.getByText("Responsive Analyzer · Unsaved workspace draft")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Ask AI" }));
     expect(view.getByText(/Context attached/i)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Make this less crowded" }));
