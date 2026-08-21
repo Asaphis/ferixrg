@@ -260,8 +260,7 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(billingView.getByRole("button", { name: "Usage" }));
     fireEvent.click(billingView.getByRole("button", { name: /Usage limits/i }));
     expect(billingView.getByRole("heading", { name: "Usage limits" })).toBeTruthy();
-    expect(billingView.getByRole("combobox", { name: "Usage alert threshold" })).toBeTruthy();
-    expect(billingView.getByRole("button", { name: "Save usage alert" })).toBeTruthy();
+    expect(billingView.getByRole("button", { name: "Review usage record" })).toBeTruthy();
     billingView.unmount();
 
     const supportView = renderWorkspace();
