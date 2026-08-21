@@ -28,6 +28,9 @@ export type PublicUrlInspection = {
   paragraphCount: number;
   paragraphsWithText: number;
   emptyHeadingCount: number;
+  productStructuredDataCount: number;
+  productNames: string[];
+  productOfferCount: number;
   bytesRead: number;
 };
 
@@ -99,6 +102,26 @@ function extractContentIndicators(html: string, headings: Array<{ level: 1 | 2 |
   };
 }
 
+function extractProductStructuredData(html: string) {
+  const scripts = Array.from(html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi));
+  const productNodes: Array<Record<string, unknown>> = [];
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!value || typeof value !== "object") return;
+    const node = value as Record<string, unknown>;
+    const types = Array.isArray(node["@type"]) ? node["@type"] : [node["@type"]];
+    if (types.some(type => typeof type === "string" && type.toLowerCase() === "product")) productNodes.push(node);
+    if (node["@graph"]) visit(node["@graph"]);
+  };
+  for (const script of scripts) {
+    if (!/\btype\s*=\s*["']application\/ld\+json["']/i.test(script[1])) continue;
+    try { visit(JSON.parse(script[2])); } catch { /* Report parsed Product declarations only. */ }
+  }
+  const productNames = productNodes.flatMap(node => typeof node.name === "string" ? [node.name.trim().slice(0, 240)] : []).filter(Boolean).slice(0, 20);
+  const productOfferCount = productNodes.reduce((count, node) => count + (Array.isArray(node.offers) ? node.offers.length : node.offers ? 1 : 0), 0);
+  return { productStructuredDataCount: productNodes.length, productNames, productOfferCount };
+}
+
 export function validatePublicInspectionUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Use a public HTTP or HTTPS URL.");
@@ -143,6 +166,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const ctaElements = extractCtaElements(html);
   const headings = extractHeadings(html);
   const contentIndicators = extractContentIndicators(html, headings);
+  const productStructuredData = extractProductStructuredData(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -173,6 +197,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     paragraphCount: contentIndicators.paragraphCount,
     paragraphsWithText: contentIndicators.paragraphsWithText,
     emptyHeadingCount: contentIndicators.emptyHeadingCount,
+    productStructuredDataCount: productStructuredData.productStructuredDataCount,
+    productNames: productStructuredData.productNames,
+    productOfferCount: productStructuredData.productOfferCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

@@ -25,4 +25,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ bodyTextCharacterCount: 45, bodyTextWordCount: 5, paragraphCount: 2, paragraphsWithText: 1, emptyHeadingCount: 1 });
   });
+
+  it("records only parsed Product JSON-LD declarations without querying a catalog", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Canvas Tote","offers":[{"@type":"Offer"},{"@type":"Offer"}]}</script></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ productStructuredDataCount: 1, productNames: ["Canvas Tote"], productOfferCount: 2 });
+  });
 });
