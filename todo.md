@@ -407,6 +407,7 @@
 - [x] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability. The selected route is Cloudflare-hosted inference with provider-neutral future adapters; NVIDIA and local inference are not approved for the current host.
 - [x] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
 - [ ] Implement and test the complete approved AI foundation before activating user-facing tool workflows.
+- [x] Replace simulated AI workflow replies for tools without dedicated server-side AI operations with explicit capability-aware unavailable messages.
 - [x] Add a workspace-scoped AI Content Improver execution path through the configured central Cloudflare gateway, with bounded text input, audit records, usage accounting, and honest unavailable states.
 - [x] Add a workspace-scoped Product Description Generator execution path through the configured central Cloudflare gateway, with bounded product facts, audit records, usage accounting, and honest unavailable states.
 - [x] Add a workspace-scoped marketing-copy generator through the configured central Cloudflare gateway for the exact CTA Generator, SEO Content Generator, and Meta Generator tools, with bounded source facts, audit records, usage accounting, and honest unavailable states.

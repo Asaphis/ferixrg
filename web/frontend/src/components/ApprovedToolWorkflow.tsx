@@ -184,8 +184,8 @@ export function ApprovedToolWorkflow({
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
     if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
-      setMessages(previous => [...previous, { role: "assistant", content: `I prepared a scoped suggestion for **${selectedElement}** on the ${device.toLowerCase()} view. It keeps the current evidence and draft context. Review it beside your current design before applying it.` }]);
-      setProposalVisible(true);
+      setMessages(previous => [...previous, { role: "assistant", content: `**${tool.name}** does not yet have a dedicated server-side AI operation for this workflow. No AI proposal was generated. You can continue with the manual editor, choose a tool with a live AI operation, or return when this executor is released.` }]);
+      setFinishNotice("This tool’s AI operation is not available yet. No simulated result was created.");
       return;
     }
     try {

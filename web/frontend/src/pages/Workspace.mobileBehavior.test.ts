@@ -208,7 +208,7 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByText("Choose a source for this tool.")).toBeTruthy();
   });
 
-  it("keeps a selected real tool connected through source setup, evidence results, and the shared editor AI tab", async () => {
+  it("keeps a selected real tool connected through source setup, evidence results, and an honest unavailable shared-editor AI tab", async () => {
     window.history.replaceState({}, "", "/app/tools?tool=responsive-analyzer");
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
@@ -228,8 +228,9 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(view.getByRole("button", { name: "Ask AI" }));
     expect(view.getByText(/Context attached/i)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Make this less crowded" }));
-    fireEvent.click(view.getByRole("button", { name: /Preview AI suggestion/i }));
-    expect(view.getByText("AI suggestion")).toBeTruthy();
+    expect(view.getByText(/does not yet have a dedicated server-side AI operation/i)).toBeTruthy();
+    expect(view.getByText(/No simulated result was created/i)).toBeTruthy();
+    expect(view.queryByText("AI suggestion")).toBeNull();
   });
 
   it("routes technical tools into a delivery-focused workbench rather than the visual editor", () => {
