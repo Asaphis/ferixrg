@@ -391,7 +391,7 @@
 ## Central AI architecture
 - [x] Define the central FerixRG AI layer, including model capabilities, agent actions, design context, review safeguards, and access pattern for every tool.
 - [x] Compare a managed AI service, direct provider integration, and an open-source/self-hosted route before selecting the production architecture.
-- [ ] Connect the approved central AI layer to the first real FerixRG tool workflows without changing the approved frontend design.
+- [x] Connect the approved central AI layer to the first real FerixRG tool workflows without changing the approved frontend design.
 
 ## Open-source AI requirement
 - [ ] Select a free open-source multimodal model, model server, and agent framework that can support FerixRG’s central design AI.
@@ -441,7 +441,7 @@
 ## Cloudflare Workers AI foundation
 - [ ] Make Cloudflare Workers AI the first FerixRG provider while keeping the central gateway provider-neutral.
 - [ ] Map Cloudflare text, vision, image, embedding, and safety capabilities to the current FerixRG tool catalogue.
-- [ ] Design and test the secure backend provider adapter, daily-free-limit guard, privacy policy, and fallback behavior before connecting credentials.
+- [x] Design and test the secure backend provider adapter, daily-free-limit guard, privacy policy, and fallback behavior before connecting credentials.
 
 ## Cloudflare capability and API verification
 - [x] Verify whether Cloudflare Workers AI covers each required FerixRG AI capability and identify capability gaps that need a separate provider.
@@ -457,8 +457,8 @@
 
 ## First Cloudflare-powered backend milestone
 - [ ] Implement the provider-neutral Central AI Gateway only after the core FerixRG backend foundation is complete.
-- [ ] Add Cloudflare AI tool-run contracts, daily-free-limit guards, privacy boundaries, and audit-ready records after core account and store data exists.
-- [ ] Connect and test the first real AI Design Copilot workflow only after the backend foundation and its permission model are complete.
+- [x] Add Cloudflare AI tool-run contracts, daily-free-limit guards, privacy boundaries, and audit-ready records after core account and store data exists.
+- [x] Connect and test the first real AI Design Copilot workflow only after the backend foundation and its permission model are complete.
 
 ## Core backend foundation before AI
 - [x] Define the authentication approach and domain model for users, workspaces, team roles, stores, drafts, reports, tool runs, release actions, activity, usage, and billing state.
@@ -497,6 +497,7 @@
 - [ ] Replace remaining simulated connected-platform authorization, per-store workbench summaries, and platform-permission states with live backend contracts. Store registry, URL analysis source records, snapshot lists, bounded S3 upload sources, and pending connection lifecycle contracts are implemented.
 - [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
+- [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.

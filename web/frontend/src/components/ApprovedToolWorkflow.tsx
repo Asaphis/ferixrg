@@ -95,10 +95,17 @@ export function ApprovedToolWorkflow({
     },
   ]);
   const [toolRunId, setToolRunId] = useState<number | null>(null);
+  const [draftId, setDraftId] = useState<number | null>(null);
+  const [savedVersionCount, setSavedVersionCount] = useState(0);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [runError, setRunError] = useState("");
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
+  const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
+  const createDraftMutation = trpc.workspace.createDraft.useMutation();
+  const saveDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
 
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
@@ -118,6 +125,15 @@ export function ApprovedToolWorkflow({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const requestEditorExit = (next: Stage) => {
+    if (stage === "editor" && editorDirty) {
+      setPendingStage(next);
+      setFinishNotice("You have unsaved editor changes. Save this version or discard the changes before continuing.");
+      return;
+    }
+    move(next);
+  };
+
   const openCorrectWorkspace = () => move(routeUsesReview ? "review" : "editor");
 
   const sourceType = source === "Connected store" ? "connected_store" : source === "Saved draft" ? "saved_draft" : source === "Screenshots" || source === "Reference design" || source === "Theme files" ? "upload" : source === "Public URL" || source === "Specific page URL" ? "public_url" : "manual";
@@ -127,6 +143,7 @@ export function ApprovedToolWorkflow({
       setRunError("");
       const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined } });
       const started = await startToolRunMutation.mutateAsync({ workspaceId, toolRunId: queued.id });
+      if (sourceType === "public_url") await executePublicUrlToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id });
       setToolRunId(started.id);
       move("processing");
     } catch (error) {
@@ -152,9 +169,27 @@ export function ApprovedToolWorkflow({
     }
   };
 
-  const saveVersion = () => {
-    setVersionSaved(true);
-    setFinishNotice("Draft 4 has been saved. You can compare it, restore it, or continue editing.");
+  const saveVersion = async () => {
+    if (!workspaceId) {
+      setFinishNotice("Your workspace is still loading. Try saving again in a moment.");
+      return;
+    }
+    const designState = JSON.stringify({ toolId: tool.id, toolName: tool.name, source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined, selectedElement, device, proposalApplied, selectedInspector: inspectorTab });
+    const label = savedVersionCount ? `Saved version ${savedVersionCount + 1}` : "Initial working version";
+    try {
+      if (!draftId) {
+        const created = await createDraftMutation.mutateAsync({ workspaceId, title: `${tool.name} draft`, source: tool.id === "ai-design-copilot" ? "ai" : "tool", label, note: `Saved from ${tool.name} in the approved editor workflow.`, designState, createdByType: proposalApplied ? "ai" : "user" });
+        setDraftId(created.draft.id);
+      } else {
+        await saveDraftVersionMutation.mutateAsync({ workspaceId, draftId, label, note: `Saved from ${tool.name} in the approved editor workflow.`, designState, createdByType: proposalApplied ? "ai" : "user" });
+      }
+      setSavedVersionCount(previous => previous + 1);
+      setVersionSaved(true);
+      setEditorDirty(false);
+      setFinishNotice("Saved to your workspace. You can compare it, restore it, or continue editing.");
+    } catch (error) {
+      setFinishNotice(error instanceof Error ? error.message : "We couldn’t save this version. Please try again.");
+    }
   };
 
   const setupScreen = (
@@ -230,7 +265,7 @@ export function ApprovedToolWorkflow({
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
-          <button className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || startToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || startToolRunMutation.isPending ? "Starting…" : `Run ${tool.name}`}</button>
+          <button className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending ? "Inspecting…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
@@ -317,18 +352,18 @@ export function ApprovedToolWorkflow({
   const editorScreen = route.hasVisualEditor ? (
     <section className="tool-workflow-editor">
       <header className="tool-workflow-editor-header">
-        <button onClick={() => move("results")}><ArrowLeft /> Results</button>
+        <button onClick={() => requestEditorExit("results")}><ArrowLeft /> Results</button>
         <div><span>{route.workspace}</span><b>{tool.name} · Draft 4</b></div>
         <em>{versionSaved ? "Saved" : "Draft"}</em>
-        <div className="tool-workflow-device-switcher">{["Desktop", "Tablet", "Mobile"].map(item => <button className={device === item ? "active" : ""} onClick={() => setDevice(item)} key={item}>{item}</button>)}</div>
-        <button className="tool-workflow-editor-outline" onClick={() => move("review")}><ShieldCheck /> Validate</button>
-        <button className="tool-workflow-editor-primary" onClick={() => move("review")}>Finish <ArrowRight /></button>
+        <div className="tool-workflow-device-switcher">{["Desktop", "Tablet", "Mobile"].map(item => <button className={device === item ? "active" : ""} onClick={() => { setDevice(item); setEditorDirty(true); }} key={item}>{item}</button>)}</div>
+        <button className="tool-workflow-editor-outline" onClick={() => requestEditorExit("review")}><ShieldCheck /> Validate</button>
+        <button className="tool-workflow-editor-primary" onClick={() => requestEditorExit("review")}>Finish <ArrowRight /></button>
       </header>
       <div className="tool-workflow-editor-layout">
         <aside className="tool-workflow-editor-rail">
           <div className="tool-workflow-rail-tabs"><button className="active">Pages</button><button>Layers</button><button>Add</button><button>Assets</button><button>History</button></div>
           <span>PRODUCT PAGE</span>
-          {editorLayers.map((layer, index) => <button className={`${selectedElement === layer ? "active" : ""} ${index > 2 ? "indented" : ""}`} onClick={() => setSelectedElement(layer)} key={layer}><i /> {layer}</button>)}
+          {editorLayers.map((layer, index) => <button className={`${selectedElement === layer ? "active" : ""} ${index > 2 ? "indented" : ""}`} onClick={() => { setSelectedElement(layer); setEditorDirty(true); }} key={layer}><i /> {layer}</button>)}
         </aside>
         <main className="tool-workflow-canvas">
           <span className="tool-workflow-kicker">Live storefront preview · {device}</span>
@@ -341,17 +376,17 @@ export function ApprovedToolWorkflow({
           ) : (
             <div className="tool-workflow-live-canvas"><img src={evidenceAsset} alt="Editable storefront preview" /><div className="tool-workflow-selection"><span>{selectedElement}</span></div></div>
           )}
-          {proposalVisible && <div className="tool-workflow-proposal-actions"><button className="tool-workflow-primary" onClick={() => { setProposalApplied(true); setProposalVisible(false); setFinishNotice("AI suggestion applied to Draft 4. You can continue editing it manually."); }}>Apply change</button><button className="tool-workflow-secondary" onClick={() => setProposalVisible(false)}>Keep current</button></div>}
-          <div className="tool-workflow-health-strip"><b>Design Health 76</b><span>1 mobile issue · 1 contrast note</span><button onClick={() => move("review")}>Review issues</button></div>
+          {proposalVisible && <div className="tool-workflow-proposal-actions"><button className="tool-workflow-primary" onClick={() => { setProposalApplied(true); setProposalVisible(false); setEditorDirty(true); setFinishNotice("AI suggestion applied to Draft 4. You can continue editing it manually."); }}>Apply change</button><button className="tool-workflow-secondary" onClick={() => setProposalVisible(false)}>Keep current</button></div>}
+          <div className="tool-workflow-health-strip"><b>Design Health 76</b><span>1 mobile issue · 1 contrast note</span><button onClick={() => requestEditorExit("review")}>Review issues</button></div>
         </main>
         <aside className="tool-workflow-inspector">
           <div className="tool-workflow-inspector-tabs"><button className={inspectorTab === "edit" ? "active" : ""} onClick={() => setInspectorTab("edit")}>Edit</button><button className={inspectorTab === "ai" ? "active" : ""} onClick={() => setInspectorTab("ai")}>Ask AI</button><button className={inspectorTab === "history" ? "active" : ""} onClick={() => setInspectorTab("history")}>History</button></div>
-          {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={saveVersion} />}
+          {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={() => { void saveVersion(); }} />}
           {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · Draft 4</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI suggestion"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
-          {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], ["Draft 4", proposalApplied ? "AI suggestion applied" : "Current draft"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={saveVersion} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={saveVersion}><Save /> Save version</button></div>}
+          {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], [savedVersionCount ? `Saved version ${savedVersionCount}` : "Current working version", proposalApplied ? "AI suggestion applied" : "Current element changes"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={() => { void saveVersion(); }} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={() => { void saveVersion(); }}><Save /> Save version</button></div>}
         </aside>
       </div>
-      {finishNotice && <div className="tool-workflow-editor-notice">{finishNotice}</div>}
+      {finishNotice && <div className="tool-workflow-editor-notice">{finishNotice}{pendingStage && <span className="tool-workflow-editor-notice-actions"><button onClick={() => { void saveVersion().then(() => { const next = pendingStage; setPendingStage(null); if (next) move(next); }); }}>Save and continue</button><button onClick={() => { const next = pendingStage; setEditorDirty(false); setPendingStage(null); if (next) move(next); }}>Discard changes</button><button onClick={() => setPendingStage(null)}>Keep editing</button></span>}</div>}
     </section>
   ) : <SpecialistWorkspace route={route} tool={tool} source={source} scope={scope} onBack={() => move("results")} onContinue={() => move("review")} onAskAi={() => setFinishNotice(`AI plan prepared for ${tool.name}.`)} />;
 

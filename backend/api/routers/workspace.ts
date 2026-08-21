@@ -68,6 +68,8 @@ import { storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
 import { CloudflareAiError, runCloudflareDesignCopilot } from "../cloudflareAi";
+import { getStoreProviderAdapter, listStoreProviderReadiness } from "../storeProviders";
+import { inspectPublicUrl } from "../publicUrlExecutor";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
 const invitationRole = z.enum(["admin", "editor", "viewer", "billing"]);
@@ -171,6 +173,7 @@ export const workspaceRouter = router({
     return { success: true, workspaceId: invitation.workspaceId } as const;
   }),
   stores: router({
+    providerReadiness: protectedProcedure.query(() => listStoreProviderReadiness()),
     list: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
       try {
         await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
@@ -247,8 +250,11 @@ export const workspaceRouter = router({
         await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
         if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
         const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes });
-        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider } });
-        return connection;
+        const adapter = getStoreProviderAdapter(input.provider);
+        const readiness = adapter.readiness();
+        const authorization = readiness.configured ? adapter.beginAuthorization({ storeUrl: (await getWorkspaceStore(input.workspaceId, input.storeId))?.url ?? "", requestedScopes: input.scopes ?? [] }) : { status: "not_configured" as const, message: readiness.message };
+        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider, configured: readiness.configured } });
+        return { ...connection, readiness, authorization };
       } catch (error) {
         return toForbidden(error);
       }
@@ -375,6 +381,35 @@ export const workspaceRouter = router({
       if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued tool run can be started." });
       return run;
     } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  executePublicUrlToolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const existing = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+      if (!existing || existing.sourceType !== "public_url") throw new TRPCError({ code: "BAD_REQUEST", message: "This executor is available only for a queued or running public URL tool run." });
+      const inputSummary = (existing.inputSummary ?? {}) as Record<string, unknown>;
+      const sourceUrl = typeof inputSummary.url === "string" ? inputSummary.url : undefined;
+      if (!sourceUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "This public URL tool run does not contain a valid source URL." });
+      const running = existing.status === "queued" ? await startWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id }) : existing;
+      if (!running || running.status !== "running") throw new TRPCError({ code: "BAD_REQUEST", message: "Only queued or running public URL tool runs can execute." });
+      try {
+        const inspection = await inspectPublicUrl(sourceUrl);
+        const resultSummary = { execution: "deterministic_public_url_inspection", toolId: running.toolId, inspection };
+        const evidence = await createWorkspaceEvidence({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, kind: "page_capture", title: "Observed public URL inspection", sourceUrl: inspection.url, details: inspection, actorUserId: ctx.user.id });
+        const reportJson = JSON.stringify({ generatedAt: new Date().toISOString(), toolRunId: input.toolRunId, toolId: running.toolId, source: { type: "public_url", url: inspection.url }, inspection }, null, 2);
+        const upload = await storagePut(`workspace-${input.workspaceId}/tool-runs/${input.toolRunId}/public-url-inspection.json`, Buffer.from(reportJson), "application/json");
+        const report = await createWorkspaceReport({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, title: `${running.toolId} public URL inspection`, format: "json", storageKey: upload.key, summary: "Evidence-derived public URL inspection export.", createdByUserId: ctx.user.id });
+        const run = await completeWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, resultSummary: { ...resultSummary, reportId: report?.id ?? null, evidenceId: evidence?.id ?? null } });
+        return { run, inspection, report: report ? { id: report.id, storageKey: upload.key, url: upload.url } : null };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Public URL inspection failed.";
+        await failWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, errorMessage: message });
+        throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
       return toForbidden(error);
     }
   }),

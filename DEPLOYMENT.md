@@ -53,7 +53,12 @@ Run the server behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly matches the pub
 
 Shopify, WooCommerce, Magento, custom-store authorization, payment collection, provider-backed publishing, and provider-backed rollback each require their own server-side adapter and least-privilege credentials. These are **not** enabled by setting any of the variables above. Their release plans remain gated until an adapter is implemented, configured, and tested.
 
+FerixRG now exposes a server-side **provider readiness interface** for Shopify, WooCommerce, Adobe Commerce/Magento, and custom integrations. It records a pending connection request and returns the exact configuration boundary instead of falsely presenting an active authorization URL or a successful connection. Shopify uses an authorization-code flow with verified HMAC/state and a registered callback URL; WooCommerce can use its HTTPS application-authentication endpoint; and Adobe Commerce third-party applications use merchant-approved integrations. [3] [4] [5]
+
 ## References
 
 [1]: https://developers.cloudflare.com/api/resources/ai/methods/run/ "Cloudflare API — Execute AI model"
 [2]: https://developers.cloudflare.com/workers-ai/platform/pricing/ "Cloudflare Workers AI pricing and daily free allocation"
+[3]: https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant "Shopify authorization code grant"
+[4]: https://developer.woocommerce.com/docs/apis/rest-api/authentication/ "WooCommerce REST API authentication"
+[5]: https://developer.adobe.com/commerce/webapi/get-started/authentication/ "Adobe Commerce authentication"
