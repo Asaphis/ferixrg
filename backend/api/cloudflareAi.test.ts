@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CloudflareAiError, runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareMarketingCopy, runCloudflareProductDescriptionGenerator } from "./cloudflareAi";
+import { CloudflareAiError, runCloudflareAccessibilityFixAssistant, runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareMarketingCopy, runCloudflareProductDescriptionGenerator } from "./cloudflareAi";
 
 describe("Cloudflare Workers AI gateway", () => {
   it("sends only bounded editor context to the configured server-side model and returns measured usage", async () => {
@@ -15,6 +15,18 @@ describe("Cloudflare Workers AI gateway", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(runCloudflareDesignCopilot({ message: "Use Authorization: Bearer secret-value to inspect my storefront." }, { accountId: "account", apiToken: "token", model: "model" })).rejects.toMatchObject<Partial<CloudflareAiError>>({ code: "invalid_input" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends bounded accessibility evidence to Accessibility Fix Assistant and rejects credentials before any provider request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ success: true, result: { response: "Observed evidence: the control has no supplied accessible name.\\n\\nProposal: add a visible label or aria-label, then verify keyboard focus before applying.", usage: { neurons: 0.9, prompt_tokens: 14, completion_tokens: 18 } } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(runCloudflareAccessibilityFixAssistant({ message: "Observed formElementCount=1 and ariaRoleAttributeCount=0.", context: { source: "Analysis result", device: "Mobile" } }, { accountId: "account", apiToken: "token", model: "model" })).resolves.toMatchObject({ neurons: 0.9, promptTokens: 14, completionTokens: 18 });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/accounts/account/ai/run/model"), expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer token" }) }));
+
+    fetchMock.mockClear();
+    await expect(runCloudflareAccessibilityFixAssistant({ message: "authorization: Bearer should-not-leave-this-browser" }, { accountId: "account", apiToken: "token", model: "model" })).rejects.toMatchObject<Partial<CloudflareAiError>>({ code: "invalid_input" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

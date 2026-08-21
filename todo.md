@@ -626,3 +626,14 @@
 - [x] Commit and push the completed FerixRG implementation to the private GitHub repository at the user’s request.
 - [x] Resolve the final comparator workflow regression and rerun the complete validation suite before the pushed release commit.
 - [x] Document remaining deployment-gated provider OAuth, payment, publish, rollback, and platform adapter work.
+
+## Accessibility Fix Assistant live proposal
+- [x] Define a bounded accessibility-evidence and instruction input contract with credential rejection and explicit no-audit/no-compliance/no-change safety boundaries.
+- [x] Add the proposal-only Cloudflare Workers AI operation and provider-neutral Central AI Gateway binding.
+- [x] Add the protected workspace router procedure with editor access, exact tool-run matching, draft ownership checks, daily neuron reserve protection, message-free activity metadata, usage accounting, and reviewable JSON proposal artifacts.
+- [x] Bind the approved Accessibility Fix Assistant workflow to the live server-side mutation and preserve manual review before any apply or publish action.
+- [x] Add provider, gateway, router, and frontend regression coverage; verify the full test suite, TypeScript check, and production build.
+
+Checkpoint: Accessibility Fix Assistant live proposal workflow completed and validated on 2026-08-21. The operation returns reviewable recommendations only; it does not claim to audit, test, score, make compliant, edit, publish, or change a store.
+
+Remaining next work from the shared replay sequence: checkpoint this capability, then continue with the next remaining backend executor from the exact-tool registry.

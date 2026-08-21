@@ -103,7 +103,7 @@ const dedicatedPublicUrlExecutorToolIds = new Set([
   "visual-hierarchy-analyzer",
 ]);
 import { CloudflareAiError } from "../cloudflareAi";
-import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
+import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
 import { getStoreProviderAdapter, listStoreProviderReadiness } from "../storeProviders";
 import { inspectPublicUrl } from "../publicUrlExecutor";
 
@@ -368,6 +368,29 @@ export const workspaceRouter = router({
       await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "design_copilot", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
       await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.design_copilot.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
       const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "ai-design-copilot", operation: "Design Copilot", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
+    } catch (error) {
+      if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
+      return toForbidden(error);
+    }
+  }),
+  accessibilityFixAssistant: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), draftId: z.number().int().positive().optional(), message: z.string().trim().min(1).max(11_500), context: z.record(z.string(), z.string().max(500)).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      if (input.toolRunId) {
+        const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+        if (!run || run.toolId !== "accessibility-fix-assistant") throw new TRPCError({ code: "BAD_REQUEST", message: "Accessibility Fix Assistant must run from an active Accessibility Fix Assistant tool run." });
+      }
+      if (input.draftId && !(await listWorkspaceDraftVersions(input.workspaceId, input.draftId))) throw new Error("workspace permission denied");
+      const now = new Date();
+      const utcDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const usedNeurons = await getWorkspaceAiNeuronUsageSince(input.workspaceId, utcDayStart);
+      if (usedNeurons > CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - CLOUDFLARE_MAX_REQUEST_NEURON_RESERVE) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Accessibility Fix Assistant has reached the protected free daily capacity for this workspace. It resets at 00:00 UTC." });
+      const response = await runAccessibilityFixAssistantThroughGateway({ message: input.message, ...(input.context ? { context: input.context } : {}) });
+      const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
+      await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "accessibility_fix_assistant", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
+      await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.accessibility_fix_assistant.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null, messageLength: input.message.length } });
+      const proposalArtifact = await persistAiProposalArtifact({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, toolId: "accessibility-fix-assistant", operation: "Accessibility Fix Assistant", provider: response.provider, model: response.model, neurons: billedNeurons, proposal: response.response });
       return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons), proposalArtifact };
     } catch (error) {
       if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });

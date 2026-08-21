@@ -69,12 +69,12 @@ vi.mock("../db", () => ({
 }));
 
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
-vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn(), runMarketingCopyThroughGateway: vi.fn(), runProductDescriptionGeneratorThroughGateway: vi.fn() }));
+vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runAccessibilityFixAssistantThroughGateway: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn(), runMarketingCopyThroughGateway: vi.fn(), runProductDescriptionGeneratorThroughGateway: vi.fn() }));
 
 import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { failWorkspaceToolRun } from "../db";
 import { storageGet, storagePut } from "../storage";
-import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
+import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -193,6 +193,32 @@ describe("workspace router", () => {
     expect(storagePut).toHaveBeenCalledWith(expect.stringContaining("workspace-9/tool-runs/22/ai-proposal-ai-design-copilot.json"), expect.any(Buffer), "application/json");
     expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 22, kind: "provider_summary", title: "Design Copilot proposal artifact", details: expect.not.objectContaining({ proposal: expect.anything() }) }));
     expect(createWorkspaceReport).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 22, title: "Design Copilot proposal", format: "json" }));
+  });
+
+  it("runs Accessibility Fix Assistant only from its exact tool run, returns a reviewable proposal, and records bounded usage metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 26, workspaceId: 9, toolId: "accessibility-fix-assistant" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runAccessibilityFixAssistantThroughGateway).mockResolvedValue({ response: "Observed evidence: the control has no supplied accessible name. Proposal: add a visible label, then verify keyboard focus before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.6, promptTokens: 24, completionTokens: 19 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 11 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.accessibilityFixAssistant({ workspaceId: 9, toolRunId: 26, message: "Observed formElementCount=1 and ariaRoleAttributeCount=0.", context: { source: "Analysis result", device: "Mobile" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2, proposalArtifact: { evidenceId: 601, reportId: 701, storageKey: expect.any(String) } });
+    expect(runAccessibilityFixAssistantThroughGateway).toHaveBeenCalledWith({ message: "Observed formElementCount=1 and ariaRoleAttributeCount=0.", context: { source: "Analysis result", device: "Mobile" } });
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "accessibility_fix_assistant", referenceId: "26" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.accessibility_fix_assistant.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+    expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 26, title: "Accessibility Fix Assistant proposal artifact", details: expect.not.objectContaining({ proposal: expect.anything() }) }));
+  });
+
+  it("rejects Accessibility Fix Assistant when the supplied tool run belongs to another operation", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 39, workspaceId: 9, toolId: "ai-design-copilot" } as never);
+    vi.mocked(runAccessibilityFixAssistantThroughGateway).mockClear();
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.accessibilityFixAssistant({ workspaceId: 9, toolRunId: 39, message: "Suggest an accessible label." })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("Accessibility Fix Assistant") });
+    expect(runAccessibilityFixAssistantThroughGateway).not.toHaveBeenCalled();
   });
 
   it("runs Content Improver only within editor access, accounts for neurons, and retains source text outside audit metadata", async () => {

@@ -1,5 +1,5 @@
 import { ENV } from "./_core/env";
-import { runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareMarketingCopy, runCloudflareProductDescriptionGenerator, type ContentImproverRequest, type ContentImproverResponse, type DesignCopilotRequest, type DesignCopilotResponse, type MarketingCopyRequest, type MarketingCopyResponse, type ProductDescriptionGeneratorRequest, type ProductDescriptionGeneratorResponse } from "./cloudflareAi";
+import { runCloudflareAccessibilityFixAssistant, runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareMarketingCopy, runCloudflareProductDescriptionGenerator, type AccessibilityFixAssistantRequest, type AccessibilityFixAssistantResponse, type ContentImproverRequest, type ContentImproverResponse, type DesignCopilotRequest, type DesignCopilotResponse, type MarketingCopyRequest, type MarketingCopyResponse, type ProductDescriptionGeneratorRequest, type ProductDescriptionGeneratorResponse } from "./cloudflareAi";
 
 export type CentralAiProvider = "cloudflare_workers_ai";
 
@@ -14,6 +14,7 @@ export type CentralAiAdapter = {
   provider: CentralAiProvider;
   readiness(): CentralAiReadiness;
   runDesignCopilot(input: DesignCopilotRequest): Promise<DesignCopilotResponse>;
+  runAccessibilityFixAssistant(input: AccessibilityFixAssistantRequest): Promise<AccessibilityFixAssistantResponse>;
   runContentImprover(input: ContentImproverRequest): Promise<ContentImproverResponse>;
   runProductDescriptionGenerator(input: ProductDescriptionGeneratorRequest): Promise<ProductDescriptionGeneratorResponse>;
   runMarketingCopy(input: MarketingCopyRequest): Promise<MarketingCopyResponse>;
@@ -28,6 +29,7 @@ const cloudflareAdapter: CentralAiAdapter = {
     message: ENV.cloudflareAccountId && ENV.cloudflareApiToken ? "Cloudflare Workers AI is available for the Design Copilot route." : "Cloudflare Workers AI is not configured for this deployment yet.",
   }),
   runDesignCopilot: input => runCloudflareDesignCopilot(input),
+  runAccessibilityFixAssistant: input => runCloudflareAccessibilityFixAssistant(input),
   runContentImprover: input => runCloudflareContentImprover(input),
   runProductDescriptionGenerator: input => runCloudflareProductDescriptionGenerator(input),
   runMarketingCopy: input => runCloudflareMarketingCopy(input),
@@ -46,6 +48,12 @@ export function listCentralAiReadiness() {
 export async function runDesignCopilotThroughGateway(input: DesignCopilotRequest, provider: CentralAiProvider = "cloudflare_workers_ai") {
   const adapter = getCentralAiAdapter(provider);
   const result = await adapter.runDesignCopilot(input);
+  return { ...result, provider: adapter.provider };
+}
+
+export async function runAccessibilityFixAssistantThroughGateway(input: AccessibilityFixAssistantRequest, provider: CentralAiProvider = "cloudflare_workers_ai") {
+  const adapter = getCentralAiAdapter(provider);
+  const result = await adapter.runAccessibilityFixAssistant(input);
   return { ...result, provider: adapter.provider };
 }
 
