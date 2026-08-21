@@ -112,6 +112,7 @@ export function ApprovedToolWorkflow({
   const contentImproveMutation = trpc.workspace.contentImprove.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
   const aiStoreRedesignMutation = trpc.workspace.aiStoreRedesign.useMutation();
+  const visualStyleStudioMutation = trpc.workspace.visualStyleStudio.useMutation();
   const marketingCopyMutation = trpc.workspace.generateMarketingCopy.useMutation();
   const productDescriptionMutation = trpc.workspace.generateProductDescription.useMutation();
   const createDraftMutation = trpc.workspace.createDraft.useMutation();
@@ -184,7 +185,7 @@ export function ApprovedToolWorkflow({
     if (!content.trim()) return;
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
-    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-store-redesign" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
+    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-store-redesign" && tool.id !== "visual-style-studio" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
       setMessages(previous => [...previous, { role: "assistant", content: `**${tool.name}** does not yet have a dedicated server-side AI operation for this workflow. No AI proposal was generated. You can continue with the manual editor, choose a tool with a live AI operation, or return when this executor is released.` }]);
       setFinishNotice("This tool’s AI operation is not available yet. No simulated result was created.");
       return;
@@ -192,6 +193,8 @@ export function ApprovedToolWorkflow({
     try {
       const result = tool.id === "ai-store-redesign"
         ? await aiStoreRedesignMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } })
+        : tool.id === "visual-style-studio"
+        ? await visualStyleStudioMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } })
         : tool.id === "cta-generator" || tool.id === "seo-content-generator" || tool.id === "meta-generator"
         ? await marketingCopyMutation.mutateAsync({ workspaceId, toolRunId, mode: tool.id, sourceFacts: content, instruction: `Draft ${tool.name} output using only these supplied facts.` })
         : tool.id === "product-description-generator"
