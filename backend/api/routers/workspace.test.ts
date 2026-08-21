@@ -336,6 +336,25 @@ describe("workspace router", () => {
     vi.unstubAllGlobals();
   });
 
+  it("executes the exact Navigation Analyzer from public URL evidence without implying a crawl", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"></head><body><main><a href="/cart"><svg></svg></a></main></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 73, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "navigation-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 83, toolRunId: 73 } as never);
+    vi.mocked(createWorkspaceIssue).mockImplementation(async input => ({ id: input.title.startsWith("No navigation") ? 93 : 94, title: input.title, severity: input.severity }) as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/73/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/73/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 103, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 73, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 73 });
+
+    expect(result.inspection).toMatchObject({ navigationLandmarkCount: 0, mainLandmarkCount: 1, linksWithText: 0, linksWithoutText: 1 });
+    expect(result.issues.map(issue => issue.title)).toEqual(["No navigation landmark was observed", "1 observed link has no text content"]);
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_navigation_indicator_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);

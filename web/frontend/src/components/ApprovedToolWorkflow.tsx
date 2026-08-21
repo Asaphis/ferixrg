@@ -35,7 +35,7 @@ import "./tool-workflow-specialist.css";
 type Stage = "setup" | "processing" | "results" | "editor" | "review" | "finish";
 type InspectorTab = "edit" | "ai" | "history";
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; headings?: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>; imageCount: number; imagesWithAlt?: number; imagesWithoutAlt: number; linkCount: number; bytesRead: number };
+type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; headings?: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>; imageCount: number; imagesWithAlt?: number; imagesWithoutAlt: number; linkCount: number; linksWithText?: number; linksWithoutText?: number; navigationLandmarkCount?: number; mainLandmarkCount?: number; bytesRead: number };
 type ObservedIssue = { id: number; title: string; severity: "critical" | "high" | "medium" | "low" | "info" };
 
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
@@ -362,6 +362,7 @@ export function ApprovedToolWorkflow({
           {tool.id === "seo-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed page SEO fields</span><b>Title · {inspection.title || "not observed"}</b><b>Meta description markup · {inspection.metaDescriptionLength ? `${inspection.metaDescriptionLength} chars` : "not observed"}</b><b>Canonical · {inspection.canonicalUrl || "not observed"}</b><b>{inspection.headingCount} headings · {inspection.linkCount} links · {inspection.imageCount} images observed</b></div>}
           {tool.id === "accessibility-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed accessibility indicators</span><b>Document language · {inspection.language || "not declared"}</b><b>Viewport metadata · {inspection.hasViewport ? "present" : "absent"}</b><b>Heading elements · {inspection.headingCount} observed</b><b>Images without alt text · {inspection.imagesWithoutAlt}</b></div>}
           {tool.id === "site-structure-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed page structure indicators</span><b>Page host · {observedHost}</b><b>Links on this page · {inspection.linkCount}</b><b>Heading elements · {inspection.headingCount}</b><b>Canonical URL · {inspection.canonicalUrl || "not observed"}</b></div>}
+          {tool.id === "navigation-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed navigation indicators</span><b>Navigation landmarks · {inspection.navigationLandmarkCount ?? "not recorded"}</b><b>Main landmarks · {inspection.mainLandmarkCount ?? "not recorded"}</b><b>Links with text · {inspection.linksWithText ?? "not recorded"}</b><b>Links without text content · {inspection.linksWithoutText ?? "not recorded"}</b></div>}
         </article>
         <article className="tool-workflow-card tool-workflow-next-card">
           <span className="tool-workflow-kicker">What would you like to do next?</span>

@@ -14,6 +14,10 @@ export type PublicUrlInspection = {
   imagesWithAlt: number;
   imagesWithoutAlt: number;
   linkCount: number;
+  linksWithText: number;
+  linksWithoutText: number;
+  navigationLandmarkCount: number;
+  mainLandmarkCount: number;
   bytesRead: number;
 };
 
@@ -37,6 +41,19 @@ function extractHeadings(html: string) {
     headings.push({ level: Number(match[1]) as 1 | 2 | 3 | 4 | 5 | 6, text: text.slice(0, 280) });
   }
   return headings;
+}
+
+function extractAnchorTextCounts(html: string) {
+  const pattern = /<a\b[^>]*>([\s\S]*?)<\/a>/gi;
+  let linksWithText = 0;
+  let linksWithoutText = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const text = match[1].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    if (text) linksWithText += 1;
+    else linksWithoutText += 1;
+  }
+  return { linksWithText, linksWithoutText };
 }
 
 export function validatePublicInspectionUrl(value: string) {
@@ -78,6 +95,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const html = contentType?.toLowerCase().includes("text/html") ? await readBody(response) : "";
   const imageTags = html.match(/<img\b[^>]*>/gi) ?? [];
   const linkTags = html.match(/<a\b[^>]*>/gi) ?? [];
+  const anchorTextCounts = extractAnchorTextCounts(html);
   const headings = extractHeadings(html);
   return {
     url: url.toString(),
@@ -95,6 +113,10 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     imagesWithAlt: imageTags.filter(tag => /\balt\s*=/i.test(tag)).length,
     imagesWithoutAlt: imageTags.filter(tag => !/\balt\s*=/i.test(tag)).length,
     linkCount: linkTags.length,
+    linksWithText: anchorTextCounts.linksWithText,
+    linksWithoutText: anchorTextCounts.linksWithoutText,
+    navigationLandmarkCount: (html.match(/<nav\b[^>]*>/gi) ?? []).length,
+    mainLandmarkCount: (html.match(/<main\b[^>]*>/gi) ?? []).length,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
