@@ -35,7 +35,7 @@ Set the following through the server secret manager, process manager, or protect
 | `STORE_CONNECTION_ENCRYPTION_KEY` | Managed-store credential encryption | A random 32-byte AES-256-GCM key encoded as base64 or 64 hexadecimal characters. |
 | `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` | Shopify authorization | Register the FerixRG Shopify app and keep the secret server-only. |
 | `SHOPIFY_REDIRECT_URI` | Optional Shopify callback override | Defaults to `${FERIXRG_APP_ORIGIN}/api/store-connections/shopify/callback`; register the exact HTTPS URL. |
-| `VITE_API_BASE_URL` | Frontend API transport | Set to `https://api.ferixrg.ferixas.com` before the client build. |
+| `VITE_API_BASE_URL` | Frontend API transport | Set to `https://ferixrgapi.ferixas.com` before the client build. |
 | `PORT` | Internal Node listener | Set to `5010`; do not alter other PM2 processes. |
 | `NODE_ENV` | Production behavior | Required for the startup configuration guard. |
 
@@ -58,14 +58,14 @@ pm2 start dist/index.js --name ferixrg
 pm2 save
 ```
 
-Create separate Cloudflare-proxied DNS records for `ferixrg.ferixas.com` and `api.ferixrg.ferixas.com`, then add separate Nginx server blocks. Serve the built frontend at the frontend hostname, proxy `/api/oauth/callback` and `/api/store-connections/shopify/callback` there to `127.0.0.1:5010` for host-only OAuth state handling, and proxy all requests on the API hostname to `127.0.0.1:5010`. Terminate TLS at Nginx, configure automatic restart with PM2, and do not expose port 5010 directly.
+Create separate Cloudflare-proxied DNS records for `ferixrg.ferixas.com` and `ferixrgapi.ferixas.com`, then add separate Nginx server blocks. Serve the built frontend at the frontend hostname, proxy `/api/oauth/callback` and `/api/store-connections/shopify/callback` there to `127.0.0.1:5010` for host-only OAuth state handling, and proxy all requests on the API hostname to `127.0.0.1:5010`. Terminate TLS at Nginx, configure automatic restart with PM2, and do not expose port 5010 directly.
 
 ## Smoke-test order
 
 Begin with the public readiness endpoint:
 
 ```bash
-curl -f https://api.ferixrg.ferixas.com/api/health
+curl -f https://ferixrgapi.ferixas.com/api/health
 ```
 
 The response should show `ok: true`, the production environment, Cloudflare readiness, and each managed-store provider’s readiness and capability flags. It must not contain access tokens, API keys, client secrets, or encrypted credential material.

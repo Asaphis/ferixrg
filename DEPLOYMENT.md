@@ -21,7 +21,7 @@ FerixRG can be built and deployed without committing or placing secrets in the r
 | `SHOPIFY_CLIENT_ID` | Server configuration | Shopify app client ID used to build the merchant authorization URL. | Required only when enabling Shopify authorization. |
 | `SHOPIFY_CLIENT_SECRET` | **Secret** | Shopify app client secret used for callback HMAC verification and server-side token exchange. | Required only when enabling Shopify authorization. Never expose it to the browser. |
 | `SHOPIFY_REDIRECT_URI` | Public configuration | Optional exact Shopify callback URL override. | Optional. Defaults to `${FERIXRG_APP_ORIGIN}/api/store-connections/shopify/callback`; register the exact HTTPS URL in Shopify. |
-| `VITE_API_BASE_URL` | Public build configuration | Backend origin used by browser tRPC and local-account requests. | Set to `https://api.ferixrg.ferixas.com` before `pnpm build`. |
+| `VITE_API_BASE_URL` | Public build configuration | Backend origin used by browser tRPC and local-account requests. | Set to `https://ferixrgapi.ferixas.com` before `pnpm build`. |
 | `PORT` | Public configuration | Internal Node listener port. | Set to `5010`; do not reuse ports belonging to the other applications. |
 | `NODE_ENV` | Public configuration | Enables production behavior. | Set to `production`. |
 
@@ -43,7 +43,7 @@ Cloudflare’s Workers Free allocation is **10,000 Neurons per day**, resetting 
 
 For the managed application, add the values in the project secret/configuration interface, create a verified project checkpoint, and use the Publish control. Do not place secret values in frontend `VITE_*` variables or commit an `.env` file.
 
-For the Ubuntu application host, install the locked dependencies, apply the reviewed Neon PostgreSQL migration, build with the dedicated API origin, and start the bundled server under PM2 as `ferixrg`. A reverse proxy should terminate TLS and forward requests to port `5010`. The frontend hostname serves the static bundle and proxies callback paths such as `/api/oauth/callback` to the same Node process so the host-only OAuth state cookie remains valid; normal browser API traffic uses `https://api.ferixrg.ferixas.com`. The following sequence requires the variable values to be supplied by the host’s secure environment mechanism:
+For the Ubuntu application host, install the locked dependencies, apply the reviewed Neon PostgreSQL migration, build with the dedicated API origin, and start the bundled server under PM2 as `ferixrg`. A reverse proxy should terminate TLS and forward requests to port `5010`. The frontend hostname serves the static bundle and proxies callback paths such as `/api/oauth/callback` to the same Node process so the host-only OAuth state cookie remains valid; normal browser API traffic uses `https://ferixrgapi.ferixas.com`. The following sequence requires the variable values to be supplied by the host’s secure environment mechanism:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -54,7 +54,7 @@ pnpm build
 NODE_ENV=production PORT=5010 node dist/index.js
 ```
 
-Run both hostnames behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly equals `https://ferixrg.ferixas.com`, and set `VITE_API_BASE_URL=https://api.ferixrg.ferixas.com` before the client build. After deployment, first verify `curl -f https://api.ferixrg.ferixas.com/api/health`; it returns service status and secret-free AI/provider readiness without returning credentials. Then verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
+Run both hostnames behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly equals `https://ferixrg.ferixas.com`, and set `VITE_API_BASE_URL=https://ferixrgapi.ferixas.com` before the client build. After deployment, first verify `curl -f https://ferixrgapi.ferixas.com/api/health`; it returns service status and secret-free AI/provider readiness without returning credentials. Then verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
 
 ## Configuration intentionally deferred
 
