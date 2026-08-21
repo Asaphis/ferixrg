@@ -571,10 +571,10 @@ export default function Workspace() {
     </>;
   }
 
-  function Redesign() { return <>
-    <PageHeading label="AI redesign / Product page" title="Preserve what works. Recompose what doesn’t." copy="The proposal remains linked to the current responsive evidence and is ready to compare before it becomes a version." action={<button className="app-button" onClick={() => setGenerated(true)}><Sparkles /> {generated ? "Direction created" : "Generate direction"}</button>} />
-    <div className="redesign-layout-app"><aside className="brief-card instrument-card"><span className="card-eyebrow" style={{color:'#155eef'}}>Redesign brief</span><h3>What must remain true?</h3>{[["Keep product photography",true],["Preserve brand palette",true],["Prioritize 390px purchase path",true],["Make a bolder hierarchy",false],["Use a premium direction",false]].map(([label,active])=><button className={active?"brief-option active":"brief-option"} key={String(label)}><span>{label}</span>{active?<Check/>:<Plus/>}</button>)}<button className="app-button" onClick={() => setGenerated(true)}><Wand2 /> Generate alternatives</button></aside><section className="redesign-main"><div className="generation-status"><span><b>{generated ? "New alternative is ready to review." : "Two evidence-based alternatives are ready."}</b><p>{generated ? "Generated from mobile purchase-path evidence." : "Both preserve the product narrative and current brand palette."}</p></span><span className="live"><i /> proposal mode</span></div><div className="alternatives">{[["A","Premium purchase path","More breathing room around the decision point."],["B","Conversion-led hierarchy","Trust details arrive at the moment of intent."],["C","Mobile clarity pass","A reserved third direction, generated from your brief."]].slice(0,generated?3:2).map(([tag,title,copy],i)=><div className="alternative-card" key={tag}><div className="preview"><img src={redesignAsset} alt={`${title} redesign alternative`} /><span className="score-gain">+{i===1?"14":"11"} projected points</span></div><h3>{tag} / {title}</h3><p>{copy}</p><div className="alternative-actions"><button onClick={() => changeView("Preview & validate")}>Compare</button><button onClick={() => changeView("Visual editor")}>Open in editor</button></div></div>)}</div></section></div>
-  </> }
+  function Redesign() {
+    const redesignTool = toolCatalog.find(tool => tool.id === "ai-store-redesign") ?? toolCatalog[0];
+    return <ApprovedToolWorkflow tool={redesignTool} workspaceId={activeWorkspaceId} startAt="setup" onBack={() => changeView("Tools Library")} />;
+  }
 
   function Overview() {
     const dashboard = workspaceDashboardQuery.data;
