@@ -269,11 +269,13 @@ export const workspaceRouter = router({
     beginConnection: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive(), provider: z.enum(["shopify", "woocommerce", "magento", "custom"]), scopes: z.array(z.string().min(1).max(160)).max(32).optional() })).mutation(async ({ ctx, input }) => {
       try {
         await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
-        if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
-        const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes });
+        const store = await getWorkspaceStore(input.workspaceId, input.storeId);
+        if (!store) throw new Error("workspace permission denied");
         const adapter = getStoreProviderAdapter(input.provider);
         const readiness = adapter.readiness();
-        const authorization = readiness.configured ? adapter.beginAuthorization({ storeUrl: (await getWorkspaceStore(input.workspaceId, input.storeId))?.url ?? "", requestedScopes: input.scopes ?? [] }) : { status: "not_configured" as const, message: readiness.message };
+        if (!readiness.configured) throw new TRPCError({ code: "PRECONDITION_FAILED", message: readiness.message });
+        const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes });
+        const authorization = adapter.beginAuthorization({ storeUrl: store.url ?? "", requestedScopes: input.scopes ?? [] });
         await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider, configured: readiness.configured } });
         return { ...connection, readiness, authorization };
       } catch (error) {

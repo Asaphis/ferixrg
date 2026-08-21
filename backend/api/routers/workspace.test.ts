@@ -268,7 +268,7 @@ describe("workspace router", () => {
     expect(acceptWorkspaceInvitation).toHaveBeenCalledWith(expect.objectContaining({ userId: 42, email: "user-42@example.com" }));
   });
 
-  it("records a public URL source and starts a pending connection only after editor workspace access", async () => {
+  it("records a public URL source but blocks an unconfigured provider before creating a pending connection", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(createWorkspaceStore).mockResolvedValue({ id: 31, url: "https://source.example" } as never);
     vi.mocked(createStoreSnapshot).mockResolvedValue({ id: 32, storeId: 31, sourceType: "url_scan" } as never);
@@ -278,11 +278,12 @@ describe("workspace router", () => {
     const caller = appRouter.createCaller(authenticatedContext());
 
     await expect(caller.workspace.stores.createPublicUrlSource({ workspaceId: 9, name: "Source store", url: "https://source.example" })).resolves.toMatchObject({ store: { id: 31 }, snapshot: { id: 32 } });
-    await expect(caller.workspace.stores.beginConnection({ workspaceId: 9, storeId: 31, provider: "shopify", scopes: ["read_products"] })).resolves.toMatchObject({ id: 33, status: "pending" });
+    vi.mocked(beginStoreConnection).mockClear();
+    await expect(caller.workspace.stores.beginConnection({ workspaceId: 9, storeId: 31, provider: "shopify", scopes: ["read_products"] })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
     expect(createWorkspaceStore).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, createdByUserId: 42, platform: "public_url" }));
     expect(createStoreSnapshot).toHaveBeenCalledWith(expect.objectContaining({ storeId: 31, sourceType: "url_scan" }));
-    expect(beginStoreConnection).toHaveBeenCalledWith({ storeId: 31, provider: "shopify", scopes: ["read_products"] });
+    expect(beginStoreConnection).not.toHaveBeenCalled();
   });
 
   it("does not expose another workspace’s source snapshots", async () => {
