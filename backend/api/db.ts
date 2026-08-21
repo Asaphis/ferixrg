@@ -701,6 +701,14 @@ export async function hasEnabledTwoStepAuthenticator(userId: number) {
   return Boolean(rows[0]);
 }
 
+export async function savePendingTwoStepAuthenticator(input: { userId: number; encryptedSecret: string; keyVersion: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(twoStepAuthenticators).values({ ...input, enabledAt: null, lastVerifiedAt: null }).onDuplicateKeyUpdate({ set: { encryptedSecret: input.encryptedSecret, keyVersion: input.keyVersion, enabledAt: null, lastVerifiedAt: null } });
+  const rows = await db.select({ id: twoStepAuthenticators.id, enabledAt: twoStepAuthenticators.enabledAt }).from(twoStepAuthenticators).where(eq(twoStepAuthenticators.userId, input.userId)).limit(1);
+  return rows[0];
+}
+
 export async function createLocalAccount(input: { openId: string; name: string; email: string; passwordHash: string; verificationTokenHash: string; verificationExpiresAt: Date }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
