@@ -37,6 +37,14 @@ type InspectorTab = "edit" | "ai" | "history";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; headings?: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>; imageCount: number; imagesWithAlt?: number; imagesWithoutAlt: number; linkCount: number; linksWithText?: number; linksWithoutText?: number; navigationLandmarkCount?: number; mainLandmarkCount?: number; fetchAndReadDurationMs?: number; ctaElementCount?: number; ctaElementsWithText?: number; ctaElementsWithoutText?: number; ctaTexts?: string[]; bodyTextCharacterCount?: number; bodyTextWordCount?: number; paragraphCount?: number; paragraphsWithText?: number; emptyHeadingCount?: number; productStructuredDataCount?: number; productNames?: string[]; productOfferCount?: number; productImageStructuredDataCount?: number; productDescriptionStructuredDataCount?: number; productDescriptionCharacterCount?: number; imagesLazyLoaded?: number; imagesWithDimensions?: number; imagesWithoutDimensions?: number; assetReferenceCount?: number; imageAssetReferenceCount?: number; stylesheetAssetReferenceCount?: number; scriptAssetReferenceCount?: number; assetHosts?: string[]; inlineStyleBlockCount?: number; inlineMediaQueryCount?: number; responsiveImageSrcsetCount?: number; telephoneLinkCount?: number; telephoneInputCount?: number; mobileInputModeCount?: number; organizationStructuredDataCount?: number; reviewStructuredDataCount?: number; aggregateRatingStructuredDataCount?: number; formElementCount?: number; ariaRoleAttributeCount?: number; skipLinkCount?: number; inlineColorDeclarationCount?: number; styleBlockColorDeclarationCount?: number; observedColorValues?: string[]; inlineFontFamilyDeclarationCount?: number; styleBlockFontFamilyDeclarationCount?: number; observedFontFamilies?: string[]; cartLinkCount?: number; checkoutLinkCount?: number; cartOrCheckoutFormActionCount?: number; cartFormActionCount?: number; checkoutFormActionCount?: number; mediaQueryConditionCount?: number; observedMediaQueryConditions?: string[]; collectionLinkCount?: number; observedCollectionPaths?: string[]; productLinkCount?: number; headerElementCount?: number; footerElementCount?: number; sectionElementCount?: number; articleElementCount?: number; semanticLayoutElementCount?: number; bytesRead: number };
 type ObservedIssue = { id: number; title: string; severity: "critical" | "high" | "medium" | "low" | "info" };
+type ComparisonResult = {
+  execution: "deterministic_persisted_draft_version_comparison";
+  boundary: string;
+  draftId: number;
+  base: { versionId: number; label: string; createdAt: Date | string; createdByType: "user" | "ai" | "system"; designStateBytes: number };
+  comparison: { versionId: number; label: string; createdAt: Date | string; createdByType: "user" | "ai" | "system"; designStateBytes: number };
+  serializedStateMatches: boolean;
+};
 
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
 const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
@@ -102,12 +110,17 @@ export function ApprovedToolWorkflow({
   const [observedIssues, setObservedIssues] = useState<ObservedIssue[]>([]);
   const [draftId, setDraftId] = useState<number | null>(null);
   const [savedVersionCount, setSavedVersionCount] = useState(0);
+  const [selectedComparisonDraftId, setSelectedComparisonDraftId] = useState<number | null>(null);
+  const [baseVersionId, setBaseVersionId] = useState<number | null>(null);
+  const [comparisonVersionId, setComparisonVersionId] = useState<number | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [runError, setRunError] = useState("");
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
+  const executeDraftVersionComparisonMutation = trpc.workspace.executeDraftVersionComparison.useMutation();
   const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
   const contentImproveMutation = trpc.workspace.contentImprove.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
@@ -121,6 +134,8 @@ export function ApprovedToolWorkflow({
   const productDescriptionMutation = trpc.workspace.generateProductDescription.useMutation();
   const createDraftMutation = trpc.workspace.createDraft.useMutation();
   const saveDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
+  const draftsQuery = trpc.workspace.drafts.useQuery({ workspaceId: workspaceId ?? 1 }, { enabled: Boolean(workspaceId) });
+  const draftVersionsQuery = trpc.workspace.draftVersions.useQuery({ workspaceId: workspaceId ?? 1, draftId: selectedComparisonDraftId ?? 1 }, { enabled: Boolean(workspaceId && selectedComparisonDraftId) });
 
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
@@ -134,9 +149,10 @@ export function ApprovedToolWorkflow({
     try { return inspection?.url ? new URL(inspection.url).hostname : "public page"; } catch { return "public page"; }
   }, [inspection]);
   const statusSummary = useMemo(() => {
+    if (comparisonResult) return `Compared persisted versions “${comparisonResult.base.label}” and “${comparisonResult.comparison.label}”. ${comparisonResult.boundary}`;
     if (inspection) return `Observed ${inspection.title ? `“${inspection.title}”` : observedHost} with HTTP ${inspection.statusCode}. Review the stored inspection evidence before acting on it.`;
     return "This run has no executor-created evidence yet. A result can be reviewed only after a supported executor records it.";
-  }, [inspection, observedHost]);
+  }, [comparisonResult, inspection, observedHost]);
 
   const move = (next: Stage) => {
     setStage(next);
@@ -161,12 +177,20 @@ export function ApprovedToolWorkflow({
       setRunError("");
       const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined } });
       const started = await startToolRunMutation.mutateAsync({ workspaceId, toolRunId: queued.id });
-      if (sourceType === "public_url") {
+      if (tool.id === "before-after-comparator" && sourceType === "saved_draft") {
+        if (!baseVersionId || !comparisonVersionId) throw new Error("Choose one baseline version and one comparison version before running this tool.");
+        const execution = await executeDraftVersionComparisonMutation.mutateAsync({ workspaceId, toolRunId: started.id, baseVersionId, comparisonVersionId });
+        setReportId(execution.report?.id ?? null);
+        setComparisonResult(execution.comparison as ComparisonResult);
+        setInspection(null);
+        setObservedIssues([]);
+      } else if (sourceType === "public_url") {
         const execution = await executePublicUrlToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id });
         setReportId(execution.report?.id ?? null);
         setInspection(execution.inspection);
         setObservedIssues(execution.issues ?? []);
-      } else { setReportId(null); setInspection(null); setObservedIssues([]); }
+        setComparisonResult(null);
+      } else { setReportId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); }
       setToolRunId(started.id);
       move("processing");
     } catch (error) {
@@ -305,7 +329,14 @@ export function ApprovedToolWorkflow({
           {source === "Screenshots" && (
             <button className="tool-workflow-dropzone"><Upload /><span><b>Upload screenshots</b><small>PNG, JPG, WEBP</small></span><ImagePlus /></button>
           )}
-          {source === "Saved draft" && (
+          {source === "Saved draft" && tool.id === "before-after-comparator" && (
+            <div className="tool-workflow-result-metrics">
+              <span>Saved versions to compare</span>
+              <label className="tool-workflow-input"><span>Saved draft</span><div><History /><select value={selectedComparisonDraftId ?? ""} onChange={event => { const nextDraftId = Number(event.target.value); setSelectedComparisonDraftId(nextDraftId || null); setBaseVersionId(null); setComparisonVersionId(null); }}><option value="">Choose a workspace draft</option>{(draftsQuery.data ?? []).map(draft => <option value={draft.id} key={draft.id}>{draft.title}</option>)}</select></div></label>
+              {selectedComparisonDraftId && <><label className="tool-workflow-input"><span>Baseline version</span><div><History /><select value={baseVersionId ?? ""} onChange={event => setBaseVersionId(Number(event.target.value) || null)}><option value="">Choose baseline</option>{(draftVersionsQuery.data?.versions ?? []).map(version => <option value={version.id} key={version.id}>{version.label}</option>)}</select></div></label><label className="tool-workflow-input"><span>Comparison version</span><div><History /><select value={comparisonVersionId ?? ""} onChange={event => setComparisonVersionId(Number(event.target.value) || null)}><option value="">Choose comparison</option>{(draftVersionsQuery.data?.versions ?? []).map(version => <option value={version.id} key={version.id}>{version.label}</option>)}</select></div></label><b>Only metadata and serialized saved state are compared. This does not render or assess design quality.</b></>}
+            </div>
+          )}
+          {source === "Saved draft" && tool.id !== "before-after-comparator" && (
             <div className="tool-workflow-connected-choice"><History /><div><b>Product page · {editorDraftLabel}</b><small>{draftId ? "Stored in this workspace" : "Save a version to store it in this workspace"}</small></div><ChevronRight /></div>
           )}
           {source === "Selected page" && <div className="tool-workflow-connected-choice"><Layers3 /><div><b>Product page</b><small>Selected from the current project</small></div><ChevronRight /></div>}
@@ -317,7 +348,7 @@ export function ApprovedToolWorkflow({
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
-          <button className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending ? "Inspecting…" : `Run ${tool.name}`}</button>
+          <button className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
@@ -372,17 +403,16 @@ export function ApprovedToolWorkflow({
       <section className="tool-workflow-results-grid">
         <article className="tool-workflow-card tool-workflow-score-card">
           <span className="tool-workflow-kicker">Your result</span>
-          <h2>{inspection?.title ?? (inspection ? "Observed public page" : "No executor-created result")}</h2>
+          <h2>{comparisonResult ? "Saved versions compared" : inspection?.title ?? (inspection ? "Observed public page" : "No executor-created result")}</h2>
           <div className="tool-workflow-capability"><ShieldCheck /><span><b>{capability.mode}</b><small>{capability.label}</small></span></div>
-          <div className="tool-workflow-score"><b>{inspection ? inspection.statusCode : "—"}</b><span>{inspection ? "HTTP response" : "no measured score"}</span></div>
-          <p>{inspection ? `Observed from ${observedHost}. This is a bounded page inspection, not a visual-quality or conversion score.` : "A measured result appears only after a supported executor records evidence for this run."}</p>
-          <div className="tool-workflow-stats">{inspection ? <><span><b>{inspection.headingCount}</b><small>headings observed</small></span><span><b>{inspection.imageCount}</b><small>images observed</small></span><span><b>{observedIssues.length}</b><small>observed issue records</small></span></> : <span><b>Awaiting evidence</b><small>no recorded checks</small></span>}</div>
+          <div className="tool-workflow-score"><b>{comparisonResult ? (comparisonResult.serializedStateMatches ? "Match" : "Different") : inspection ? inspection.statusCode : "—"}</b><span>{comparisonResult ? "serialized saved state" : inspection ? "HTTP response" : "no measured score"}</span></div>
+          <p>{comparisonResult ? comparisonResult.boundary : inspection ? `Observed from ${observedHost}. This is a bounded page inspection, not a visual-quality or conversion score.` : "A measured result appears only after a supported executor records evidence for this run."}</p>
+          <div className="tool-workflow-stats">{comparisonResult ? <><span><b>{comparisonResult.base.designStateBytes}</b><small>baseline bytes</small></span><span><b>{comparisonResult.comparison.designStateBytes}</b><small>comparison bytes</small></span><span><b>{comparisonResult.serializedStateMatches ? "same" : "different"}</b><small>serialized state</small></span></> : inspection ? <><span><b>{inspection.headingCount}</b><small>headings observed</small></span><span><b>{inspection.imageCount}</b><small>images observed</small></span><span><b>{observedIssues.length}</b><small>observed issue records</small></span></> : <span><b>Awaiting evidence</b><small>no recorded checks</small></span>}</div>
           <button className="tool-workflow-secondary" disabled={!reportId || reportDownloadMutation.isPending} onClick={() => { void downloadGeneratedReport(); }}><Download /> {reportDownloadMutation.isPending ? "Preparing download…" : reportReady ? "Report downloaded" : reportId ? "Download report" : "No export artifact"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-evidence-card">
           <span className="tool-workflow-kicker">Where it happens</span>
-          <div className="tool-workflow-evidence-visual"><img src={evidenceAsset} alt="Mobile product page evidence" /><span>Buy button</span></div>
-          <div className="tool-workflow-evidence-note"><b>{inspection ? "Observed page evidence" : "No observed evidence yet"}</b><p>{inspection ? `${inspection.hasViewport ? "Viewport metadata is present" : "Viewport metadata is absent"}; ${inspection.canonicalUrl ? "a canonical URL is declared" : "no canonical URL was observed"}; ${inspection.linkCount} links were counted.` : "Run a supported executor to create evidence before a result or recommendation is shown."}</p></div>
+          {comparisonResult ? <div className="tool-workflow-evidence-note"><b>Persisted version records</b><p>Baseline: {comparisonResult.base.label} · {new Date(comparisonResult.base.createdAt).toLocaleString()} · {comparisonResult.base.createdByType}. Comparison: {comparisonResult.comparison.label} · {new Date(comparisonResult.comparison.createdAt).toLocaleString()} · {comparisonResult.comparison.createdByType}.</p></div> : <><div className="tool-workflow-evidence-visual"><img src={evidenceAsset} alt="Mobile product page evidence" /><span>Buy button</span></div><div className="tool-workflow-evidence-note"><b>{inspection ? "Observed page evidence" : "No observed evidence yet"}</b><p>{inspection ? `${inspection.hasViewport ? "Viewport metadata is present" : "Viewport metadata is absent"}; ${inspection.canonicalUrl ? "a canonical URL is declared" : "no canonical URL was observed"}; ${inspection.linkCount} links were counted.` : "Run a supported executor to create evidence before a result or recommendation is shown."}</p></div></>}
           <div className="tool-workflow-result-metrics"><span>{inspection ? (observedIssues.length ? "Observed issue records" : "Observed fields") : "Result boundary"}</span>{inspection ? (observedIssues.length ? observedIssues.map(issue => <b key={issue.id}>{issue.severity} · {issue.title}</b>) : [inspection.language ? `Language · ${inspection.language}` : "Language not declared", `Meta description markup · ${inspection.metaDescriptionLength} chars`, `${inspection.bytesRead} bytes inspected`].map(metric => <b key={metric}>{metric}</b>)) : <b>No generated evidence</b>}</div>
           {tool.id === "heading-structure-analyzer" && inspection?.headings && <div className="tool-workflow-result-metrics"><span>Observed heading order</span>{inspection.headings.length ? inspection.headings.map((heading, index) => <b key={`${heading.level}-${index}`}>H{heading.level} · {heading.text || "No text observed"}</b>) : <b>No heading elements were observed.</b>}</div>}
           {tool.id === "image-seo-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed image alternative text</span><b>{inspection.imagesWithAlt ?? Math.max(inspection.imageCount - inspection.imagesWithoutAlt, 0)} image{(inspection.imagesWithAlt ?? Math.max(inspection.imageCount - inspection.imagesWithoutAlt, 0)) === 1 ? "" : "s"} with alt text</b><b>{inspection.imagesWithoutAlt} image{inspection.imagesWithoutAlt === 1 ? "" : "s"} without alt text</b></div>}

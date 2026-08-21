@@ -595,6 +595,7 @@
 - [x] Add a dedicated proposal-only Component Builder operation through the existing Cloudflare gateway, preserving manual editing, workspace permission, tool-run context, capacity, usage, and audit boundaries.
 - [x] Persist dedicated live AI proposal results as workspace-scoped evidence and generated JSON report artifacts without completing tool runs or creating automated store changes.
 - [x] Add a bounded Before/After Comparator executor that compares persisted draft-version metadata and state sizes only, without visual, scoring, publishing, or quality conclusions.
+- [x] Bind the bounded Before/After Comparator to the approved workflow with saved-version selection, a generated report download, and explicit non-visual result language.
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.
@@ -621,3 +622,7 @@
 - [x] Record actual queued tool-run usage in the workspace ledger and expose a role-protected subscription, ledger, and usage-summary contract.
 - [x] Replace Billing & Usage panel metrics and records with live subscription, entitlement, and ledger data.
 - [x] Keep billing actions explicitly read-only until a server-side payment provider is configured; no payment credentials, checkout, receipts, or subscription changes are simulated.
+
+- [ ] Commit and push the completed FerixRG implementation to the private GitHub repository at the user’s request.
+- [x] Resolve the final comparator workflow regression and rerun the complete validation suite before the pushed release commit.
+- [ ] Document remaining deployment-gated provider OAuth, payment, publish, rollback, and platform adapter work.

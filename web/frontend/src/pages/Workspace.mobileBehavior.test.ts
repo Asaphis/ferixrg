@@ -66,6 +66,7 @@ const sessionMocks = vi.hoisted(() => ({
   generateProductDescription: vi.fn().mockResolvedValue({ response: "A versatile canvas tote for everyday essentials. Verify factual accuracy before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   generateMarketingCopy: vi.fn().mockResolvedValue({ response: "CTA options: Shop the tote. Explore the collection. Review factual accuracy before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   executePublicUrlToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, inspection: { statusCode: 200 }, report: { id: 90 } }),
+  executeDraftVersionComparison: vi.fn().mockResolvedValue({ run: { id: 141, status: "completed" }, comparison: { execution: "deterministic_persisted_draft_version_comparison", draftId: 14, serializedStateMatches: false, base: { versionId: 51, label: "Baseline", createdAt: new Date("2026-08-01T00:00:00.000Z"), createdByType: "user", designStateBytes: 19 }, comparison: { versionId: 52, label: "Revision", createdAt: new Date("2026-08-02T00:00:00.000Z"), createdByType: "ai", designStateBytes: 18 }, boundary: "Compares persisted version metadata and serialized state only. It does not render, score, assess visual quality, validate, publish, or change a store." }, report: { id: 90 } }),
   reportDownload: vi.fn().mockResolvedValue({ reportId: 90, format: "json", url: "/manus-storage/reports/inspection.json" }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
@@ -123,6 +124,7 @@ vi.mock("@/lib/trpc", () => ({
       generateProductDescription: { useMutation: () => ({ mutateAsync: sessionMocks.generateProductDescription }) },
       generateMarketingCopy: { useMutation: () => ({ mutateAsync: sessionMocks.generateMarketingCopy }) },
       executePublicUrlToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.executePublicUrlToolRun, isPending: false }) },
+      executeDraftVersionComparison: { useMutation: () => ({ mutateAsync: sessionMocks.executeDraftVersionComparison, isPending: false }) },
       reportDownload: { useMutation: () => ({ mutateAsync: sessionMocks.reportDownload }) },
     },
     account: {
@@ -153,7 +155,7 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/app");
 });
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
+afterEach(() => { Object.assign(sessionMocks, { drafts: [] as never, draftVersions: { draft: null, versions: [] } as never }); cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
 describe("Workspace mobile behaviour", () => {
   it("keeps the approved Home, Stores, Tools, and More bottom navigation", () => {
@@ -243,6 +245,31 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByText(/does not yet have a dedicated server-side AI operation/i)).toBeTruthy();
     expect(view.getByText(/No simulated result was created/i)).toBeTruthy();
     expect(view.queryByText("AI suggestion")).toBeNull();
+  });
+
+  it("runs the Before/After Comparator against two explicitly selected persisted draft versions", async () => {
+    Object.assign(sessionMocks, {
+      drafts: [{ id: 14, title: "Product page redesign" }] as never,
+      draftVersions: { draft: { id: 14 }, versions: [{ id: 52, label: "Revision" }, { id: 51, label: "Baseline" }] } as never,
+    });
+    window.history.replaceState({}, "", "/app/tools?tool=before-after-comparator");
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
+    const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
+    if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
+    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Saved draft" }));
+    fireEvent.click(view.getByRole("button", { name: "Start Before/After Comparator" }));
+    expect(view.getByRole("heading", { name: /Set up Before\/After Comparator/i })).toBeTruthy();
+    fireEvent.change(view.getAllByRole("combobox")[0], { target: { value: "14" } });
+    await waitFor(() => expect(view.getAllByRole("combobox")).toHaveLength(3));
+    fireEvent.change(view.getAllByRole("combobox")[1], { target: { value: "51" } });
+    fireEvent.change(view.getAllByRole("combobox")[2], { target: { value: "52" } });
+    fireEvent.click(view.getByRole("button", { name: /Run Before\/After Comparator/i }));
+    await waitFor(() => expect(sessionMocks.executeDraftVersionComparison).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71, baseVersionId: 51, comparisonVersionId: 52 }));
+    fireEvent.click(view.getByRole("button", { name: /See (run record|result)/i }));
+    expect(view.getByRole("heading", { name: "Saved versions compared" })).toBeTruthy();
+    expect(view.getAllByText(/Compares persisted version metadata and serialized state only/i).length).toBeGreaterThan(0);
+    expect(view.getByText(/Baseline: Baseline/i)).toBeTruthy();
   });
 
   it("routes technical tools into a delivery-focused workbench rather than the visual editor", () => {
