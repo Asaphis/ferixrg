@@ -23,6 +23,11 @@ export type PublicUrlInspection = {
   ctaElementsWithText: number;
   ctaElementsWithoutText: number;
   ctaTexts: string[];
+  bodyTextCharacterCount: number;
+  bodyTextWordCount: number;
+  paragraphCount: number;
+  paragraphsWithText: number;
+  emptyHeadingCount: number;
   bytesRead: number;
 };
 
@@ -77,6 +82,23 @@ function extractCtaElements(html: string) {
   return { ctaElementCount: ctaElementsWithText + ctaElementsWithoutText, ctaElementsWithText, ctaElementsWithoutText, ctaTexts };
 }
 
+function textContent(fragment: string) {
+  return fragment.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractContentIndicators(html: string, headings: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>) {
+  const bodyMarkup = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? html;
+  const bodyText = textContent(bodyMarkup);
+  const paragraphs = Array.from(bodyMarkup.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi));
+  return {
+    bodyTextCharacterCount: bodyText.length,
+    bodyTextWordCount: bodyText ? bodyText.split(/\s+/).length : 0,
+    paragraphCount: paragraphs.length,
+    paragraphsWithText: paragraphs.filter(match => Boolean(textContent(match[1]))).length,
+    emptyHeadingCount: headings.filter(heading => !heading.text).length,
+  };
+}
+
 export function validatePublicInspectionUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Use a public HTTP or HTTPS URL.");
@@ -120,6 +142,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const anchorTextCounts = extractAnchorTextCounts(html);
   const ctaElements = extractCtaElements(html);
   const headings = extractHeadings(html);
+  const contentIndicators = extractContentIndicators(html, headings);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -145,6 +168,11 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     ctaElementsWithText: ctaElements.ctaElementsWithText,
     ctaElementsWithoutText: ctaElements.ctaElementsWithoutText,
     ctaTexts: ctaElements.ctaTexts,
+    bodyTextCharacterCount: contentIndicators.bodyTextCharacterCount,
+    bodyTextWordCount: contentIndicators.bodyTextWordCount,
+    paragraphCount: contentIndicators.paragraphCount,
+    paragraphsWithText: contentIndicators.paragraphsWithText,
+    emptyHeadingCount: contentIndicators.emptyHeadingCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

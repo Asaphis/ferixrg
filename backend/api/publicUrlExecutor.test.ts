@@ -19,4 +19,10 @@ describe("public URL inspection executor", () => {
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ fetchAndReadDurationMs: 275, bytesRead: 31 });
     clock.mockRestore();
   });
+
+  it("records extracted body-text, paragraph, and heading indicators without scoring writing quality", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><h1>Welcome</h1><h2></h2><p>Discover carefully selected products.</p><p> </p><script>ignored words</script></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ bodyTextCharacterCount: 45, bodyTextWordCount: 5, paragraphCount: 2, paragraphsWithText: 1, emptyHeadingCount: 1 });
+  });
 });

@@ -395,6 +395,25 @@ describe("workspace router", () => {
     vi.unstubAllGlobals();
   });
 
+  it("executes the exact Content Quality Analyzer with extracted text indicators only", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"></head><body><h1></h1><p>Store copy.</p></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 76, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "content-quality-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 86, toolRunId: 76 } as never);
+    vi.mocked(createWorkspaceIssue).mockResolvedValue({ id: 97, title: "1 observed heading has no text content", severity: "low" } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/76/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/76/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 106, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 76, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 76 });
+
+    expect(result.inspection).toMatchObject({ bodyTextWordCount: 2, paragraphCount: 1, paragraphsWithText: 1, emptyHeadingCount: 1 });
+    expect(result.issues).toEqual([{ id: 97, title: "1 observed heading has no text content", severity: "low" }]);
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_extracted_text_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);

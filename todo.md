@@ -502,6 +502,7 @@
 - [x] Add a bounded evidence-backed Navigation Analyzer public-URL executor using observed navigation landmarks, main landmarks, and anchor text only, with real stored output and no crawl or provider claims.
 - [x] Add a bounded Performance Analyzer public-URL executor that records only measured fetch-and-read duration and inspected document bytes, without claiming a full performance audit.
 - [x] Add a bounded CTA Analyzer public-URL executor that records observed links and buttons with visible text only, without conversion or journey claims.
+- [x] Add a bounded Content Quality Analyzer public-URL executor that records extracted body-text, paragraph, and heading indicators only, without subjective writing-quality claims.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.
