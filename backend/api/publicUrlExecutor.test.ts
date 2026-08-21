@@ -49,4 +49,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ hasViewport: true, inlineStyleBlockCount: 1, inlineMediaQueryCount: 1, responsiveImageSrcsetCount: 1 });
   });
+
+  it("records telephone and input-mode markup indicators without assessing mobile usability", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><meta name="viewport" content="width=device-width"></head><body><a href="tel:+15551234567">Call</a><input type="tel"><input inputmode="numeric"></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ hasViewport: true, telephoneLinkCount: 1, telephoneInputCount: 1, mobileInputModeCount: 1 });
+  });
 });

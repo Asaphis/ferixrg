@@ -42,6 +42,9 @@ export type PublicUrlInspection = {
   inlineStyleBlockCount: number;
   inlineMediaQueryCount: number;
   responsiveImageSrcsetCount: number;
+  telephoneLinkCount: number;
+  telephoneInputCount: number;
+  mobileInputModeCount: number;
   bytesRead: number;
 };
 
@@ -167,6 +170,14 @@ function extractResponsiveIndicators(html: string) {
   return { inlineStyleBlockCount: styleBlocks.length, inlineMediaQueryCount, responsiveImageSrcsetCount };
 }
 
+function extractMobileMarkupIndicators(html: string) {
+  const telephoneLinkCount = (html.match(/<a\b[^>]*\bhref\s*=\s*["']?tel:/gi) ?? []).length;
+  const inputTags = html.match(/<input\b[^>]*>/gi) ?? [];
+  const telephoneInputCount = inputTags.filter(tag => /\btype\s*=\s*["']tel["']/i.test(tag)).length;
+  const mobileInputModeCount = inputTags.filter(tag => /\binputmode\s*=/i.test(tag)).length;
+  return { telephoneLinkCount, telephoneInputCount, mobileInputModeCount };
+}
+
 export function validatePublicInspectionUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Use a public HTTP or HTTPS URL.");
@@ -214,6 +225,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const productStructuredData = extractProductStructuredData(html);
   const assetReferences = extractAssetReferences(html, url);
   const responsiveIndicators = extractResponsiveIndicators(html);
+  const mobileMarkupIndicators = extractMobileMarkupIndicators(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -258,6 +270,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     inlineStyleBlockCount: responsiveIndicators.inlineStyleBlockCount,
     inlineMediaQueryCount: responsiveIndicators.inlineMediaQueryCount,
     responsiveImageSrcsetCount: responsiveIndicators.responsiveImageSrcsetCount,
+    telephoneLinkCount: mobileMarkupIndicators.telephoneLinkCount,
+    telephoneInputCount: mobileMarkupIndicators.telephoneInputCount,
+    mobileInputModeCount: mobileMarkupIndicators.mobileInputModeCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
