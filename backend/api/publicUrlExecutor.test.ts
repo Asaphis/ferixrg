@@ -133,4 +133,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ headerElementCount: 1, mainLandmarkCount: 1, sectionElementCount: 2, articleElementCount: 1, footerElementCount: 1, semanticLayoutElementCount: 6 });
   });
+
+  it("records style, color, and font declarations without assessing visual design", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><style>.hero { color: #112233; font-family: Inter, sans-serif; }</style></head><body><div style="background-color: #ffffff; font-family: Georgia, serif">Welcome</div></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ inlineStyleBlockCount: 1, inlineColorDeclarationCount: 1, styleBlockColorDeclarationCount: 1, inlineFontFamilyDeclarationCount: 1, styleBlockFontFamilyDeclarationCount: 1 });
+  });
 });
