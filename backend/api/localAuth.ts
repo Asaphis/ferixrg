@@ -81,6 +81,13 @@ export function hashAccountToken(rawToken: string) {
   return createHash("sha256").update(rawToken).digest("hex");
 }
 
+export function createTwoStepRecoveryCodes() {
+  return Array.from({ length: 8 }, () => {
+    const rawCode = randomBytes(8).toString("hex").toUpperCase().match(/.{1,4}/g)!.join("-");
+    return { rawCode, codeHash: createHash("sha256").update(rawCode).digest("hex") };
+  });
+}
+
 function twoStepEncryptionKey() {
   if (!ENV.totpEncryptionKey) throw new Error("Two-step verification is not configured.");
   return createHash("sha256").update(ENV.totpEncryptionKey).digest();

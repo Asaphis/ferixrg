@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAccountToken, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword, verifyTotpCode } from "./localAuth";
+import { createAccountToken, createTwoStepRecoveryCodes, encryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, twoStepEncryptionConfigured, verifyPassword, verifyTotpCode } from "./localAuth";
 
 describe("local account authentication helpers", () => {
   it("normalizes account email and enforces the same strong password policy as the approved UI", () => {
@@ -33,5 +33,12 @@ describe("local account authentication helpers", () => {
     expect(verifyTotpCode(rfcSecret, "287082", 89_000)).toBe(true);
     expect(verifyTotpCode(rfcSecret, "287082", 119_000)).toBe(false);
     expect(verifyTotpCode(rfcSecret, "not-a-code", 59_000)).toBe(false);
+  });
+
+  it("creates eight one-time recovery values and retains only their hashes for persistence", () => {
+    const codes = createTwoStepRecoveryCodes();
+    expect(codes).toHaveLength(8);
+    expect(new Set(codes.map(code => code.rawCode)).size).toBe(8);
+    expect(codes.every(code => /^([A-F0-9]{4}-){3}[A-F0-9]{4}$/.test(code.rawCode) && code.codeHash !== code.rawCode)).toBe(true);
   });
 });
