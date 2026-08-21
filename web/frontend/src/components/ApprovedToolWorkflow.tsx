@@ -25,7 +25,7 @@ import {
   Upload,
   Wand2,
 } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import "./approved-tool-workflow.css";
 import "./approved-tool-workflow-overrides.css";
@@ -87,6 +87,15 @@ const sourceCopy: Record<string, { detail: string; support: string }> = {
 
 const editorLayers = ["Header", "Product media", "Product details", "Title", "Price", "Buy button", "Shipping details"];
 
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read the selected file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ApprovedToolWorkflow({
   tool,
   onBack,
@@ -95,6 +104,7 @@ export function ApprovedToolWorkflow({
   selectedSource,
   onSourceChange,
   workspaceId,
+  storeId,
 }: {
   tool: ToolDefinition;
   onBack: () => void;
@@ -103,6 +113,7 @@ export function ApprovedToolWorkflow({
   selectedSource?: string;
   onSourceChange?: (source: ToolSource) => void;
   workspaceId?: number;
+  storeId?: number;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
   const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
@@ -137,7 +148,10 @@ export function ApprovedToolWorkflow({
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [runError, setRunError] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
+  const uploadSourceMutation = trpc.workspace.stores.uploadSource.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
   const executeDraftVersionComparisonMutation = trpc.workspace.executeDraftVersionComparison.useMutation();
@@ -198,7 +212,18 @@ export function ApprovedToolWorkflow({
     try {
       if (!workspaceId) throw new Error("Workspace is still loading");
       setRunError("");
-      const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined } });
+      let uploadedSources: Array<{ fileName: string; storageKey: string; url: string }> = [];
+      if (source === "Screenshots") {
+        if (!storeId) throw new Error("Open or add a store before uploading screenshots.");
+        if (!selectedFiles.length) throw new Error("Select at least one screenshot before running this tool.");
+        uploadedSources = await Promise.all(selectedFiles.map(async file => {
+          if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error(`${file.name} is not a PNG, JPG, or WEBP image.`);
+          if (file.size > 8 * 1024 * 1024) throw new Error(`${file.name} is larger than the 8 MB upload limit.`);
+          const uploaded = await uploadSourceMutation.mutateAsync({ workspaceId, storeId, fileName: file.name, mimeType: file.type, contentBase64: await readFileAsBase64(file), sourceType: "screenshot" });
+          return { fileName: file.name, storageKey: uploaded.storage.key, url: uploaded.storage.url };
+        }));
+      }
+      const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined, uploadedSources } });
       const started = await startToolRunMutation.mutateAsync({ workspaceId, toolRunId: queued.id });
       if (tool.id === "before-after-comparator" && sourceType === "saved_draft") {
         if (!baseVersionId || !comparisonVersionId) throw new Error("Choose one baseline version and one comparison version before running this tool.");
@@ -342,7 +367,7 @@ export function ApprovedToolWorkflow({
           {(source === "Public URL" || source === "Specific page URL") && (
             <label className="tool-workflow-input">
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
-              <div><Link2 /><input value={url} onChange={event => setUrl(event.target.value)} /></div>
+              <div><Link2 /><input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" value={url} onChange={event => { setUrl(event.target.value); setRunError(""); }} /><button type="button" aria-label="Clear URL" onClick={() => setUrl("")} disabled={!url}>×</button></div>
             </label>
           )}
           {source === "Connected store" && (
@@ -353,7 +378,7 @@ export function ApprovedToolWorkflow({
             </div>
           )}
           {source === "Screenshots" && (
-            <button className="tool-workflow-dropzone"><Upload /><span><b>Upload screenshots</b><small>PNG, JPG, WEBP</small></span><ImagePlus /></button>
+            <div className="tool-workflow-upload-area"><input ref={screenshotInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={event => { setSelectedFiles(Array.from(event.target.files ?? [])); setRunError(""); }} /><button type="button" className="tool-workflow-dropzone" onClick={() => screenshotInputRef.current?.click()}><Upload /><span><b>{selectedFiles.length ? `${selectedFiles.length} screenshot${selectedFiles.length === 1 ? "" : "s"} selected` : "Upload screenshots"}</b><small>PNG, JPG, WEBP · up to 8 MB each</small></span><ImagePlus /></button>{selectedFiles.length > 0 && <div className="tool-workflow-selected-files">{selectedFiles.map(file => <span key={`${file.name}-${file.lastModified}`}>{file.name}<button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelectedFiles(current => current.filter(item => item !== file))}>×</button></span>)}</div>}</div>
           )}
           {source === "Saved draft" && tool.id === "before-after-comparator" && (
             <div className="tool-workflow-result-metrics">
@@ -374,7 +399,7 @@ export function ApprovedToolWorkflow({
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
-          <button className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
+          <button type="button" className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || uploadSourceMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || uploadSourceMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
