@@ -35,6 +35,7 @@ import "./tool-workflow-specialist.css";
 type Stage = "setup" | "processing" | "results" | "editor" | "review" | "finish";
 type InspectorTab = "edit" | "ai" | "history";
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; imageCount: number; imagesWithoutAlt: number; linkCount: number; bytesRead: number };
 
 const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
 const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
@@ -96,6 +97,7 @@ export function ApprovedToolWorkflow({
   ]);
   const [toolRunId, setToolRunId] = useState<number | null>(null);
   const [reportId, setReportId] = useState<number | null>(null);
+  const [inspection, setInspection] = useState<PublicUrlInspection | null>(null);
   const [draftId, setDraftId] = useState<number | null>(null);
   const [savedVersionCount, setSavedVersionCount] = useState(0);
   const [editorDirty, setEditorDirty] = useState(false);
@@ -117,11 +119,13 @@ export function ApprovedToolWorkflow({
   const stageIndex = stages.findIndex(item => item.id === stage);
   const scope = capability.scope;
   const editorDraftLabel = draftId ? (savedVersionCount ? `Saved version ${savedVersionCount}` : "Saved workspace draft") : "Unsaved workspace draft";
+  const observedHost = useMemo(() => {
+    try { return inspection?.url ? new URL(inspection.url).hostname : "public page"; } catch { return "public page"; }
+  }, [inspection]);
   const statusSummary = useMemo(() => {
-    if (source === "Screenshots") return "Your screenshot evidence is ready for review.";
-    if (source === "Saved draft") return "Your saved draft is ready to continue.";
-    return "Three evidence-backed improvements are ready to review.";
-  }, [source]);
+    if (inspection) return `Observed ${inspection.title ? `“${inspection.title}”` : observedHost} with HTTP ${inspection.statusCode}. Review the stored inspection evidence before acting on it.`;
+    return "This run has no executor-created evidence yet. A result can be reviewed only after a supported executor records it.";
+  }, [inspection, observedHost]);
 
   const move = (next: Stage) => {
     setStage(next);
@@ -149,7 +153,8 @@ export function ApprovedToolWorkflow({
       if (sourceType === "public_url") {
         const execution = await executePublicUrlToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id });
         setReportId(execution.report?.id ?? null);
-      } else setReportId(null);
+        setInspection(execution.inspection);
+      } else { setReportId(null); setInspection(null); }
       setToolRunId(started.id);
       move("processing");
     } catch (error) {
@@ -337,18 +342,18 @@ export function ApprovedToolWorkflow({
       <section className="tool-workflow-results-grid">
         <article className="tool-workflow-card tool-workflow-score-card">
           <span className="tool-workflow-kicker">Your result</span>
-          <h2>{tool.resultMetrics[0] ?? `${tool.name} result`}</h2>
+          <h2>{inspection?.title ?? (inspection ? "Observed public page" : "No executor-created result")}</h2>
           <div className="tool-workflow-capability"><ShieldCheck /><span><b>{capability.mode}</b><small>{capability.label}</small></span></div>
-          <div className="tool-workflow-score"><b>76</b><span>out of 100</span></div>
-          <p>{tool.outcome}</p>
-          <div className="tool-workflow-stats"><span><b>{tool.resultMetrics[1] ?? "Priority issues"}</b><small>3 findings</small></span><span><b>{tool.resultMetrics[2] ?? "Evidence confidence"}</b><small>92% confidence</small></span><span><b>Checks in scope</b><small>{tool.analysisFocus.length} areas reviewed</small></span></div>
+          <div className="tool-workflow-score"><b>{inspection ? inspection.statusCode : "—"}</b><span>{inspection ? "HTTP response" : "no measured score"}</span></div>
+          <p>{inspection ? `Observed from ${observedHost}. This is a bounded page inspection, not a visual-quality or conversion score.` : "A measured result appears only after a supported executor records evidence for this run."}</p>
+          <div className="tool-workflow-stats">{inspection ? <><span><b>{inspection.headingCount}</b><small>headings observed</small></span><span><b>{inspection.imageCount}</b><small>images observed</small></span><span><b>{inspection.imagesWithoutAlt}</b><small>images without alt</small></span></> : <span><b>Awaiting evidence</b><small>no recorded checks</small></span>}</div>
           <button className="tool-workflow-secondary" disabled={!reportId || reportDownloadMutation.isPending} onClick={() => { void downloadGeneratedReport(); }}><Download /> {reportDownloadMutation.isPending ? "Preparing download…" : reportReady ? "Report downloaded" : reportId ? "Download report" : "No export artifact"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-evidence-card">
           <span className="tool-workflow-kicker">Where it happens</span>
           <div className="tool-workflow-evidence-visual"><img src={evidenceAsset} alt="Mobile product page evidence" /><span>Buy button</span></div>
-          <div className="tool-workflow-evidence-note"><b>Priority finding</b><p>{tool.analysisFocus[0] ?? "The selected storefront evidence"} needs attention first{tool.analysisFocus[1] ? ` alongside ${tool.analysisFocus[1].toLowerCase()}` : ""}.</p></div>
-          <div className="tool-workflow-result-metrics"><span>Result includes</span>{tool.resultMetrics.slice(0, 4).map(metric => <b key={metric}>{metric}</b>)}</div>
+          <div className="tool-workflow-evidence-note"><b>{inspection ? "Observed page evidence" : "No observed evidence yet"}</b><p>{inspection ? `${inspection.hasViewport ? "Viewport metadata is present" : "Viewport metadata is absent"}; ${inspection.canonicalUrl ? "a canonical URL is declared" : "no canonical URL was observed"}; ${inspection.linkCount} links were counted.` : "Run a supported executor to create evidence before a result or recommendation is shown."}</p></div>
+          <div className="tool-workflow-result-metrics"><span>{inspection ? "Observed fields" : "Result boundary"}</span>{inspection ? [inspection.language ? `Language · ${inspection.language}` : "Language not declared", `Meta description markup · ${inspection.metaDescriptionLength} chars`, `${inspection.bytesRead} bytes inspected`].map(metric => <b key={metric}>{metric}</b>) : <b>No generated evidence</b>}</div>
         </article>
         <article className="tool-workflow-card tool-workflow-next-card">
           <span className="tool-workflow-kicker">What would you like to do next?</span>
