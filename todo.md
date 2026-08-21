@@ -405,7 +405,7 @@
 ## Complete launch AI foundation
 - [ ] Define every AI model role and supporting AI service needed for the full FerixRG launch, not only the first feature.
 - [ ] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability.
-- [ ] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
+- [x] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
 - [ ] Implement and test the complete approved AI foundation before activating user-facing tool workflows.
 
 ## AI hosting decision
