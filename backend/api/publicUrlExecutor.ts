@@ -57,6 +57,9 @@ export type PublicUrlInspection = {
   inlineFontFamilyDeclarationCount: number;
   styleBlockFontFamilyDeclarationCount: number;
   observedFontFamilies: string[];
+  cartLinkCount: number;
+  checkoutLinkCount: number;
+  cartOrCheckoutFormActionCount: number;
   bytesRead: number;
 };
 
@@ -218,6 +221,24 @@ function extractFontFamilyDeclarations(html: string) {
   return { inlineFontFamilyDeclarationCount: count(inlineStyleAttributes), styleBlockFontFamilyDeclarationCount: count(styleBlocks), observedFontFamilies: families };
 }
 
+function extractCommercePathMarkup(html: string) {
+  const anchors = Array.from(html.matchAll(/<a\b([^>]*)>/gi));
+  const forms = Array.from(html.matchAll(/<form\b([^>]*)>/gi));
+  const hrefs = anchors.flatMap(match => {
+    const href = attribute(match[1], "href");
+    return href ? [href.toLowerCase()] : [];
+  });
+  const actions = forms.flatMap(match => {
+    const action = attribute(match[1], "action");
+    return action ? [action.toLowerCase()] : [];
+  });
+  return {
+    cartLinkCount: hrefs.filter(href => /(?:^|[/#?&=_-])cart(?:[/#?&=_-]|$)/.test(href)).length,
+    checkoutLinkCount: hrefs.filter(href => /(?:^|[/#?&=_-])checkout(?:[/#?&=_-]|$)/.test(href)).length,
+    cartOrCheckoutFormActionCount: actions.filter(action => /(?:^|[/#?&=_-])(?:cart|checkout)(?:[/#?&=_-]|$)/.test(action)).length,
+  };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -312,6 +333,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const uxMarkupIndicators = extractUxMarkupIndicators(html);
   const colorStyleDeclarations = extractColorStyleDeclarations(html);
   const fontFamilyDeclarations = extractFontFamilyDeclarations(html);
+  const commercePathMarkup = extractCommercePathMarkup(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -371,6 +393,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     inlineFontFamilyDeclarationCount: fontFamilyDeclarations.inlineFontFamilyDeclarationCount,
     styleBlockFontFamilyDeclarationCount: fontFamilyDeclarations.styleBlockFontFamilyDeclarationCount,
     observedFontFamilies: fontFamilyDeclarations.observedFontFamilies,
+    cartLinkCount: commercePathMarkup.cartLinkCount,
+    checkoutLinkCount: commercePathMarkup.checkoutLinkCount,
+    cartOrCheckoutFormActionCount: commercePathMarkup.cartOrCheckoutFormActionCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

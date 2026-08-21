@@ -79,4 +79,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ inlineFontFamilyDeclarationCount: 1, styleBlockFontFamilyDeclarationCount: 2, observedFontFamilies: ["Arial, sans-serif", '"Fraunces", serif', "Inter, sans-serif"] });
   });
+
+  it("records cart and checkout link or form-action paths without predicting conversion", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><a href="/cart">Cart</a><a href="/checkout">Checkout</a><a href="/collections">Collections</a><form action="/cart/add"><button>Add</button></form><form action="/checkout"><button>Pay</button></form></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ cartLinkCount: 1, checkoutLinkCount: 1, cartOrCheckoutFormActionCount: 2 });
+  });
 });
