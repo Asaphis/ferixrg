@@ -69,12 +69,12 @@ vi.mock("../db", () => ({
 }));
 
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
-vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
+vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
 
 import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { failWorkspaceToolRun } from "../db";
 import { storageGet, storagePut } from "../storage";
-import { listCentralAiReadiness, runDesignCopilotThroughGateway } from "../aiGateway";
+import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -186,6 +186,21 @@ describe("workspace router", () => {
     await expect(caller.workspace.designCopilot({ workspaceId: 9, toolRunId: 22, message: "Make the product call to action easier to notice.", context: { device: "Mobile", element: "Buy button" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 3 });
     expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 3, unit: "neurons", provider: "cloudflare_workers_ai" }));
     expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.design_copilot.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+  });
+
+  it("runs Content Improver only within editor access, accounts for neurons, and retains source text outside audit metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 23, workspaceId: 9, toolId: "ai-content-improver" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runContentImproverThroughGateway).mockResolvedValue({ response: "Proposed revision: Clearer product copy.\n\nReview before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.2, promptTokens: 22, completionTokens: 14 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 2 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.contentImprove({ workspaceId: 9, toolRunId: 23, sourceText: "This carefully designed tote keeps daily essentials organized.", instruction: "Make the copy clearer and more concise." })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2 });
+    expect(runContentImproverThroughGateway).toHaveBeenCalledWith({ sourceText: "This carefully designed tote keeps daily essentials organized.", instruction: "Make the copy clearer and more concise." });
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "content_improver", referenceId: "23" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.content_improver.completed", details: expect.objectContaining({ toolRunId: 23, sourceTextLength: 62 }) }));
   });
 
   it("protects the daily free-neuron reserve before invoking Design Copilot", async () => {

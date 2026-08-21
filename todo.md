@@ -407,6 +407,7 @@
 - [x] Compare NVIDIA hosted AI with self-hosted open-source serving and a hybrid fallback route for quality, cost, privacy, and launch reliability. The selected route is Cloudflare-hosted inference with provider-neutral future adapters; NVIDIA and local inference are not approved for the current host.
 - [x] Design the production AI gateway, model router, safe agent-action registry, evaluation suite, monitoring, and failure fallback before tool implementation.
 - [ ] Implement and test the complete approved AI foundation before activating user-facing tool workflows.
+- [x] Add a workspace-scoped AI Content Improver execution path through the configured central Cloudflare gateway, with bounded text input, audit records, usage accounting, and honest unavailable states.
 
 ## AI hosting decision
 - [x] Confirm the real free-access limits of NVIDIA development APIs and the compute requirements of self-hosting open models on Ubuntu. The decision record excludes NVIDIA development access and local model hosting from the current production route; Cloudflare capacity is governed by the documented daily Neuron allocation.

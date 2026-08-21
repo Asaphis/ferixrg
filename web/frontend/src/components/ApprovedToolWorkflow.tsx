@@ -109,6 +109,7 @@ export function ApprovedToolWorkflow({
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
   const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
+  const contentImproveMutation = trpc.workspace.contentImprove.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
   const createDraftMutation = trpc.workspace.createDraft.useMutation();
   const saveDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
@@ -180,13 +181,15 @@ export function ApprovedToolWorkflow({
     if (!content.trim()) return;
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
-    if (tool.id !== "ai-design-copilot" || !workspaceId || !toolRunId) {
+    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-content-improver") || !workspaceId || !toolRunId) {
       setMessages(previous => [...previous, { role: "assistant", content: `I prepared a scoped suggestion for **${selectedElement}** on the ${device.toLowerCase()} view. It keeps the current evidence and draft context. Review it beside your current design before applying it.` }]);
       setProposalVisible(true);
       return;
     }
     try {
-      const result = await designCopilotMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } });
+      const result = tool.id === "ai-content-improver"
+        ? await contentImproveMutation.mutateAsync({ workspaceId, toolRunId, sourceText: content, instruction: `Improve this ${selectedElement.toLowerCase()} copy for clarity and usefulness while preserving its factual meaning.` })
+        : await designCopilotMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } });
       setMessages(previous => [...previous, { role: "assistant", content: result.response }]);
       setProposalVisible(true);
     } catch (error) {
