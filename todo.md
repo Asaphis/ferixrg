@@ -667,3 +667,7 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 
 ## Tool executor inventory continuation
 - [x] Give Storefront Analyzer its own deterministic overview-inspection execution identity and regression coverage instead of leaving it under a generic public-URL label.
+
+## Editor comparison truthfulness
+- [x] Remove fabricated health scores, projected score deltas, and static redesign images from the active version-history editor surface.
+- [x] Show persisted editor-state metadata, measured-health-unavailable labels, and an explicit requirement to run validation or generate a real render before making visual claims.
