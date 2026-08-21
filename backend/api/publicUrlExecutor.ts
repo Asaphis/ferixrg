@@ -62,6 +62,8 @@ export type PublicUrlInspection = {
   cartOrCheckoutFormActionCount: number;
   mediaQueryConditionCount: number;
   observedMediaQueryConditions: string[];
+  collectionLinkCount: number;
+  observedCollectionPaths: string[];
   bytesRead: number;
 };
 
@@ -254,6 +256,14 @@ function extractMediaQueryConditions(html: string) {
   return { mediaQueryConditionCount, observedMediaQueryConditions: conditions };
 }
 
+function extractCollectionPathLinks(html: string) {
+  const collectionPaths = Array.from(html.matchAll(/<a\b([^>]*)>/gi)).flatMap(match => {
+    const href = attribute(match[1], "href");
+    return href && /(?:^|[/#?&=_-])collections?(?:[/#?&=_-]|$)/i.test(href) ? [href] : [];
+  });
+  return { collectionLinkCount: collectionPaths.length, observedCollectionPaths: Array.from(new Set(collectionPaths)).slice(0, 30) };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -350,6 +360,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const fontFamilyDeclarations = extractFontFamilyDeclarations(html);
   const commercePathMarkup = extractCommercePathMarkup(html);
   const mediaQueryConditions = extractMediaQueryConditions(html);
+  const collectionPathLinks = extractCollectionPathLinks(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -414,6 +425,8 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     cartOrCheckoutFormActionCount: commercePathMarkup.cartOrCheckoutFormActionCount,
     mediaQueryConditionCount: mediaQueryConditions.mediaQueryConditionCount,
     observedMediaQueryConditions: mediaQueryConditions.observedMediaQueryConditions,
+    collectionLinkCount: collectionPathLinks.collectionLinkCount,
+    observedCollectionPaths: collectionPathLinks.observedCollectionPaths,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

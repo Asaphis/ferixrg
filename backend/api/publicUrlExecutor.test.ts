@@ -91,4 +91,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ mediaQueryConditionCount: 2, observedMediaQueryConditions: ["(max-width: 700px)", "screen and (min-width: 960px)"] });
   });
+
+  it("records collection-path links without assessing category organization or discovery", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><a href="/collections/summer">Summer</a><a href="/collection/new">New</a><a href="/products/tote">Tote</a><a href="/collections/summer">Summer again</a></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ collectionLinkCount: 3, observedCollectionPaths: ["/collections/summer", "/collection/new"] });
+  });
 });
