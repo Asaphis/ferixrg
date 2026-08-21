@@ -644,3 +644,8 @@ Remaining next work from the shared replay sequence: checkpoint this capability,
 - [x] Bind the approved release-review frontend to the explicit provider-execution action while preserving cancellation and fail-closed unsupported states.
 
 Checkpoint note: provider-side execution remains intentionally unavailable for the unconfigured adapters; the new path is ready to activate only when a reviewed deployment adapter advertises configuration and capability.
+
+## Connected-store flow hardening
+- [x] Replace the simulated frontend Store connection timeout with the protected `stores.beginConnection` mutation and provider-readiness response.
+- [x] Create a real Shopify store record from the supplied storefront URL when no Shopify store record exists, while preserving the fail-closed not-configured adapter state.
+- [x] Add frontend regression coverage for the backend connection request contract and canonicalize obsolete store tool entry points.
