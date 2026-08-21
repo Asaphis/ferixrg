@@ -440,7 +440,7 @@
 
 ## Cloudflare Workers AI foundation
 - [x] Make Cloudflare Workers AI the first FerixRG provider while keeping the central gateway provider-neutral.
-- [ ] Map Cloudflare text, vision, image, embedding, and safety capabilities to the current FerixRG tool catalogue.
+- [x] Map Cloudflare text, vision, image, embedding, and safety capabilities to the current FerixRG tool catalogue.
 - [x] Design and test the secure backend provider adapter, daily-free-limit guard, privacy policy, and fallback behavior before connecting credentials.
 
 ## Cloudflare capability and API verification
@@ -499,6 +499,7 @@
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
+- [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.
