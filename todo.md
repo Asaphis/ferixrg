@@ -664,3 +664,6 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 ## Live per-store connection state
 - [x] Add a scoped `stores.connections` query to the Workspace and render the selected store’s provider, connection status, readiness message, and publish capability from backend records rather than hard-coded permission text.
 - [x] Extend the mobile workspace harness with live connection records and keep the full frontend test suite green.
+
+## Tool executor inventory continuation
+- [x] Give Storefront Analyzer its own deterministic overview-inspection execution identity and regression coverage instead of leaving it under a generic public-URL label.
