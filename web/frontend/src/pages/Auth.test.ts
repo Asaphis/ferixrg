@@ -86,12 +86,21 @@ describe("local account authentication", () => {
     await waitFor(() => expect(view.getByRole("alert").textContent).toMatch(/incorrect email or password/i));
   });
 
-  it("uses the real verification route only when a verification token is present", async () => {
+  it("automatically verifies an emailed token and shows success", async () => {
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
     const view = renderAuth("/auth/verify-email?token=verified-token&email=maya%40example.com");
-    fireEvent.click(view.getByRole("button", { name: /I’ve verified my email/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/account/verify", expect.objectContaining({ method: "POST", credentials: "include" })));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ token: "verified-token" });
+    await waitFor(() => expect(view.getByRole("heading", { name: "Email verified" })).toBeTruthy());
+    expect(view.getByText(/verified successfully/i)).toBeTruthy();
+  });
+
+  it("keeps manual verification available when no token is present", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+    const view = renderAuth("/auth/verify-email?email=maya%40example.com");
+    fireEvent.click(view.getByRole("button", { name: /I’ve verified my email/i }));
+    await waitFor(() => expect(view.getByRole("alert").textContent).toMatch(/Open the verification link/i));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("uses the real email-change confirmation route when its token is present", async () => {

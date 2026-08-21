@@ -55,6 +55,16 @@ These are product implementation boundaries, not bugs to hide. They need provide
 5. Serve `/home/ubuntu/ferixrg/web/frontend/dist/` from the dedicated `ferixrg.ferixas.com` Nginx server block and keep `ferixrgapi.ferixas.com` proxied to port `5010`.
 6. Test `POST /api/account/register`, not `/api/auth/register`. Use a real registration only after confirming the correct route with a validation-only request.
 
+## Authentication incident findings and fixes
+
+The verification-link defect was confirmed in the frontend. The emailed link opened `/auth/verify-email?token=...`, but the page only called the backend after a manual button click, leaving the user in a permanent waiting state after following the email link. The frontend now consumes a token automatically when the verification page loads, shows a visible `Verifying your email link...` state, renders a clear `Email verified` success state, and keeps the manual action available when no token is present. Regression coverage now verifies both automatic token consumption and the no-token path.
+
+The backend local-account responses now include stable codes for `ACCOUNT_EXISTS`, `INVALID_CREDENTIALS`, `VERIFICATION_REQUIRED`, and `VERIFICATION_LINK_INVALID`. The login response continues to avoid revealing whether an email exists when credentials are invalid, while unverified accounts receive a distinct actionable message. The backend also refuses to silently move to another port in production and returns a safe JSON `SERVER_ERROR` response for unhandled API failures.
+
+The post-fix frontend suite passes **69 tests**, including the new verification-flow coverage. The backend suite continues to pass **137 tests**.
+
+Several user-facing controls remain intentionally non-operational and must be corrected or implemented before being described as live: the unauthenticated `Change Email Address` screen currently shows a local preview success instead of calling a backend mutation; the `Open Email` buttons have no operation; Google sign-in is explicitly unavailable; API-key and developer-handoff panels still contain preview/simulated language; and some editor comparison surfaces are metadata placeholders rather than rendered snapshots. These are recorded as remaining product work rather than hidden behind generic success messages.
+
 ## External reference
 
 The [Drizzle ORM Neon guide](https://orm.drizzle.team/docs/connect-neon) and [Neon serverless driver documentation](https://neon.com/docs/serverless/serverless-driver) distinguish HTTP one-shot queries from WebSocket session/interactive transaction support. They document the WebSocket Pool setup used by this fix.

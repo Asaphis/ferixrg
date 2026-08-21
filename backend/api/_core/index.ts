@@ -77,11 +77,23 @@ async function startServer() {
     })
   );
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  const port = ENV.isProduction ? preferredPort : await findAvailablePort(preferredPort);
 
-  if (port !== preferredPort) {
+  if (ENV.isProduction && !(await isPortAvailable(port))) {
+    throw new Error(`Configured production port ${port} is unavailable; refusing to start on a different port.`);
+  }
+  if (!ENV.isProduction && port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
+
+  // Keep unhandled API failures JSON-shaped so the frontend can show a useful
+  // server-error state instead of collapsing an HTML/empty response into a
+  // misleading generic account message.
+  app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (res.headersSent) return next(error);
+    console.error("[HTTP] Unhandled request error", error);
+    res.status(500).json({ success: false, code: "SERVER_ERROR", message: "We could not complete that request right now. Please try again." });
+  });
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);

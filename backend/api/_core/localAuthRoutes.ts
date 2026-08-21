@@ -37,7 +37,7 @@ export function registerLocalAuthRoutes(app: Express) {
 
     const email = normalizeEmail(parsed.data.email);
     const existing = await getLocalAccountByEmail(email);
-    if (existing) return res.status(409).json({ success: false, message: "This email cannot be used to create a new account." });
+    if (existing) return res.status(409).json({ success: false, code: "ACCOUNT_EXISTS", message: "An account already exists for this email address. Sign in or reset the password instead." });
 
     const verification = createAccountToken();
     const account = await createLocalAccount({
@@ -54,12 +54,12 @@ export function registerLocalAuthRoutes(app: Express) {
 
   app.post("/api/account/login", async (req: Request, res: Response) => {
     const parsed = loginInput.safeParse(req.body);
-    if (!parsed.success) return res.status(401).json({ success: false, message: "Incorrect email or password." });
+    if (!parsed.success) return res.status(401).json({ success: false, code: "INVALID_CREDENTIALS", message: "The email address or password is incorrect." });
 
     const account = await getLocalAccountByEmail(normalizeEmail(parsed.data.email));
     const passwordMatches = Boolean(account?.identity.passwordHash) && (await verifyPassword(parsed.data.password, account!.identity.passwordHash!));
-    if (!account || !passwordMatches) return res.status(401).json({ success: false, message: "Incorrect email or password." });
-    if (account.user.accountStatus !== "active") return res.status(403).json({ success: false, code: "VERIFICATION_REQUIRED", message: "Your email address has not been verified." });
+    if (!account || !passwordMatches) return res.status(401).json({ success: false, code: "INVALID_CREDENTIALS", message: "The email address or password is incorrect." });
+    if (account.user.accountStatus !== "active") return res.status(403).json({ success: false, code: "VERIFICATION_REQUIRED", message: "Your email address has not been verified. Open the verification email or request a new one." });
 
     if (await hasEnabledTwoStepAuthenticator(account.user.id)) {
       const challenge = createTwoStepChallengeToken();
@@ -98,7 +98,7 @@ export function registerLocalAuthRoutes(app: Express) {
     const parsed = verificationInput.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ success: false, message: "Invalid verification link." });
     const account = await verifyLocalAccount(hashAccountToken(parsed.data.token));
-    if (!account) return res.status(400).json({ success: false, message: "Invalid or expired verification link." });
+    if (!account) return res.status(400).json({ success: false, code: "VERIFICATION_LINK_INVALID", message: "This verification link is invalid, expired, or has already been used." });
     return res.json({ success: true });
   });
 
