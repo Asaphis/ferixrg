@@ -66,11 +66,12 @@ vi.mock("../db", () => ({
   recordWorkspaceUsage: vi.fn(),
 }));
 
-vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } }, runCloudflareDesignCopilot: vi.fn() }));
+vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
+vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
 
 import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
-import { runCloudflareDesignCopilot } from "../cloudflareAi";
+import { listCentralAiReadiness, runDesignCopilotThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -174,7 +175,7 @@ describe("workspace router", () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 22, workspaceId: 9, toolId: "ai-design-copilot" } as never);
     vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
-    vi.mocked(runCloudflareDesignCopilot).mockResolvedValue({ response: "Clarify the visual hierarchy, then review it before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2.3, promptTokens: 30, completionTokens: 20 });
+    vi.mocked(runDesignCopilotThroughGateway).mockResolvedValue({ response: "Clarify the visual hierarchy, then review it before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2.3, promptTokens: 30, completionTokens: 20 });
     vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 1 } as never);
     vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
     const caller = appRouter.createCaller(authenticatedContext());
@@ -185,13 +186,13 @@ describe("workspace router", () => {
   });
 
   it("protects the daily free-neuron reserve before invoking Design Copilot", async () => {
-    vi.mocked(runCloudflareDesignCopilot).mockClear();
+    vi.mocked(runDesignCopilotThroughGateway).mockClear();
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(9_900 as never);
     const caller = appRouter.createCaller(authenticatedContext());
 
     await expect(caller.workspace.designCopilot({ workspaceId: 9, message: "Improve the visual hierarchy." })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    expect(runCloudflareDesignCopilot).not.toHaveBeenCalled();
+    expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
   });
 
   it("allows an admin to change member and pending invitation roles while retaining workspace scope", async () => {

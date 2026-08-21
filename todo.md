@@ -439,7 +439,7 @@
 - [ ] Separate genuinely recurring free AI access from limited development free access and one-time trial credits for every user-identified platform.
 
 ## Cloudflare Workers AI foundation
-- [ ] Make Cloudflare Workers AI the first FerixRG provider while keeping the central gateway provider-neutral.
+- [x] Make Cloudflare Workers AI the first FerixRG provider while keeping the central gateway provider-neutral.
 - [ ] Map Cloudflare text, vision, image, embedding, and safety capabilities to the current FerixRG tool catalogue.
 - [x] Design and test the secure backend provider adapter, daily-free-limit guard, privacy policy, and fallback behavior before connecting credentials.
 
@@ -456,7 +456,7 @@
 - [x] Select a current Workers AI model available on the user's Free plan and complete the isolated response test.
 
 ## First Cloudflare-powered backend milestone
-- [ ] Implement the provider-neutral Central AI Gateway only after the core FerixRG backend foundation is complete.
+- [x] Implement the provider-neutral Central AI Gateway only after the core FerixRG backend foundation is complete.
 - [x] Add Cloudflare AI tool-run contracts, daily-free-limit guards, privacy boundaries, and audit-ready records after core account and store data exists.
 - [x] Connect and test the first real AI Design Copilot workflow only after the backend foundation and its permission model are complete.
 
@@ -498,6 +498,7 @@
 - [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
+- [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.
