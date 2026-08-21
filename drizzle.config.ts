@@ -1,10 +1,4 @@
-import dotenv from "dotenv";
-import path from "node:path";
 import { defineConfig } from "drizzle-kit";
-
-dotenv.config({
-  path: process.env.FERIXRG_BACKEND_ENV_FILE ?? path.resolve("backend", ".env"),
-});
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 if (!connectionString) {

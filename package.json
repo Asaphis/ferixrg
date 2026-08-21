@@ -4,19 +4,13 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "pnpm backend:dev",
-    "frontend:dev": "vite --config frontend/vite.config.ts --host 0.0.0.0",
-    "backend:dev": "cd backend && NODE_ENV=development tsx watch api/_core/index.ts",
-    "frontend:build": "vite build --config frontend/vite.config.ts --mode production",
-    "backend:build": "esbuild backend/api/_core/index.ts --platform=node --packages=external --bundle --format=esm --outfile=backend/dist/index.js",
-    "build": "pnpm frontend:build && pnpm backend:build",
-    "start": "pnpm backend:start",
-    "backend:start": "cd backend && NODE_ENV=production node dist/index.js",
+    "dev": "NODE_ENV=development tsx watch backend/api/_core/index.ts",
+    "build": "vite build && esbuild backend/api/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit generate && pnpm db:migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
