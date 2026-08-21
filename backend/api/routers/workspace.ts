@@ -400,13 +400,20 @@ export const workspaceRouter = router({
       if (!running || running.status !== "running") throw new TRPCError({ code: "BAD_REQUEST", message: "Only queued or running public URL tool runs can execute." });
       try {
         const inspection = await inspectPublicUrl(sourceUrl);
-        const resultSummary = { execution: "deterministic_public_url_inspection", toolId: running.toolId, inspection };
         const evidence = await createWorkspaceEvidence({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, kind: "page_capture", title: "Observed public URL inspection", sourceUrl: inspection.url, details: inspection, actorUserId: ctx.user.id });
-        const reportJson = JSON.stringify({ generatedAt: new Date().toISOString(), toolRunId: input.toolRunId, toolId: running.toolId, source: { type: "public_url", url: inspection.url }, inspection }, null, 2);
+        const observedIssueInputs: Array<{ title: string; severity: "medium" | "low"; details: Record<string, unknown> }> = [];
+        if (!inspection.hasViewport) observedIssueInputs.push({ title: "Viewport metadata is not declared", severity: "medium", details: { observed: "viewport meta tag absent" } });
+        if (inspection.imagesWithoutAlt > 0) observedIssueInputs.push({ title: `${inspection.imagesWithoutAlt} observed image${inspection.imagesWithoutAlt === 1 ? "" : "s"} lack alternative text`, severity: "medium", details: { observed: "img tag without alt", count: inspection.imagesWithoutAlt } });
+        if (!inspection.canonicalUrl) observedIssueInputs.push({ title: "Canonical URL is not declared", severity: "low", details: { observed: "canonical link absent" } });
+        if (inspection.metaDescriptionLength === 0) observedIssueInputs.push({ title: "Meta description markup is not declared", severity: "low", details: { observed: "meta description tag absent" } });
+        const issues = await Promise.all(observedIssueInputs.map(issue => createWorkspaceIssue({ workspaceId: input.workspaceId, storeId: running.storeId ?? undefined, toolRunId: input.toolRunId, title: issue.title, severity: issue.severity, location: inspection.url, details: { ...issue.details, evidenceId: evidence?.id ?? null, inspectionUrl: inspection.url }, actorUserId: ctx.user.id })));
+        const issueRecords = issues.filter((issue): issue is NonNullable<typeof issue> => issue !== undefined).map(issue => ({ id: issue.id, title: issue.title, severity: issue.severity }));
+        const resultSummary = { execution: "deterministic_public_url_inspection", toolId: running.toolId, inspection, observedIssueIds: issueRecords.map(issue => issue.id) };
+        const reportJson = JSON.stringify({ generatedAt: new Date().toISOString(), toolRunId: input.toolRunId, toolId: running.toolId, source: { type: "public_url", url: inspection.url }, inspection, observedIssues: issueRecords }, null, 2);
         const upload = await storagePut(`workspace-${input.workspaceId}/tool-runs/${input.toolRunId}/public-url-inspection.json`, Buffer.from(reportJson), "application/json");
         const report = await createWorkspaceReport({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, title: `${running.toolId} public URL inspection`, format: "json", storageKey: upload.key, summary: "Evidence-derived public URL inspection export.", createdByUserId: ctx.user.id });
         const run = await completeWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, resultSummary: { ...resultSummary, reportId: report?.id ?? null, evidenceId: evidence?.id ?? null } });
-        return { run, inspection, report: report ? { id: report.id, storageKey: upload.key, url: upload.url } : null };
+        return { run, inspection, issues: issueRecords, report: report ? { id: report.id, storageKey: upload.key, url: upload.url } : null };
       } catch (error) {
         const message = error instanceof Error ? error.message : "Public URL inspection failed.";
         await failWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, errorMessage: message });
