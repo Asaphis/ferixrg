@@ -3,13 +3,16 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   acceptWorkspaceInvitation,
+  approveWorkspaceReleaseAction,
   cancelWorkspaceInvitation,
+  cancelWorkspaceReleaseAction,
   beginStoreConnection,
   completeWorkspaceToolRun,
   createWorkspaceDeveloperHandoff,
   createWorkspaceEvidence,
   createWorkspaceIssue,
   createWorkspaceReport,
+  createWorkspaceReleaseAction,
   createStoreSnapshot,
   createWorkspaceDraft,
   createWorkspaceDraftAsset,
@@ -19,6 +22,7 @@ import {
   getWorkspaceSubscription,
   getWorkspaceStore,
   getWorkspaceDashboardReadModel,
+  getWorkspaceReleaseEligibility,
   getWorkspaceToolRun,
   listUserWorkspaces,
   listWorkspaceActivity,
@@ -29,6 +33,7 @@ import {
   listWorkspaceInvitations,
   listWorkspaceMembers,
   listWorkspaceReleases,
+  listWorkspaceValidationRuns,
   listWorkspaceReports,
   listWorkspaceStores,
   listStoreConnections,
@@ -39,11 +44,14 @@ import {
   listWorkspaceIssues,
   failWorkspaceToolRun,
   queueWorkspaceToolRun,
+  queueWorkspaceValidationRun,
   recordWorkspaceActivity,
   removeWorkspaceMember,
   restoreWorkspaceDraftVersion,
   saveWorkspaceDraftVersion,
   startWorkspaceToolRun,
+  startWorkspaceValidationRun,
+  completeWorkspaceValidationRun,
   updateWorkspaceIssueStatus,
   updateWorkspaceInvitationRole,
   updateWorkspaceMemberRole,
@@ -482,6 +490,88 @@ export const workspaceRouter = router({
       const asset = await createWorkspaceDraftAsset({ workspaceId: input.workspaceId, draftId: input.draftId, draftVersionId: input.draftVersionId, kind: input.kind, storageKey: upload.key, fileName: safeName, mimeType: input.mimeType, createdByUserId: ctx.user.id });
       if (!asset) throw new Error("workspace permission denied");
       return { asset, storage: { key: upload.key, url: upload.url } };
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  validationRuns: protectedProcedure.input(workspaceInput.extend({ limit: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return listWorkspaceValidationRuns(input.workspaceId, input.limit);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  queueValidationRun: protectedProcedure.input(workspaceInput.extend({ draftVersionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const run = await queueWorkspaceValidationRun({ ...input, actorUserId: ctx.user.id });
+      if (!run) throw new Error("workspace permission denied");
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  startValidationRun: protectedProcedure.input(workspaceInput.extend({ validationRunId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const run = await startWorkspaceValidationRun({ ...input, actorUserId: ctx.user.id });
+      if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued validation can be started." });
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  completeValidationRun: protectedProcedure.input(workspaceInput.extend({ validationRunId: z.number().int().positive(), passed: z.boolean(), summary: z.record(z.string(), z.unknown()) })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const run = await completeWorkspaceValidationRun({ ...input, actorUserId: ctx.user.id });
+      if (!run) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a queued or running validation can be completed." });
+      return run;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  createReleaseAction: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive().optional(), draftVersionId: z.number().int().positive().optional(), actionType: z.enum(["export", "publish", "rollback"]) })).mutation(async ({ ctx, input }) => {
+    try {
+      const requiredRole = input.actionType === "export" ? "editor" : "admin";
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, requiredRole);
+      if ((input.actionType === "publish" || input.actionType === "rollback") && input.storeId) {
+        const hasSupportedConnection = (await listStoreConnections(input.storeId)).some(connection => connection.status === "connected");
+        if (!hasSupportedConnection) throw new TRPCError({ code: "BAD_REQUEST", message: "A supported active store connection is required before this release action can be planned." });
+      }
+      const action = await createWorkspaceReleaseAction({ ...input, requestedByUserId: ctx.user.id });
+      if (!action) throw new TRPCError({ code: "BAD_REQUEST", message: "This release plan is not eligible yet. Check validation, unresolved critical issues, connection status, and release history." });
+      return action;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  releaseEligibility: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive().optional(), draftVersionId: z.number().int().positive().optional(), actionType: z.enum(["export", "publish", "rollback"]) })).query(async ({ ctx, input }) => {
+    try {
+      const requiredRole = input.actionType === "export" ? "editor" : "admin";
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, requiredRole);
+      return getWorkspaceReleaseEligibility(input);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  approveReleaseAction: protectedProcedure.input(workspaceInput.extend({ releaseActionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "admin");
+      const action = await approveWorkspaceReleaseAction({ ...input, actorUserId: ctx.user.id });
+      if (!action) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a pending release plan can be approved." });
+      return action;
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  cancelReleaseAction: protectedProcedure.input(workspaceInput.extend({ releaseActionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "admin");
+      const action = await cancelWorkspaceReleaseAction({ ...input, actorUserId: ctx.user.id });
+      if (!action) throw new TRPCError({ code: "BAD_REQUEST", message: "Only a pending or approved release plan can be cancelled." });
+      return action;
     } catch (error) {
       return toForbidden(error);
     }

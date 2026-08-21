@@ -22,6 +22,7 @@ import {
   subscriptions,
   toolRuns,
   usageLedger,
+  validationRuns,
   users,
   userPreferences,
   workspaces,
@@ -747,6 +748,110 @@ export async function listWorkspaceReleases(workspaceId: number, limit = 50) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(releaseActions).where(eq(releaseActions.workspaceId, workspaceId)).orderBy(desc(releaseActions.requestedAt)).limit(limit);
+}
+
+async function getWorkspaceDraftVersion(workspaceId: number, draftVersionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select({ version: draftVersions, draft: drafts }).from(draftVersions).innerJoin(drafts, eq(draftVersions.draftId, drafts.id)).where(and(eq(draftVersions.id, draftVersionId), eq(drafts.workspaceId, workspaceId))).limit(1);
+  return rows[0];
+}
+
+export async function listWorkspaceValidationRuns(workspaceId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(validationRuns).where(eq(validationRuns.workspaceId, workspaceId)).orderBy(desc(validationRuns.createdAt)).limit(limit);
+}
+
+export async function queueWorkspaceValidationRun(input: { workspaceId: number; draftVersionId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!(await getWorkspaceDraftVersion(input.workspaceId, input.draftVersionId))) return undefined;
+  const created = await db.insert(validationRuns).values({ workspaceId: input.workspaceId, draftVersionId: input.draftVersionId, status: "queued" });
+  const rows = await db.select().from(validationRuns).where(eq(validationRuns.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "validation.queued", entityType: "validation_run", entityId: String(rows[0]?.id ?? 0), details: { draftVersionId: input.draftVersionId } });
+  return rows[0];
+}
+
+export async function startWorkspaceValidationRun(input: { workspaceId: number; validationRunId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(validationRuns).where(and(eq(validationRuns.id, input.validationRunId), eq(validationRuns.workspaceId, input.workspaceId))).limit(1);
+  if (!rows[0] || rows[0].status !== "queued") return undefined;
+  await db.update(validationRuns).set({ status: "running", startedAt: new Date() }).where(eq(validationRuns.id, input.validationRunId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "validation.started", entityType: "validation_run", entityId: String(input.validationRunId), details: { draftVersionId: rows[0].draftVersionId } });
+  return (await db.select().from(validationRuns).where(eq(validationRuns.id, input.validationRunId)).limit(1))[0];
+}
+
+export async function completeWorkspaceValidationRun(input: { workspaceId: number; validationRunId: number; actorUserId: number; passed: boolean; summary: Record<string, unknown> }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(validationRuns).where(and(eq(validationRuns.id, input.validationRunId), eq(validationRuns.workspaceId, input.workspaceId))).limit(1);
+  if (!rows[0] || (rows[0].status !== "queued" && rows[0].status !== "running")) return undefined;
+  await db.update(validationRuns).set({ status: input.passed ? "passed" : "failed", summary: input.summary, startedAt: rows[0].startedAt ?? new Date(), completedAt: new Date() }).where(eq(validationRuns.id, input.validationRunId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: input.passed ? "validation.passed" : "validation.failed", entityType: "validation_run", entityId: String(input.validationRunId), details: { draftVersionId: rows[0].draftVersionId } });
+  return (await db.select().from(validationRuns).where(eq(validationRuns.id, input.validationRunId)).limit(1))[0];
+}
+
+export async function getWorkspaceReleaseAction(workspaceId: number, releaseActionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return (await db.select().from(releaseActions).where(and(eq(releaseActions.id, releaseActionId), eq(releaseActions.workspaceId, workspaceId))).limit(1))[0];
+}
+
+export async function getWorkspaceReleaseEligibility(input: { workspaceId: number; storeId?: number; draftVersionId?: number; actionType: "export" | "publish" | "rollback" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const reasons: string[] = [];
+  const version = input.draftVersionId ? await getWorkspaceDraftVersion(input.workspaceId, input.draftVersionId) : undefined;
+  if (input.draftVersionId && !version) reasons.push("The selected draft version is not available in this workspace.");
+  const store = input.storeId ? await getWorkspaceStore(input.workspaceId, input.storeId) : undefined;
+  if ((input.actionType === "publish" || input.actionType === "rollback") && !store) reasons.push("A workspace store is required for this action.");
+  const connections = input.storeId ? await listStoreConnections(input.storeId) : [];
+  const hasSupportedConnection = connections.some(connection => connection.status === "connected");
+  if ((input.actionType === "publish" || input.actionType === "rollback") && !hasSupportedConnection) reasons.push("A supported active store connection is required.");
+  const passedValidation = input.draftVersionId ? (await db.select().from(validationRuns).where(and(eq(validationRuns.workspaceId, input.workspaceId), eq(validationRuns.draftVersionId, input.draftVersionId), eq(validationRuns.status, "passed"))).limit(1))[0] : undefined;
+  if (input.actionType === "publish" && !passedValidation) reasons.push("The selected draft version needs a passed validation run before publish planning.");
+  const unresolvedCriticalIssues = await db.select().from(issueRecords).where(and(eq(issueRecords.workspaceId, input.workspaceId), eq(issueRecords.severity, "critical"), eq(issueRecords.status, "open")));
+  if (input.actionType === "publish" && unresolvedCriticalIssues.length) reasons.push("Resolve or explicitly ignore all critical workspace issues before publish planning.");
+  const priorPublished = input.storeId ? (await db.select().from(releaseActions).where(and(eq(releaseActions.workspaceId, input.workspaceId), eq(releaseActions.storeId, input.storeId), eq(releaseActions.status, "published"))).limit(1))[0] : undefined;
+  if (input.actionType === "rollback" && !priorPublished) reasons.push("No published release record is available to roll back for this store.");
+  return { eligible: reasons.length === 0, reasons, hasSupportedConnection, passedValidationId: passedValidation?.id ?? null, priorPublishedReleaseId: priorPublished?.id ?? null };
+}
+
+export async function createWorkspaceReleaseAction(input: { workspaceId: number; storeId?: number; draftVersionId?: number; requestedByUserId: number; actionType: "export" | "publish" | "rollback" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (input.draftVersionId && !(await getWorkspaceDraftVersion(input.workspaceId, input.draftVersionId))) return undefined;
+  if (input.storeId && !(await getWorkspaceStore(input.workspaceId, input.storeId))) return undefined;
+  if ((input.actionType === "publish" || input.actionType === "rollback") && !input.storeId) return undefined;
+  const eligibility = await getWorkspaceReleaseEligibility(input);
+  if (!eligibility.eligible) return undefined;
+  const status = input.actionType === "export" ? "approved" : "pending";
+  const created = await db.insert(releaseActions).values({ ...input, status });
+  const rows = await db.select().from(releaseActions).where(eq(releaseActions.id, Number(created[0].insertId))).limit(1);
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.requestedByUserId, eventType: "release.requested", entityType: "release_action", entityId: String(rows[0]?.id ?? 0), details: { actionType: input.actionType, storeId: input.storeId, draftVersionId: input.draftVersionId } });
+  return rows[0];
+}
+
+export async function approveWorkspaceReleaseAction(input: { workspaceId: number; releaseActionId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const action = await getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
+  if (!action || action.status !== "pending") return undefined;
+  await db.update(releaseActions).set({ status: "approved" }).where(eq(releaseActions.id, input.releaseActionId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "release.approved", entityType: "release_action", entityId: String(input.releaseActionId), details: { actionType: action.actionType } });
+  return getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
+}
+
+export async function cancelWorkspaceReleaseAction(input: { workspaceId: number; releaseActionId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const action = await getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
+  if (!action || (action.status !== "pending" && action.status !== "approved")) return undefined;
+  await db.update(releaseActions).set({ status: "cancelled", completedAt: new Date() }).where(eq(releaseActions.id, input.releaseActionId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "release.cancelled", entityType: "release_action", entityId: String(input.releaseActionId), details: { actionType: action.actionType } });
+  return getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
 }
 
 export async function getWorkspaceSubscription(workspaceId: number) {

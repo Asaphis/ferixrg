@@ -20,6 +20,8 @@ const sessionMocks = vi.hoisted(() => ({
   activity: [{ id: 8, eventType: "workspace.created" }],
   stores: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91, url: "https://atelier.example", updatedAt: new Date() }],
   dashboard: { stores: { total: 1, connected: 1, attention: 0, records: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91 }] }, health: { average: 91, measuredStoreCount: 1 }, issues: { total: 0, open: 0, inProgress: 0, resolved: 0, records: [] }, drafts: { total: 0, active: 0, records: [] }, runs: { total: 0, queued: 0, running: 0, completed: 0, records: [] }, reports: { total: 0, records: [] }, activity: [] },
+  validationRuns: [],
+  releases: [],
   drafts: [],
   draftVersions: { draft: null, versions: [] },
   updateProfile: vi.fn().mockResolvedValue({ id: 1, name: "Maya Turner" }),
@@ -39,6 +41,11 @@ const sessionMocks = vi.hoisted(() => ({
   restoreDraftVersion: vi.fn().mockResolvedValue({ id: 31, designState: "{}" }),
   queueToolRun: vi.fn().mockResolvedValue({ id: 71, status: "queued" }),
   startToolRun: vi.fn().mockResolvedValue({ id: 71, status: "running" }),
+  queueValidationRun: vi.fn().mockResolvedValue({ id: 81, status: "queued" }),
+  startValidationRun: vi.fn().mockResolvedValue({ id: 81, status: "running" }),
+  createReleaseAction: vi.fn().mockResolvedValue({ id: 91, status: "approved", actionType: "export" }),
+  approveReleaseAction: vi.fn().mockResolvedValue({ id: 91, status: "approved" }),
+  cancelReleaseAction: vi.fn().mockResolvedValue({ id: 91, status: "cancelled" }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/lib/trpc", () => ({
@@ -62,6 +69,8 @@ vi.mock("@/lib/trpc", () => ({
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
       },
       dashboard: { useQuery: () => ({ data: sessionMocks.dashboard, isLoading: false }) },
+      validationRuns: { useQuery: () => ({ data: sessionMocks.validationRuns, isLoading: false }) },
+      releases: { useQuery: () => ({ data: sessionMocks.releases, isLoading: false }) },
       drafts: { useQuery: () => ({ data: sessionMocks.drafts, isLoading: false }) },
       draftVersions: { useQuery: () => ({ data: sessionMocks.draftVersions, isLoading: false }) },
       createDraft: { useMutation: () => ({ mutateAsync: sessionMocks.createDraft }) },
@@ -69,6 +78,11 @@ vi.mock("@/lib/trpc", () => ({
       restoreDraftVersion: { useMutation: () => ({ mutateAsync: sessionMocks.restoreDraftVersion }) },
       queueToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.queueToolRun, isPending: false }) },
       startToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.startToolRun, isPending: false }) },
+      queueValidationRun: { useMutation: () => ({ mutateAsync: sessionMocks.queueValidationRun }) },
+      startValidationRun: { useMutation: () => ({ mutateAsync: sessionMocks.startValidationRun }) },
+      createReleaseAction: { useMutation: () => ({ mutateAsync: sessionMocks.createReleaseAction }) },
+      approveReleaseAction: { useMutation: () => ({ mutateAsync: sessionMocks.approveReleaseAction }) },
+      cancelReleaseAction: { useMutation: () => ({ mutateAsync: sessionMocks.cancelReleaseAction }) },
     },
     account: {
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },
@@ -81,7 +95,7 @@ vi.mock("@/lib/trpc", () => ({
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate } } }),
   },
 }));
 

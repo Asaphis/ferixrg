@@ -47,11 +47,19 @@ vi.mock("../db", () => ({
   createWorkspaceReport: vi.fn(),
   listWorkspaceDeveloperHandoffs: vi.fn(),
   createWorkspaceDeveloperHandoff: vi.fn(),
+  listWorkspaceValidationRuns: vi.fn(),
+  queueWorkspaceValidationRun: vi.fn(),
+  startWorkspaceValidationRun: vi.fn(),
+  completeWorkspaceValidationRun: vi.fn(),
+  createWorkspaceReleaseAction: vi.fn(),
+  approveWorkspaceReleaseAction: vi.fn(),
+  cancelWorkspaceReleaseAction: vi.fn(),
   getWorkspaceAccess: vi.fn(),
   getWorkspaceDashboardReadModel: vi.fn(),
+  getWorkspaceReleaseEligibility: vi.fn(),
 }));
 
-import { acceptWorkspaceInvitation, beginStoreConnection, completeWorkspaceToolRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceDashboardReadModel, getWorkspaceStore, getWorkspaceToolRun, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, queueWorkspaceToolRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
@@ -245,5 +253,28 @@ describe("workspace router", () => {
     await expect(caller.workspace.createDeveloperHandoff({ workspaceId: 9, toolRunId: 71, title: "Fix handoff", affectedLocation: "Product page", currentBehavior: "Current", expectedBehavior: "Expected", recommendedImplementation: "Implement", priority: "high", acceptanceCriteria: ["Pass review"] })).resolves.toMatchObject({ id: 111 });
     expect(queueWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ toolId: "storefront-analyzer", requestedByUserId: 42 }));
     expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 71, actorUserId: 42 }));
+  });
+
+  it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
+    vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);
+    vi.mocked(startWorkspaceValidationRun).mockResolvedValue({ id: 121, status: "running" } as never);
+    vi.mocked(completeWorkspaceValidationRun).mockResolvedValue({ id: 121, status: "passed" } as never);
+    vi.mocked(createWorkspaceReleaseAction).mockResolvedValue({ id: 131, actionType: "publish", status: "pending" } as never);
+    vi.mocked(getWorkspaceReleaseEligibility).mockResolvedValue({ eligible: false, reasons: ["The selected draft version needs a passed validation run before publish planning."], hasSupportedConnection: true, passedValidationId: null, priorPublishedReleaseId: null } as never);
+    vi.mocked(approveWorkspaceReleaseAction).mockResolvedValue({ id: 131, status: "approved" } as never);
+    vi.mocked(cancelWorkspaceReleaseAction).mockResolvedValue({ id: 131, status: "cancelled" } as never);
+    vi.mocked(getWorkspaceStore).mockResolvedValue({ id: 10, workspaceId: 9 } as never);
+    vi.mocked(listStoreConnections).mockResolvedValue([{ id: 1, status: "connected" }] as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.queueValidationRun({ workspaceId: 9, draftVersionId: 51 })).resolves.toMatchObject({ id: 121, status: "queued" });
+    await expect(caller.workspace.startValidationRun({ workspaceId: 9, validationRunId: 121 })).resolves.toMatchObject({ status: "running" });
+    await expect(caller.workspace.completeValidationRun({ workspaceId: 9, validationRunId: 121, passed: true, summary: { checks: "passed" } })).resolves.toMatchObject({ status: "passed" });
+    await expect(caller.workspace.createReleaseAction({ workspaceId: 9, storeId: 10, draftVersionId: 51, actionType: "publish" })).resolves.toMatchObject({ id: 131, status: "pending" });
+    await expect(caller.workspace.releaseEligibility({ workspaceId: 9, storeId: 10, draftVersionId: 51, actionType: "publish" })).resolves.toMatchObject({ eligible: false, reasons: [expect.stringMatching(/passed validation/i)] });
+    await expect(caller.workspace.approveReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "approved" });
+    await expect(caller.workspace.cancelReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "cancelled" });
+    expect(createWorkspaceReleaseAction).toHaveBeenCalledWith(expect.objectContaining({ requestedByUserId: 42, actionType: "publish" }));
   });
 });

@@ -498,7 +498,7 @@
 - [ ] Finish unsaved-work protection, live draft selection, and remaining editor-language cleanup. Canonical workspace draft creation, durable version history, side-by-side comparison inputs, restore, activity audit, and S3-backed draft assets are implemented.
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
-- [ ] Implement validation records, release plans, explicit approvals, eligible publish actions, rollback records, and honest unsupported-action boundaries.
+- [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Implement billing, subscription, plan, usage, and entitlement contracts without embedding or requesting payment-provider credentials.
 - [ ] Implement the remaining Platform, Resources, Support, legal-version, feedback, and system-operation contracts behind every approved More action.
 - [ ] Add Cloudflare Workers AI orchestration only after real source, permissions, drafts, tool runs, usage, and audit foundations are complete.
@@ -536,3 +536,11 @@
 - [x] Replace the rendered Analysis screen with live tool-run state and source-context records.
 - [x] Replace the rendered Issue Center and Reports route with live workspace issue, report, and run records plus honest empty/export states.
 - [ ] Replace remaining release and billing usage panels with live scoped data in their dedicated backend phases.
+
+## Blueprint Step 7 — validation and controlled release
+- [x] Add workspace-scoped validation queue, start, completion, listing, version ownership checks, and audit records.
+- [x] Add controlled export, publish, and rollback plan records with explicit approval and cancellation procedures.
+- [x] Gate publish plans behind passed validation, no unresolved critical issues, a supported active connection, administrator approval, and a reasoned eligibility contract.
+- [x] Gate rollback plans behind a supported active connection and a prior published release record; never imply provider execution before an adapter exists.
+- [x] Replace the approved Preview & validate placeholder with a live validation and release-review panel.
+- [ ] Add server-side provider executors that can process approved plans only after platform adapters are configured during deployment.

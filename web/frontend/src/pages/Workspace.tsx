@@ -59,6 +59,8 @@ export default function Workspace() {
   const workspaceActivityQuery = trpc.workspace.activity.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 12 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceStoresQuery = trpc.workspace.stores.list.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceDashboardQuery = trpc.workspace.dashboard.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceValidationRunsQuery = trpc.workspace.validationRuns.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 20 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceReleasesQuery = trpc.workspace.releases.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 20 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceDraftsQuery = trpc.workspace.drafts.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const [activeEditorDraftId, setActiveEditorDraftId] = useState<number | null>(null);
   const resolvedEditorDraftId = activeEditorDraftId ?? workspaceDraftsQuery.data?.[0]?.id ?? null;
@@ -80,6 +82,11 @@ export default function Workspace() {
   const createWorkspaceDraftMutation = trpc.workspace.createDraft.useMutation();
   const saveWorkspaceDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
   const restoreWorkspaceDraftVersionMutation = trpc.workspace.restoreDraftVersion.useMutation();
+  const queueValidationRunMutation = trpc.workspace.queueValidationRun.useMutation();
+  const startValidationRunMutation = trpc.workspace.startValidationRun.useMutation();
+  const createReleaseActionMutation = trpc.workspace.createReleaseAction.useMutation();
+  const approveReleaseActionMutation = trpc.workspace.approveReleaseAction.useMutation();
+  const cancelReleaseActionMutation = trpc.workspace.cancelReleaseAction.useMutation();
   useEffect(() => {
     if (authQuery.isLoading || authQuery.data) return;
     const returnTo = `${window.location.pathname}${window.location.search}`;
@@ -210,7 +217,7 @@ export default function Workspace() {
     if (view === "Issues") return <Issues />;
     if (view === "Redesign") return <Redesign />;
     if (view === "Visual editor") return <Editor />;
-    if (view === "Preview & validate") return <Placeholder title="Validation is ready when a change is." copy="Enter a preview, compare against the original, and run a staged re-scan across the analysis lenses before you save a version." icon={<Monitor />} action="Open a visual preview" />;
+    if (view === "Preview & validate") return <ValidationRelease />;
     if (view === "Versions") return <Placeholder title="Every deliberate change deserves a trace." copy="Review the draft history, compare score changes, restore a prior version, and keep publish decisions grounded in validation evidence." icon={<Activity />} action="Create a baseline version" />;
     if (view === "Reports") return <Reports />;
     if (view === "More") return <MoreFlow />;
@@ -435,6 +442,44 @@ export default function Workspace() {
     const runs = dashboard?.runs.records ?? [];
     return <><PageHeading label={`Reports / ${reports.length} saved`} title="Make the audit easy to act on." copy="Saved report records, their source tool runs, and export availability stay together in this workspace." action={<button className="app-button" onClick={() => changeView("Tools Library")}><FileBarChart /> Start a tool run</button>} />
       <section className="concise-board"><header className="concise-board-header"><div><span className="approved-eyebrow">Workspace delivery</span><h1>Reports</h1><p>Create a report record from an approved tool run, then download it only after a generated artifact is available.</p></div><span className="concise-board-status">{reports.length} saved</span></header><section className="approved-panel concise-more-board">{reports.length ? reports.map(report => <article className="approved-analysis-row" key={report.id}><span><b>{report.title}</b><small>{report.format.toUpperCase()} · {new Date(report.createdAt).toLocaleString()}</small></span><em>{report.storageKey ? "Ready" : "Record"}</em><strong>{report.storageKey ? "Artifact available" : "Awaiting export artifact"}</strong></article>) : <p className="team-empty-state">No report records yet. Complete a tool run and create a report record to keep its evidence and delivery context together.</p>}</section><section className="approved-panel concise-more-board"><div className="approved-panel-title"><div><span className="approved-eyebrow">Recent tool runs</span><h2>Source records available for reporting.</h2></div><button onClick={() => changeView("Tools Library")}>Run a tool <ChevronRight /></button></div>{runs.length ? runs.map(run => <article className="approved-analysis-row" key={run.id}><span><b>{run.toolId}</b><small>{run.sourceType} · {run.status}</small></span><em>{run.status}</em><strong>Run #{run.id}</strong></article>) : <p className="team-empty-state">No tool runs yet. The Tools Library will create real run records here.</p>}</section></section>
+    </>;
+  }
+
+  function ValidationRelease() {
+    const currentVersionId = workspaceDraftVersionsQuery.data?.draft?.currentVersionId ?? null;
+    const validationRuns = workspaceValidationRunsQuery.data ?? [];
+    const releases = workspaceReleasesQuery.data ?? [];
+    const connectedStore = (workspaceStoresQuery.data ?? []).find(store => store.status === "connected");
+    const [notice, setNotice] = useState("");
+    const startValidation = async () => {
+      try {
+        if (!activeWorkspaceId || !currentVersionId) throw new Error("Save a draft version before validation.");
+        const queued = await queueValidationRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, draftVersionId: currentVersionId });
+        await startValidationRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, validationRunId: queued.id });
+        await authUtils.workspace.validationRuns.invalidate();
+        await authUtils.workspace.activity.invalidate();
+        setNotice("Validation is running for the current saved version. Results appear only when a validator records them.");
+      } catch (error) { setNotice(error instanceof Error ? error.message : "We couldn’t start validation."); }
+    };
+    const createRelease = async (actionType: "export" | "publish") => {
+      try {
+        if (!activeWorkspaceId || !currentVersionId) throw new Error("Save a draft version before creating a release plan.");
+        const action = await createReleaseActionMutation.mutateAsync({ workspaceId: activeWorkspaceId, draftVersionId: currentVersionId, storeId: actionType === "publish" ? connectedStore?.id : undefined, actionType });
+        await authUtils.workspace.releases.invalidate();
+        await authUtils.workspace.activity.invalidate();
+        setNotice(actionType === "export" ? "Export plan recorded. A downloadable file appears only after an export artifact is generated." : "Publish plan recorded. It requires explicit approval and a supported provider executor before any live change can occur.");
+      } catch (error) { setNotice(error instanceof Error ? error.message : "We couldn’t create this release plan."); }
+    };
+    const approveRelease = async (id: number) => {
+      try { if (!activeWorkspaceId) return; await approveReleaseActionMutation.mutateAsync({ workspaceId: activeWorkspaceId, releaseActionId: id }); await authUtils.workspace.releases.invalidate(); setNotice("Release plan approved. Provider execution remains gated until a supported connection executor is available."); } catch (error) { setNotice(error instanceof Error ? error.message : "We couldn’t approve this release plan."); }
+    };
+    const cancelRelease = async (id: number) => {
+      try { if (!activeWorkspaceId) return; await cancelReleaseActionMutation.mutateAsync({ workspaceId: activeWorkspaceId, releaseActionId: id }); await authUtils.workspace.releases.invalidate(); setNotice("Release plan cancelled. No live store change was made."); } catch (error) { setNotice(error instanceof Error ? error.message : "We couldn’t cancel this release plan."); }
+    };
+    return <><PageHeading label="Preview & validate / workspace release" title="Validate deliberate changes before release." copy="Validation, export, publish, and rollback all remain explicit workspace records. Live publishing is unavailable until the correct connection and permission are present." action={<button className="app-button" onClick={startValidation}><Monitor /> Run validation</button>} />
+      <section className="concise-board"><section className="approved-panel concise-more-board"><div className="approved-panel-title"><div><span className="approved-eyebrow">Current saved version</span><h2>{currentVersionId ? `Version #${currentVersionId}` : "No saved version selected"}</h2></div><span>{currentVersionId ? "Ready for validation" : "Save a version first"}</span></div><p>{currentVersionId ? "Validation creates a durable run against this exact draft version. It does not publish anything." : "Use the visual editor to save a draft version before entering validation or release review."}</p><div className="concise-action-pair"><button className="approved-primary" disabled={!currentVersionId} onClick={startValidation}>Run validation</button><button className="approved-secondary" disabled={!currentVersionId} onClick={() => createRelease("export")}>Create export plan</button>{connectedStore ? <button className="approved-secondary" disabled={!currentVersionId} onClick={() => createRelease("publish")}>Create publish plan</button> : <button className="approved-secondary" onClick={() => changeView("Stores")}>Connect a supported store</button>}</div></section>
+      <section className="approved-panel concise-more-board"><div className="approved-panel-title"><div><span className="approved-eyebrow">Validation runs</span><h2>Checks remain tied to the saved version.</h2></div><span>{validationRuns.length} records</span></div>{validationRuns.length ? validationRuns.map(run => <article className="approved-analysis-row" key={run.id}><span><b>Version #{run.draftVersionId}</b><small>{run.status} · {new Date(run.createdAt).toLocaleString()}</small></span><em>{run.status}</em><strong>{run.summary ? "Result recorded" : "Awaiting validator output"}</strong></article>) : <p className="team-empty-state">No validation record yet. Start validation from a saved draft version.</p>}</section>
+      <section className="approved-panel concise-more-board"><div className="approved-panel-title"><div><span className="approved-eyebrow">Release plans</span><h2>Approval is separate from execution.</h2></div><span>{releases.length} records</span></div>{releases.length ? releases.map(release => <article className="approved-analysis-row" key={release.id}><span><b>{release.actionType}</b><small>{release.status} · requested {new Date(release.requestedAt).toLocaleString()}</small></span><em>{release.status}</em><div className="concise-action-pair">{release.status === "pending" && <button className="approved-secondary" onClick={() => approveRelease(release.id)}>Approve</button>}{(release.status === "pending" || release.status === "approved") && <button className="approved-secondary" onClick={() => cancelRelease(release.id)}>Cancel</button>}<strong>{release.actionType === "publish" && !release.providerReference ? "Provider execution gated" : "Record available"}</strong></div></article>) : <p className="team-empty-state">No release plan exists. Export plans are safe for saved versions; publish plans require a supported connected store and approval.</p>}</section>{notice && <section className="more-detail-notice"><Check /><div><b>Release status</b><p>{notice}</p></div><button onClick={() => setNotice("")}>Dismiss</button></section>}</section>
     </>;
   }
 
