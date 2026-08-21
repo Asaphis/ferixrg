@@ -51,6 +51,9 @@ export type PublicUrlInspection = {
   formElementCount: number;
   ariaRoleAttributeCount: number;
   skipLinkCount: number;
+  inlineColorDeclarationCount: number;
+  styleBlockColorDeclarationCount: number;
+  observedColorValues: string[];
   bytesRead: number;
 };
 
@@ -176,6 +179,24 @@ function extractUxMarkupIndicators(html: string) {
   };
 }
 
+function extractColorStyleDeclarations(html: string) {
+  const colorDeclaration = /\b(?:color|background-color|border-color|outline-color|fill|stroke)\s*:\s*([^;{}]+)(?:;|$)/gi;
+  const values: string[] = [];
+  const collect = (markup: string) => {
+    let match: RegExpExecArray | null;
+    while ((match = colorDeclaration.exec(markup))) {
+      const value = match[1].trim().replace(/\s+/g, " ").slice(0, 160);
+      if (value && values.length < 30 && !values.includes(value)) values.push(value);
+    }
+  };
+  const inlineStyleAttributes = Array.from(html.matchAll(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi)).map(match => match[2]);
+  const styleBlocks = Array.from(html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)).map(match => match[1]);
+  const count = (styles: string[]) => styles.reduce((total, style) => total + (style.match(colorDeclaration)?.length ?? 0), 0);
+  inlineStyleAttributes.forEach(collect);
+  styleBlocks.forEach(collect);
+  return { inlineColorDeclarationCount: count(inlineStyleAttributes), styleBlockColorDeclarationCount: count(styleBlocks), observedColorValues: values };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -268,6 +289,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const mobileMarkupIndicators = extractMobileMarkupIndicators(html);
   const credibilityStructuredData = extractCredibilityStructuredData(html);
   const uxMarkupIndicators = extractUxMarkupIndicators(html);
+  const colorStyleDeclarations = extractColorStyleDeclarations(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -321,6 +343,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     formElementCount: uxMarkupIndicators.formElementCount,
     ariaRoleAttributeCount: uxMarkupIndicators.ariaRoleAttributeCount,
     skipLinkCount: uxMarkupIndicators.skipLinkCount,
+    inlineColorDeclarationCount: colorStyleDeclarations.inlineColorDeclarationCount,
+    styleBlockColorDeclarationCount: colorStyleDeclarations.styleBlockColorDeclarationCount,
+    observedColorValues: colorStyleDeclarations.observedColorValues,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

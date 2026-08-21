@@ -67,4 +67,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ formElementCount: 1, ariaRoleAttributeCount: 2, skipLinkCount: 1 });
   });
+
+  it("records inline and style-block CSS color declarations without calculating rendered contrast", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><style>.cta { color: #fff; background-color: #123456; }</style></head><body><p style="color: rgb(1, 2, 3); border-color: var(--line)">Text</p></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ inlineColorDeclarationCount: 2, styleBlockColorDeclarationCount: 2, observedColorValues: ["rgb(1, 2, 3)", "var(--line)", "#fff", "#123456"] });
+  });
 });
