@@ -23,6 +23,7 @@ import {
   resourceAcknowledgements,
   subscriptions,
   toolRuns,
+  twoStepLoginChallenges,
   usageLedger,
   validationRuns,
   users,
@@ -767,6 +768,15 @@ export async function createAccountSession(input: { userId: number; tokenHash: s
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   await db.insert(accountTokens).values({ ...input, purpose: "session" });
+}
+
+export async function createTwoStepLoginChallenge(input: { userId: number; tokenHash: string; expiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.transaction(async tx => {
+    await tx.update(twoStepLoginChallenges).set({ consumedAt: new Date() }).where(and(eq(twoStepLoginChallenges.userId, input.userId), sql`${twoStepLoginChallenges.consumedAt} IS NULL`));
+    await tx.insert(twoStepLoginChallenges).values(input);
+  });
 }
 
 export async function isAccountSessionActive(userId: number, tokenHash: string) {
