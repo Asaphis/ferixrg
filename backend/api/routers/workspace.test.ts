@@ -581,6 +581,24 @@ describe("workspace router", () => {
     vi.unstubAllGlobals();
   });
 
+  it("executes the exact UX Analyzer with observed form, role, and skip-link markup only", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"></head><body><a href="#content">Skip to content</a><nav role="navigation"></nav><main id="content" role="main"><form action="/search"><input type="search"></form></main></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 84, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "ux-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 93, toolRunId: 84 } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/84/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/84/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 113, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 84, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 84 });
+
+    expect(result.inspection).toMatchObject({ formElementCount: 1, ariaRoleAttributeCount: 2, skipLinkCount: 1 });
+    expect(result.issues).toEqual([]);
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_ux_markup_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("tracks validation and controlled release plans with editor/admin and connection boundaries", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
     vi.mocked(queueWorkspaceValidationRun).mockResolvedValue({ id: 121, draftVersionId: 51, status: "queued" } as never);

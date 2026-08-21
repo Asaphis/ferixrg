@@ -573,6 +573,7 @@
 - [x] Add durable issue and developer-handoff tables with an additive reviewed migration.
 - [x] Connect the approved tool workflow Run action to real queued and started tool-run records without changing its approved visual structure.
 - [ ] Add per-tool deterministic executors and the Cloudflare AI executor after the remaining aggregate, validation, release, usage, and audit boundaries are completed.
+- [x] Add a bounded UX Analyzer public-URL executor that records observed form, ARIA-role, and skip-link markup only, without usability or accessibility conclusions.
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.

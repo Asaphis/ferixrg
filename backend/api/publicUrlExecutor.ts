@@ -48,6 +48,9 @@ export type PublicUrlInspection = {
   organizationStructuredDataCount: number;
   reviewStructuredDataCount: number;
   aggregateRatingStructuredDataCount: number;
+  formElementCount: number;
+  ariaRoleAttributeCount: number;
+  skipLinkCount: number;
   bytesRead: number;
 };
 
@@ -159,6 +162,20 @@ function extractCredibilityStructuredData(html: string) {
   return counts;
 }
 
+function extractUxMarkupIndicators(html: string) {
+  const anchors = Array.from(html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi));
+  const skipLinkCount = anchors.filter(match => {
+    const href = attribute(match[1], "href");
+    const text = textContent(match[2]);
+    return Boolean(href?.startsWith("#")) && /^skip\b/i.test(text);
+  }).length;
+  return {
+    formElementCount: (html.match(/<form\b[^>]*>/gi) ?? []).length,
+    ariaRoleAttributeCount: (html.match(/\brole\s*=/gi) ?? []).length,
+    skipLinkCount,
+  };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -250,6 +267,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const responsiveIndicators = extractResponsiveIndicators(html);
   const mobileMarkupIndicators = extractMobileMarkupIndicators(html);
   const credibilityStructuredData = extractCredibilityStructuredData(html);
+  const uxMarkupIndicators = extractUxMarkupIndicators(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -300,6 +318,9 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     organizationStructuredDataCount: credibilityStructuredData.organizationStructuredDataCount,
     reviewStructuredDataCount: credibilityStructuredData.reviewStructuredDataCount,
     aggregateRatingStructuredDataCount: credibilityStructuredData.aggregateRatingStructuredDataCount,
+    formElementCount: uxMarkupIndicators.formElementCount,
+    ariaRoleAttributeCount: uxMarkupIndicators.ariaRoleAttributeCount,
+    skipLinkCount: uxMarkupIndicators.skipLinkCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }

@@ -61,4 +61,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ organizationStructuredDataCount: 1, reviewStructuredDataCount: 1, aggregateRatingStructuredDataCount: 1 });
   });
+
+  it("records form, explicit role, and skip-link markup without assessing usability", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><a href="#content">Skip to content</a><nav role="navigation"></nav><main id="content" role="main"><form action="/search"><input type="search"></form></main></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ formElementCount: 1, ariaRoleAttributeCount: 2, skipLinkCount: 1 });
+  });
 });
