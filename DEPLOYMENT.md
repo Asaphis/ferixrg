@@ -2,7 +2,7 @@
 
 FerixRG can be built and deployed without committing or placing secrets in the repository. Configure the values below through the hosting environment, process manager, or secret store. The browser bundle must never receive the server-only values marked **secret**.
 
-> **Deployment boundary.** Store connections, payment collection, and provider-side publishing remain intentionally unavailable until their respective server-side adapters are configured. The platform does not represent these actions as completed when an adapter is absent.
+> **Deployment boundary.** Public-URL analysis, AI proposals, encrypted connection storage, and the Shopify authorization-code callback are implemented. Provider-side publishing, rollback, payment collection, and non-Shopify authorization remain unavailable until their respective server-side adapters are configured. The platform does not represent these actions as completed when an adapter is absent.
 
 ## Required launch configuration
 
@@ -16,6 +16,10 @@ FerixRG can be built and deployed without committing or placing secrets in the r
 | `CF_ACCOUNT_ID` | Server configuration | Identifies the Cloudflare account used for the Workers AI Design Copilot gateway. | Required to enable live Design Copilot replies. |
 | `CF_API_TOKEN` | **Secret** | Authorizes the server-side Cloudflare Workers AI REST call. | Required to enable live Design Copilot replies. Grant Workers AI permissions only. |
 | `CF_AI_MODEL` | Public configuration | Optional override for the server-selected Workers AI model. | Optional. Defaults to `@cf/meta/llama-3.2-3b-instruct`. |
+| `STORE_CONNECTION_ENCRYPTION_KEY` | **Secret** | 32-byte AES-256-GCM key used to encrypt provider credentials at rest. | Required before any managed-store connection can be enabled. Supply 32 random bytes encoded as base64 or 64 hexadecimal characters. |
+| `SHOPIFY_CLIENT_ID` | Server configuration | Shopify app client ID used to build the merchant authorization URL. | Required only when enabling Shopify authorization. |
+| `SHOPIFY_CLIENT_SECRET` | **Secret** | Shopify app client secret used for callback HMAC verification and server-side token exchange. | Required only when enabling Shopify authorization. Never expose it to the browser. |
+| `SHOPIFY_REDIRECT_URI` | Public configuration | Optional exact Shopify callback URL override. | Optional. Defaults to `${FERIXRG_APP_ORIGIN}/api/store-connections/shopify/callback`; register the exact HTTPS URL in Shopify. |
 | `NODE_ENV` | Public configuration | Enables production behavior. | Set to `production`. |
 
 The Cloudflare gateway uses the authenticated REST endpoint `POST /accounts/{account_id}/ai/run/{model_name}`. Cloudflare documents API tokens as the preferred authorization method and lists Workers AI permissions for this endpoint. [1] FerixRG keeps this token server-only, bounds editor context, rejects credential-like request content, records only provider/usage metadata in workspace activity, and measures returned neuron usage in the existing ledger.
@@ -47,15 +51,15 @@ pnpm build
 NODE_ENV=production node dist/index.js
 ```
 
-Run the server behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly matches the public origin, and use a database with TLS enabled when the database provider requires it. After a deployment, verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, and one guarded Design Copilot request before enabling the deployment for external users.
+Run the server behind HTTPS, ensure `FERIXRG_APP_ORIGIN` exactly matches the public origin, and use a database with TLS enabled when the database provider requires it. After a deployment, verify account registration, email delivery, workspace bootstrap, a public-URL source, a non-publishing tool run, one guarded Design Copilot request, and—only in a Shopify development store with the variables configured—the authorization redirect, callback HMAC/state rejection, successful token exchange, encrypted credential persistence, and connected-store readiness. Do not test publish or rollback until a reviewed provider executor exists.
 
 ## Configuration intentionally deferred
 
 Two-step verification remains disabled until its dedicated enrollment and login-challenge implementation is deployed. That implementation will require `TOTP_ENCRYPTION_KEY` as a **server-only secret**, distinct from `JWT_SECRET`, to encrypt pending and active authenticator seeds at rest. It must be versioned for controlled rotation and must never be included in browser configuration. Recovery codes must be stored as one-way hashes rather than as plaintext.
 
-Shopify, WooCommerce, Magento, custom-store authorization, payment collection, provider-backed publishing, and provider-backed rollback each require their own server-side adapter and least-privilege credentials. These are **not** enabled by setting any of the variables above. Their release plans remain gated until an adapter is implemented, configured, and tested.
+WooCommerce, Magento, and custom-store authorization, payment collection, provider-backed publishing, and provider-backed rollback each require their own server-side adapter and least-privilege credentials. Shopify authorization is now implemented behind `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `FERIXRG_APP_ORIGIN`, and `STORE_CONNECTION_ENCRYPTION_KEY`; setting those variables enables only the verified authorization-code flow and read-scope connection status, not publishing. Release plans remain gated until a provider executor is implemented, configured, and tested.
 
-FerixRG now exposes a server-side **provider readiness interface** for Shopify, WooCommerce, Adobe Commerce/Magento, and custom integrations. It records a pending connection request and returns the exact configuration boundary instead of falsely presenting an active authorization URL or a successful connection. Shopify uses an authorization-code flow with verified HMAC/state and a registered callback URL; WooCommerce can use its HTTPS application-authentication endpoint; and Adobe Commerce third-party applications use merchant-approved integrations. [3] [4] [5]
+FerixRG exposes a server-side **provider readiness interface** for Shopify, WooCommerce, Adobe Commerce/Magento, and custom integrations. Shopify now records a pending connection with a one-time expiring state, returns a verified authorization URL only when all server prerequisites are configured, validates callback HMAC and state, checks granted scopes, encrypts the returned credential, and marks the store connected only after the exchange succeeds. WooCommerce, Adobe Commerce/Magento, and custom integrations remain explicit not-configured states until their own reviewed adapters exist. [3] [4] [5]
 
 ## References
 

@@ -671,3 +671,6 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 ## Editor comparison truthfulness
 - [x] Remove fabricated health scores, projected score deltas, and static redesign images from the active version-history editor surface.
 - [x] Show persisted editor-state metadata, measured-health-unavailable labels, and an explicit requirement to run validation or generate a real render before making visual claims.
+
+## Production configuration alignment
+- [x] Update `DEPLOYMENT.md` with the Shopify OAuth variables, AES-256-GCM key requirement, exact callback route, migration/build sequence, and the still-gated publish, rollback, payment, and non-Shopify adapter boundaries.
