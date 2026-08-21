@@ -69,12 +69,12 @@ vi.mock("../db", () => ({
 }));
 
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
-vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
+vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn(), runProductDescriptionGeneratorThroughGateway: vi.fn() }));
 
 import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { failWorkspaceToolRun } from "../db";
 import { storageGet, storagePut } from "../storage";
-import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway } from "../aiGateway";
+import { listCentralAiReadiness, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -201,6 +201,21 @@ describe("workspace router", () => {
     expect(runContentImproverThroughGateway).toHaveBeenCalledWith({ sourceText: "This carefully designed tote keeps daily essentials organized.", instruction: "Make the copy clearer and more concise." });
     expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "content_improver", referenceId: "23" }));
     expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.content_improver.completed", details: expect.objectContaining({ toolRunId: 23, sourceTextLength: 62 }) }));
+  });
+
+  it("runs Product Description Generator only within editor access, accounts for neurons, and retains facts outside audit metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 24, workspaceId: 9, toolId: "product-description-generator" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runProductDescriptionGeneratorThroughGateway).mockResolvedValue({ response: "A versatile canvas tote for everyday essentials. Verify factual accuracy before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.4, promptTokens: 20, completionTokens: 16 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 3 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.generateProductDescription({ workspaceId: 9, toolRunId: 24, productFacts: "Canvas tote. Internal pocket. Adjustable strap." })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2 });
+    expect(runProductDescriptionGeneratorThroughGateway).toHaveBeenCalledWith({ productFacts: "Canvas tote. Internal pocket. Adjustable strap." });
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "product_description_generator", referenceId: "24" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.product_description_generator.completed", details: expect.objectContaining({ toolRunId: 24, productFactsLength: 47 }) }));
   });
 
   it("protects the daily free-neuron reserve before invoking Design Copilot", async () => {

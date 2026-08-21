@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CloudflareAiError, runCloudflareContentImprover, runCloudflareDesignCopilot } from "./cloudflareAi";
+import { CloudflareAiError, runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareProductDescriptionGenerator } from "./cloudflareAi";
 
 describe("Cloudflare Workers AI gateway", () => {
   it("sends only bounded editor context to the configured server-side model and returns measured usage", async () => {
@@ -27,6 +27,18 @@ describe("Cloudflare Workers AI gateway", () => {
 
     fetchMock.mockClear();
     await expect(runCloudflareContentImprover({ sourceText: "password: should-not-leave-this-browser" }, { accountId: "account", apiToken: "token", model: "model" })).rejects.toMatchObject<Partial<CloudflareAiError>>({ code: "invalid_input" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends only supplied product facts to Product Description Generator and rejects credential-like facts before any provider request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ success: true, result: { response: "A versatile canvas tote for everyday essentials. Verify factual accuracy before applying.", usage: { neurons: 0.7, prompt_tokens: 12, completion_tokens: 12 } } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(runCloudflareProductDescriptionGenerator({ productFacts: "Canvas tote. Internal pocket. Adjustable strap." }, { accountId: "account", apiToken: "token", model: "model" })).resolves.toMatchObject({ neurons: 0.7, promptTokens: 12, completionTokens: 12 });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/accounts/account/ai/run/model"), expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer token" }) }));
+
+    fetchMock.mockClear();
+    await expect(runCloudflareProductDescriptionGenerator({ productFacts: "api_key: should-not-leave-this-browser" }, { accountId: "account", apiToken: "token", model: "model" })).rejects.toMatchObject<Partial<CloudflareAiError>>({ code: "invalid_input" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

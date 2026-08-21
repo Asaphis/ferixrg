@@ -57,6 +57,7 @@ const sessionMocks = vi.hoisted(() => ({
   acknowledgeResource: vi.fn().mockResolvedValue({ id: 1, resourceKey: "whats-new" }),
   contentImprove: vi.fn().mockResolvedValue({ response: "Proposed revision: Clearer product copy.\n\nReview before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   designCopilot: vi.fn().mockResolvedValue({ response: "Review the hierarchy and keep the primary action visible.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
+  generateProductDescription: vi.fn().mockResolvedValue({ response: "A versatile canvas tote for everyday essentials. Verify factual accuracy before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   executePublicUrlToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, inspection: { statusCode: 200 }, report: { id: 90 } }),
   reportDownload: vi.fn().mockResolvedValue({ reportId: 90, format: "json", url: "/manus-storage/reports/inspection.json" }),
 }));
@@ -106,6 +107,7 @@ vi.mock("@/lib/trpc", () => ({
       acknowledgeResource: { useMutation: () => ({ mutateAsync: sessionMocks.acknowledgeResource }) },
       contentImprove: { useMutation: () => ({ mutateAsync: sessionMocks.contentImprove }) },
       designCopilot: { useMutation: () => ({ mutateAsync: sessionMocks.designCopilot }) },
+      generateProductDescription: { useMutation: () => ({ mutateAsync: sessionMocks.generateProductDescription }) },
       executePublicUrlToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.executePublicUrlToolRun, isPending: false }) },
       reportDownload: { useMutation: () => ({ mutateAsync: sessionMocks.reportDownload }) },
     },

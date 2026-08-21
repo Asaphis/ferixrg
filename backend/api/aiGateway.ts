@@ -1,5 +1,5 @@
 import { ENV } from "./_core/env";
-import { runCloudflareContentImprover, runCloudflareDesignCopilot, type ContentImproverRequest, type ContentImproverResponse, type DesignCopilotRequest, type DesignCopilotResponse } from "./cloudflareAi";
+import { runCloudflareContentImprover, runCloudflareDesignCopilot, runCloudflareProductDescriptionGenerator, type ContentImproverRequest, type ContentImproverResponse, type DesignCopilotRequest, type DesignCopilotResponse, type ProductDescriptionGeneratorRequest, type ProductDescriptionGeneratorResponse } from "./cloudflareAi";
 
 export type CentralAiProvider = "cloudflare_workers_ai";
 
@@ -15,6 +15,7 @@ export type CentralAiAdapter = {
   readiness(): CentralAiReadiness;
   runDesignCopilot(input: DesignCopilotRequest): Promise<DesignCopilotResponse>;
   runContentImprover(input: ContentImproverRequest): Promise<ContentImproverResponse>;
+  runProductDescriptionGenerator(input: ProductDescriptionGeneratorRequest): Promise<ProductDescriptionGeneratorResponse>;
 };
 
 const cloudflareAdapter: CentralAiAdapter = {
@@ -27,6 +28,7 @@ const cloudflareAdapter: CentralAiAdapter = {
   }),
   runDesignCopilot: input => runCloudflareDesignCopilot(input),
   runContentImprover: input => runCloudflareContentImprover(input),
+  runProductDescriptionGenerator: input => runCloudflareProductDescriptionGenerator(input),
 };
 
 const adapters: Record<CentralAiProvider, CentralAiAdapter> = { cloudflare_workers_ai: cloudflareAdapter };
@@ -48,5 +50,11 @@ export async function runDesignCopilotThroughGateway(input: DesignCopilotRequest
 export async function runContentImproverThroughGateway(input: ContentImproverRequest, provider: CentralAiProvider = "cloudflare_workers_ai") {
   const adapter = getCentralAiAdapter(provider);
   const result = await adapter.runContentImprover(input);
+  return { ...result, provider: adapter.provider };
+}
+
+export async function runProductDescriptionGeneratorThroughGateway(input: ProductDescriptionGeneratorRequest, provider: CentralAiProvider = "cloudflare_workers_ai") {
+  const adapter = getCentralAiAdapter(provider);
+  const result = await adapter.runProductDescriptionGenerator(input);
   return { ...result, provider: adapter.provider };
 }
