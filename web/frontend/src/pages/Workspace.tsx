@@ -83,6 +83,9 @@ export default function Workspace() {
   const removeWorkspaceMemberMutation = trpc.workspace.removeMember.useMutation();
   const cancelWorkspaceInvitationMutation = trpc.workspace.cancelInvitation.useMutation();
   const createPublicUrlSourceMutation = trpc.workspace.stores.createPublicUrlSource.useMutation();
+  const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
+  const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
+  const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
   const createWorkspaceDraftMutation = trpc.workspace.createDraft.useMutation();
   const saveWorkspaceDraftVersionMutation = trpc.workspace.saveDraftVersion.useMutation();
   const restoreWorkspaceDraftVersionMutation = trpc.workspace.restoreDraftVersion.useMutation();
@@ -178,20 +181,24 @@ export default function Workspace() {
     try {
       if (!activeWorkspaceId) throw new Error("Workspace is not ready");
       const name = parsed.hostname.replace(/^www\./, "") || "Public storefront";
-      await createPublicUrlSourceMutation.mutateAsync({ workspaceId: activeWorkspaceId, name, url: parsed.toString() });
+      const sourceRecord = await createPublicUrlSourceMutation.mutateAsync({ workspaceId: activeWorkspaceId, name, url: parsed.toString() });
+      const queuedRun = await queueToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolId: "storefront-analyzer", sourceType: "public_url", storeId: sourceRecord.store.id, inputSummary: { url: parsed.toString(), sourceSnapshotId: sourceRecord.snapshot.id } });
+      const startedRun = await startToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolRunId: queuedRun.id });
+      await executePublicUrlToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolRunId: startedRun.id });
       await authUtils.workspace.stores.list.invalidate();
       await authUtils.workspace.activity.invalidate();
+      await authUtils.workspace.dashboard.invalidate();
+      await authUtils.workspace.reports.invalidate();
       setStoreFlow("url-progress");
     } catch {
       setUrlAnalysisFeedback("error");
       toast.error("We couldn’t save that storefront source", { description: "No analysis was started. Please try again." });
       return;
     }
-    window.setTimeout(() => {
-      setToolFlow("results");
-      changeView("Tools Library");
-      toast.success("URL analysis is ready", { description: "Visible storefront evidence and recommendations are available in Results." });
-    }, 1100);
+    setToolIntent("storefront-analyzer");
+    setToolFlow("results");
+    changeView("Tools Library");
+    toast.success("URL inspection is ready", { description: "Observed storefront evidence and a JSON inspection export are available in the workspace." });
   };
   const finishAuthenticatedLogout = async () => {
     try {

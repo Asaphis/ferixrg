@@ -326,7 +326,7 @@ describe("Workspace mobile behaviour", () => {
     expect(toastMocks.success).toHaveBeenCalledWith("Store connected", expect.any(Object));
   });
 
-  it("gives URL-analysis validation errors, then shows active progress and a success notification", async () => {
+  it("gives URL-analysis validation errors, then runs a real public URL inspection and opens its result", async () => {
     vi.useFakeTimers();
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
@@ -339,12 +339,10 @@ describe("Workspace mobile behaviour", () => {
     expect(toastMocks.error).toHaveBeenCalledWith("Enter a valid storefront URL", expect.any(Object));
     fireEvent.change(view.getByRole("textbox", { name: "Storefront URL" }), { target: { value: "https://atelier-forma.example" } });
     fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     expect(sessionMocks.createPublicUrlSource).toHaveBeenCalledWith({ workspaceId: 1, name: "atelier-forma.example", url: "https://atelier-forma.example/" });
-    expect(view.getByRole("heading", { name: "Analyzing store…" })).toBeTruthy();
-    expect(view.getByText(/Results will open automatically/i)).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(1100); });
-    expect(view.getByRole("heading", { name: /Storefront Analyzer found a clear next step/i })).toBeTruthy();
-    expect(toastMocks.success).toHaveBeenCalledWith("URL analysis is ready", expect.any(Object));
+    expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "storefront-analyzer", sourceType: "public_url" }));
+    expect(sessionMocks.startToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71 });
+    expect(sessionMocks.executePublicUrlToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71 });
   });
 });

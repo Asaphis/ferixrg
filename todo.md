@@ -410,16 +410,16 @@
 
 ## AI hosting decision
 - [ ] Confirm the real free-access limits of NVIDIA development APIs and the compute requirements of self-hosting open models on Ubuntu.
-- [ ] Select one simple AI hosting route for FerixRG development and document the public-launch transition before any installation.
+- [x] Select one simple AI hosting route for FerixRG development and document the public-launch transition before any installation.
 
 ## Existing Ubuntu server assessment
-- [ ] Preserve the existing 8 GB RAM, two-core Ubuntu server for FerixRG application services and define a separate inference route for GPU-only visual AI workloads.
-- [ ] Select the GPU-backed AI inference option that connects securely to the existing Ubuntu server without requiring a frontend or tool rebuild.
+- [x] Preserve the existing 8 GB RAM, two-core Ubuntu server for FerixRG application services and define a separate inference route for GPU-only visual AI workloads.
+- [x] Select the GPU-backed AI inference option that connects securely to the existing Ubuntu server without requiring a frontend or tool rebuild.
 
 ## Hosted multi-model AI platform evaluation
 - [ ] Compare hosted multi-model dashboards and APIs that offer open-source models, visual AI, coding AI, image AI, and agent capabilities for FerixRG.
 - [ ] Verify each provider’s free development access, current limits, production terms, and model-selection workflow before selecting the central connection.
-- [ ] Recommend one provider or provider combination and document the secure backend API connection for the FerixRG Central AI Gateway.
+- [x] Recommend one provider or provider combination and document the secure backend API connection for the FerixRG Central AI Gateway.
 
 ## Ready-made AI service evaluation
 - [x] Identify established API-accessible AI agents and specialist services for FerixRG design, visual editing, code, storefront analysis, content, and automation workflows.
@@ -500,6 +500,7 @@
 - [x] Add the first bounded deterministic public-URL executor: it performs SSRF-aware HTML metadata inspection, records observed evidence only, and stores a generated JSON inspection export through the server-side storage boundary.
 - [x] Replace the remaining static sidebar store summary with the live workspace-scoped store registry and an honest empty state.
 - [x] Replace the remaining static Tools Library store label and summary counts with workspace-scoped live aggregates.
+- [x] Connect the dashboard public-URL analysis action to a real queued, started, evidence-derived Storefront Analyzer run and JSON export.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
 - [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.
