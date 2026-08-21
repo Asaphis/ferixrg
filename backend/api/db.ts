@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityEvents,
@@ -19,6 +19,8 @@ import {
   storeSnapshots,
   stores,
   issueRecords,
+  legalDocuments,
+  resourceAcknowledgements,
   subscriptions,
   toolRuns,
   usageLedger,
@@ -28,6 +30,7 @@ import {
   workspaces,
   workspaceInvitations,
   workspaceMembers,
+  workspaceRequests,
 } from "../database/schema";
 import { ENV } from './_core/env';
 import { entitlementForPlan, type FerixPlan } from "../shared/billingPlans";
@@ -449,6 +452,13 @@ export async function recordWorkspaceUsage(input: { workspaceId: number; userId?
   return (await db.select().from(usageLedger).where(eq(usageLedger.id, Number(inserted[0].insertId))).limit(1))[0];
 }
 
+export async function getWorkspaceAiNeuronUsageSince(workspaceId: number, since: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select({ total: sql<number>`coalesce(sum(${usageLedger.quantity}), 0)` }).from(usageLedger).where(and(eq(usageLedger.workspaceId, workspaceId), eq(usageLedger.category, "ai"), eq(usageLedger.unit, "neurons"), gte(usageLedger.createdAt, since)));
+  return Number(rows[0]?.total ?? 0);
+}
+
 export async function getWorkspaceUsageSummary(workspaceId: number) {
   const [subscription, ledger] = await Promise.all([getWorkspaceSubscription(workspaceId), listWorkspaceUsage(workspaceId, 1_000)]);
   const plan = (subscription?.plan ?? "free") as FerixPlan;
@@ -460,6 +470,34 @@ export async function getWorkspaceUsageSummary(workspaceId: number) {
     usage: { toolRuns: totals.tool_run ?? 0, aiCredits: totals.ai ?? 0, storageBytes: totals.storage ?? 0, exports: totals.export ?? 0, publishActions: totals.publish ?? 0 },
     ledger,
   };
+}
+
+export async function createWorkspaceRequest(input: { workspaceId?: number; submittedByUserId: number; type: "platform_request" | "support" | "problem" | "feedback" | "feature_request"; subject: string; message: string; context?: Record<string, unknown> }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const created = await db.insert(workspaceRequests).values(input);
+  const request = (await db.select().from(workspaceRequests).where(eq(workspaceRequests.id, Number(created[0].insertId))).limit(1))[0];
+  if (request?.workspaceId) await db.insert(activityEvents).values({ workspaceId: request.workspaceId, actorUserId: input.submittedByUserId, eventType: `request.${input.type}.submitted`, entityType: "workspace_request", entityId: String(request.id), details: { subject: input.subject } });
+  return request;
+}
+
+export async function listWorkspaceRequests(workspaceId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(workspaceRequests).where(eq(workspaceRequests.workspaceId, workspaceId)).orderBy(desc(workspaceRequests.createdAt)).limit(limit);
+}
+
+export async function listLegalDocuments(documentKey: "terms" | "privacy") {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(legalDocuments).where(eq(legalDocuments.documentKey, documentKey)).orderBy(desc(legalDocuments.publishedAt));
+}
+
+export async function acknowledgeResource(input: { userId: number; resourceKey: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(resourceAcknowledgements).values(input).onDuplicateKeyUpdate({ set: { acknowledgedAt: new Date() } });
+  return (await db.select().from(resourceAcknowledgements).where(and(eq(resourceAcknowledgements.userId, input.userId), eq(resourceAcknowledgements.resourceKey, input.resourceKey))).limit(1))[0];
 }
 
 export async function listWorkspaceToolRuns(workspaceId: number, limit = 50) {

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   acceptWorkspaceInvitation,
+  acknowledgeResource,
   approveWorkspaceReleaseAction,
   cancelWorkspaceInvitation,
   cancelWorkspaceReleaseAction,
@@ -18,14 +19,17 @@ import {
   createWorkspaceDraftAsset,
   createWorkspaceInvitation,
   createWorkspaceStore,
+  createWorkspaceRequest,
   ensurePersonalWorkspace,
   getWorkspaceSubscription,
   getWorkspaceUsageSummary,
   getWorkspaceStore,
   getWorkspaceDashboardReadModel,
+  getWorkspaceAiNeuronUsageSince,
   getWorkspaceReleaseEligibility,
   getWorkspaceToolRun,
   listUserWorkspaces,
+  listLegalDocuments,
   listWorkspaceActivity,
   listWorkspaceDeveloperHandoffs,
   listWorkspaceDrafts,
@@ -36,6 +40,7 @@ import {
   listWorkspaceReleases,
   listWorkspaceValidationRuns,
   listWorkspaceReports,
+  listWorkspaceRequests,
   listWorkspaceStores,
   listStoreConnections,
   listStoreSnapshots,
@@ -47,6 +52,7 @@ import {
   queueWorkspaceToolRun,
   queueWorkspaceValidationRun,
   recordWorkspaceActivity,
+  recordWorkspaceUsage,
   removeWorkspaceMember,
   restoreWorkspaceDraftVersion,
   saveWorkspaceDraftVersion,
@@ -61,10 +67,13 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
+import { CloudflareAiError, runCloudflareDesignCopilot } from "../cloudflareAi";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
 const invitationRole = z.enum(["admin", "editor", "viewer", "billing"]);
 const platform = z.enum(["shopify", "woocommerce", "magento", "custom", "public_url"]);
+const CLOUDFLARE_FREE_DAILY_NEURON_LIMIT = 10_000;
+const CLOUDFLARE_MAX_REQUEST_NEURON_RESERVE = 125;
 
 function toForbidden(error: unknown): never {
   if (error instanceof Error && error.message.includes("permission")) {
@@ -266,6 +275,46 @@ export const workspaceRouter = router({
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "billing");
       return getWorkspaceUsageSummary(input.workspaceId);
     } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  requests: protectedProcedure.input(workspaceInput.extend({ limit: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return listWorkspaceRequests(input.workspaceId, input.limit);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  submitRequest: protectedProcedure.input(workspaceInput.extend({ type: z.enum(["platform_request", "support", "problem", "feedback", "feature_request"]), subject: z.string().trim().min(3).max(255), message: z.string().trim().min(3).max(10_000), context: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      return createWorkspaceRequest({ ...input, submittedByUserId: ctx.user.id });
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  legalDocuments: protectedProcedure.input(z.object({ documentKey: z.enum(["terms", "privacy"]) })).query(async ({ input }) => listLegalDocuments(input.documentKey)),
+  acknowledgeResource: protectedProcedure.input(z.object({ resourceKey: z.string().trim().min(2).max(128) })).mutation(async ({ ctx, input }) => acknowledgeResource({ userId: ctx.user.id, resourceKey: input.resourceKey })),
+  designCopilot: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), draftId: z.number().int().positive().optional(), message: z.string().trim().min(1).max(12_000), context: z.record(z.string(), z.string().max(500)).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      if (input.toolRunId) {
+        const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+        if (!run || run.toolId !== "ai-design-copilot") throw new TRPCError({ code: "BAD_REQUEST", message: "Design Copilot must run from an active AI Design Copilot tool run." });
+      }
+      if (input.draftId && !(await listWorkspaceDraftVersions(input.workspaceId, input.draftId))) throw new Error("workspace permission denied");
+      const now = new Date();
+      const utcDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const usedNeurons = await getWorkspaceAiNeuronUsageSince(input.workspaceId, utcDayStart);
+      if (usedNeurons > CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - CLOUDFLARE_MAX_REQUEST_NEURON_RESERVE) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Design Copilot has reached the protected free daily capacity for this workspace. It resets at 00:00 UTC." });
+      const response = await runCloudflareDesignCopilot({ message: input.message, ...(input.context ? { context: input.context } : {}) });
+      const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
+      await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "design_copilot", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
+      await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.design_copilot.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: "cloudflare_workers_ai", model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+    } catch (error) {
+      if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
       return toForbidden(error);
     }
   }),

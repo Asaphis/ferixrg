@@ -448,6 +448,56 @@ export const subscriptions = mysqlTable(
   }),
 );
 
+export const workspaceRequests = mysqlTable(
+  "workspaceRequests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    workspaceId: int("workspaceId").references(() => workspaces.id, { onDelete: "set null" }),
+    submittedByUserId: int("submittedByUserId").notNull().references(() => users.id, { onDelete: "restrict" }),
+    type: mysqlEnum("type", ["platform_request", "support", "problem", "feedback", "feature_request"]).notNull(),
+    status: mysqlEnum("status", ["submitted", "triaged", "in_progress", "resolved", "closed"]).default("submitted").notNull(),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    message: text("message").notNull(),
+    context: json("context"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    workspaceTypeIndex: index("workspace_requests_workspace_type_index").on(table.workspaceId, table.type),
+    submitterIndex: index("workspace_requests_submitter_index").on(table.submittedByUserId),
+  }),
+);
+
+export const legalDocuments = mysqlTable(
+  "legalDocuments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    documentKey: mysqlEnum("documentKey", ["terms", "privacy"]).notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    content: text("content").notNull(),
+    effectiveAt: timestamp("effectiveAt").notNull(),
+    publishedAt: timestamp("publishedAt").defaultNow().notNull(),
+  },
+  table => ({
+    documentVersionUnique: uniqueIndex("legal_documents_key_version_unique").on(table.documentKey, table.version),
+    documentPublishedIndex: index("legal_documents_key_published_index").on(table.documentKey, table.publishedAt),
+  }),
+);
+
+export const resourceAcknowledgements = mysqlTable(
+  "resourceAcknowledgements",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    resourceKey: varchar("resourceKey", { length: 128 }).notNull(),
+    acknowledgedAt: timestamp("acknowledgedAt").defaultNow().notNull(),
+  },
+  table => ({
+    userResourceUnique: uniqueIndex("resource_acknowledgements_user_resource_unique").on(table.userId, table.resourceKey),
+  }),
+);
+
 export const editorDrafts = mysqlTable("editorDrafts", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),

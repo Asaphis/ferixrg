@@ -12,6 +12,7 @@ vi.mock("../db", () => ({
   updateWorkspaceMemberRole: vi.fn(),
   removeWorkspaceMember: vi.fn(),
   acceptWorkspaceInvitation: vi.fn(),
+  acknowledgeResource: vi.fn(),
   listWorkspaceInvitations: vi.fn(),
   listWorkspaceStores: vi.fn(),
   createWorkspaceStore: vi.fn(),
@@ -47,7 +48,10 @@ vi.mock("../db", () => ({
   createWorkspaceReport: vi.fn(),
   listWorkspaceDeveloperHandoffs: vi.fn(),
   createWorkspaceDeveloperHandoff: vi.fn(),
+  createWorkspaceRequest: vi.fn(),
   listWorkspaceValidationRuns: vi.fn(),
+  listWorkspaceRequests: vi.fn(),
+  listLegalDocuments: vi.fn(),
   queueWorkspaceValidationRun: vi.fn(),
   startWorkspaceValidationRun: vi.fn(),
   completeWorkspaceValidationRun: vi.fn(),
@@ -58,10 +62,15 @@ vi.mock("../db", () => ({
   getWorkspaceDashboardReadModel: vi.fn(),
   getWorkspaceReleaseEligibility: vi.fn(),
   getWorkspaceUsageSummary: vi.fn(),
+  getWorkspaceAiNeuronUsageSince: vi.fn(),
+  recordWorkspaceUsage: vi.fn(),
 }));
 
-import { acceptWorkspaceInvitation, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } }, runCloudflareDesignCopilot: vi.fn() }));
+
+import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
+import { runCloudflareDesignCopilot } from "../cloudflareAi";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -111,6 +120,21 @@ describe("workspace router", () => {
     expect(getWorkspaceUsageSummary).toHaveBeenCalledWith(9);
   });
 
+  it("persists workspace context for platform and support requests while exposing legal and resource actions", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "viewer" } } as never);
+    vi.mocked(createWorkspaceRequest).mockResolvedValue({ id: 141, workspaceId: 9, type: "support", status: "submitted" } as never);
+    vi.mocked(listWorkspaceRequests).mockResolvedValue([{ id: 141, type: "support" }] as never);
+    vi.mocked(listLegalDocuments).mockResolvedValue([] as never);
+    vi.mocked(acknowledgeResource).mockResolvedValue({ id: 1, resourceKey: "whats-new" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.submitRequest({ workspaceId: 9, type: "support", subject: "Need help", message: "Please review this workspace." })).resolves.toMatchObject({ id: 141, type: "support" });
+    await expect(caller.workspace.requests({ workspaceId: 9 })).resolves.toHaveLength(1);
+    await expect(caller.workspace.legalDocuments({ documentKey: "terms" })).resolves.toEqual([]);
+    await expect(caller.workspace.acknowledgeResource({ resourceKey: "whats-new" })).resolves.toMatchObject({ resourceKey: "whats-new" });
+    expect(createWorkspaceRequest).toHaveBeenCalledWith(expect.objectContaining({ submittedByUserId: 42, workspaceId: 9 }));
+  });
+
   it("allows an editor to create a store in an accessible workspace", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(createWorkspaceStore).mockResolvedValue({ id: 3, name: "Atelier Forma" } as never);
@@ -144,6 +168,30 @@ describe("workspace router", () => {
 
     expect(queueWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, requestedByUserId: 42, toolId: "ai-design-copilot" }));
     expect(result).toMatchObject({ id: 22, status: "queued" });
+  });
+
+  it("runs Design Copilot only within editor access, accounts for neurons, and retains a message-free audit record", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 22, workspaceId: 9, toolId: "ai-design-copilot" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runCloudflareDesignCopilot).mockResolvedValue({ response: "Clarify the visual hierarchy, then review it before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2.3, promptTokens: 30, completionTokens: 20 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 1 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.designCopilot({ workspaceId: 9, toolRunId: 22, message: "Make the product call to action easier to notice.", context: { device: "Mobile", element: "Buy button" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 3 });
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 3, unit: "neurons", provider: "cloudflare_workers_ai" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.design_copilot.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+  });
+
+  it("protects the daily free-neuron reserve before invoking Design Copilot", async () => {
+    vi.mocked(runCloudflareDesignCopilot).mockClear();
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(9_900 as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.designCopilot({ workspaceId: 9, message: "Improve the visual hierarchy." })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(runCloudflareDesignCopilot).not.toHaveBeenCalled();
   });
 
   it("allows an admin to change member and pending invitation roles while retaining workspace scope", async () => {

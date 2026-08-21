@@ -50,6 +50,13 @@
       "when": 1787267193146,
       "tag": "0006_lean_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1787272408736,
+      "tag": "0007_living_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

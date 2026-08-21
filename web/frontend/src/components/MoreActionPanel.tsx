@@ -62,7 +62,7 @@ export const moreActionDetails: Record<string, Detail> = {
   "support:Feature requests": { eyebrow: "Help and feedback", title: "Feature requests", copy: "Describe the job you want FerixRG to make easier for your storefront workflow.", metrics: [["Open", "Request status"], ["More", "Context attached"]], fields: [{ label: "Feature request", value: "" }, { label: "Why would this help?", value: "" }], primary: "Submit feature request", completion: "Feature request submitted for review." },
 };
 
-export function MoreActionPanel({ section, action, onBack, profile, preferences, sessions, billing, onSaveProfile, onSavePreferences, onRequestEmailChange, onRequestPasswordReset, onRevokeSession, onRevokeOtherSessions }: { section: string; action: string; onBack: () => void; profile?: AccountProfile; preferences?: AccountPreferences; sessions?: AccountSession[]; billing?: BillingSummary; onSaveProfile?: (input: { name?: string }) => Promise<void>; onSavePreferences?: (input: Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean; twoStepVerification: boolean; securityAlerts: boolean }>) => Promise<void>; onRequestEmailChange?: (input: { email: string }) => Promise<{ delivery: string }>; onRequestPasswordReset?: () => Promise<{ delivery: string }>; onRevokeSession?: (sessionId: number) => Promise<void>; onRevokeOtherSessions?: () => Promise<{ revoked: number }> }) {
+export function MoreActionPanel({ section, action, onBack, profile, preferences, sessions, billing, onSaveProfile, onSavePreferences, onRequestEmailChange, onRequestPasswordReset, onRevokeSession, onRevokeOtherSessions, onSubmitWorkspaceRequest, onReadLegalDocuments, onAcknowledgeResource }: { section: string; action: string; onBack: () => void; profile?: AccountProfile; preferences?: AccountPreferences; sessions?: AccountSession[]; billing?: BillingSummary; onSaveProfile?: (input: { name?: string }) => Promise<void>; onSavePreferences?: (input: Partial<{ defaultPreview: "desktop" | "tablet" | "mobile"; analysisReadyNotifications: boolean; draftReviewNotifications: boolean; publishingReadinessNotifications: boolean; releaseNotes: boolean; productResearch: boolean; reduceMotion: boolean; increaseContrast: boolean; visibleKeyboardFocus: boolean; twoStepVerification: boolean; securityAlerts: boolean }>) => Promise<void>; onRequestEmailChange?: (input: { email: string }) => Promise<{ delivery: string }>; onRequestPasswordReset?: () => Promise<{ delivery: string }>; onRevokeSession?: (sessionId: number) => Promise<void>; onRevokeOtherSessions?: () => Promise<{ revoked: number }>; onSubmitWorkspaceRequest?: (input: { type: "platform_request" | "support" | "problem" | "feedback" | "feature_request"; subject: string; message: string }) => Promise<void>; onReadLegalDocuments?: (documentKey: "terms" | "privacy") => Promise<{ count: number }>; onAcknowledgeResource?: (resourceKey: string) => Promise<void> }) {
   const detail = moreActionDetails[`${section}:${action}`];
   const [selectedChoice, setSelectedChoice] = useState(detail?.choices?.[0] ?? "");
   const [saved, setSaved] = useState("");
@@ -108,6 +108,24 @@ export function MoreActionPanel({ section, action, onBack, profile, preferences,
         setSaved(result.revoked ? `${result.revoked} other signed-in session${result.revoked === 1 ? "" : "s"} revoked.` : "There are no other active sessions to revoke.");
       } else if (section === "billing") {
         setSaved("Billing records are live and read-only. Plan changes, receipts, and payment collection stay unavailable until a server-side billing provider is configured.");
+      } else if (section === "platform" && action === "Request a platform" && onSubmitWorkspaceRequest) {
+        const platformName = fieldValues["Platform name"]?.trim();
+        if (!platformName) throw new Error("Enter a platform name before submitting your request.");
+        await onSubmitWorkspaceRequest({ type: "platform_request", subject: `Platform request: ${platformName}`, message: fieldValues["Storefront URL (optional)"]?.trim() || "No storefront URL was supplied." });
+        setSaved("Platform request submitted with the current workspace context.");
+      } else if (section === "support" && onSubmitWorkspaceRequest) {
+        const requestType = action === "Contact support" ? "support" : action === "Report a problem" ? "problem" : action === "Send feedback" ? "feedback" : "feature_request";
+        const message = action === "Contact support" ? fieldValues["What do you need help with?"]?.trim() : action === "Report a problem" ? fieldValues["What happened?"]?.trim() : action === "Send feedback" ? fieldValues["Your feedback"]?.trim() : fieldValues["Feature request"]?.trim();
+        const subject = action === "Contact support" ? fieldValues.Subject?.trim() : action === "Report a problem" ? "Problem report" : action === "Send feedback" ? "Product feedback" : fieldValues["Feature request"]?.trim() || "Feature request";
+        if (!message || !subject) throw new Error("Complete the required request details before submitting.");
+        await onSubmitWorkspaceRequest({ type: requestType, subject, message: action === "Feature requests" && fieldValues["Why would this help?"]?.trim() ? `${message}\n\nWhy this helps: ${fieldValues["Why would this help?"]?.trim()}` : message });
+        setSaved("Your submission was saved with the current workspace context.");
+      } else if (section === "resources" && (action === "Terms" || action === "Privacy") && onReadLegalDocuments) {
+        const result = await onReadLegalDocuments(action === "Terms" ? "terms" : "privacy");
+        setSaved(result.count ? `${result.count} published ${action.toLowerCase()} version${result.count === 1 ? "" : "s"} is available.` : `No published ${action.toLowerCase()} version is available in this environment yet.`);
+      } else if (section === "resources" && action === "What’s New" && onAcknowledgeResource) {
+        await onAcknowledgeResource("whats-new");
+        setSaved("What’s New was acknowledged for your account.");
       } else {
         setSaved(detail.completion);
       }

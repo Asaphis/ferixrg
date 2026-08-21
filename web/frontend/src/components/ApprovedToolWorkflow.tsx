@@ -98,6 +98,7 @@ export function ApprovedToolWorkflow({
   const [runError, setRunError] = useState("");
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
+  const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
 
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
@@ -133,18 +134,22 @@ export function ApprovedToolWorkflow({
     }
   };
 
-  const sendToAi = (content: string) => {
+  const sendToAi = async (content: string) => {
     if (!content.trim()) return;
-    setMessages(previous => [
-      ...previous,
-      { role: "user", content },
-      {
-        role: "assistant",
-        content: `I prepared a scoped suggestion for **${selectedElement}** on the ${device.toLowerCase()} view. It keeps the current evidence and draft context. Review it beside your current design before applying it.`,
-      },
-    ]);
-    setProposalVisible(true);
+    setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
+    if (tool.id !== "ai-design-copilot" || !workspaceId || !toolRunId) {
+      setMessages(previous => [...previous, { role: "assistant", content: `I prepared a scoped suggestion for **${selectedElement}** on the ${device.toLowerCase()} view. It keeps the current evidence and draft context. Review it beside your current design before applying it.` }]);
+      setProposalVisible(true);
+      return;
+    }
+    try {
+      const result = await designCopilotMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } });
+      setMessages(previous => [...previous, { role: "assistant", content: result.response }]);
+      setProposalVisible(true);
+    } catch (error) {
+      setMessages(previous => [...previous, { role: "assistant", content: error instanceof Error ? error.message : "Design Copilot could not complete this request. Please try again." }]);
+    }
   };
 
   const saveVersion = () => {
