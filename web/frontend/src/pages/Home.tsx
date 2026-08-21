@@ -6,10 +6,9 @@ import { applyLandingParallaxToMontage } from "@/lib/landingMotion";
 import "./landing.css";
 import "./landingMotion.css";
 
-const heroAsset = "/manus-storage/ferixrg-hero-workspace_790b5fe6.png";
-const evidenceAsset = "/manus-storage/ferixrg-analysis-evidence_b61b40c0.png";
-const redesignAsset = "/manus-storage/ferixrg-redesign-compare_034828ad.png";
-const markAsset = "/manus-storage/ferixrg-mark_1f427345.png";
+const heroAsset = "/landing/ferixrg-visual-reference.png";
+const evidenceAsset = "/landing/ferixrg-visual-analysis.png";
+const redesignAsset = "/landing/ferixrg-visual-redesign.png";
 const landingVisuals = [
   { src: "/landing/ferixrg-visual-reference.png", alt: "FerixRG storefront intelligence workspace" },
   { src: "/landing/ferixrg-visual-analysis.png", alt: "AI storefront analysis evidence" },
@@ -19,7 +18,7 @@ const landingVisuals = [
 ];
 
 function Brand() {
-  return <a className="landing-brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>;
+  return <a className="landing-brand" href="/"><span className="landing-mark" aria-hidden="true">◇</span><span>FERIX<b>RG</b></span></a>;
 }
 
 function PrimaryButton({ children, onClick, className = "" }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
