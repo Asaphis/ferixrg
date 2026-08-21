@@ -253,6 +253,31 @@ describe("workspace router", () => {
     expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
   });
 
+  it("runs Content Editor only from its exact tool run, returns a reviewable revision, and records bounded usage metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 31, workspaceId: 9, toolId: "content-editor" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runContentImproverThroughGateway).mockResolvedValue({ response: "Proposed revision: Clearer product copy. Review before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.1, promptTokens: 24, completionTokens: 16 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 7 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.contentEditorProposal({ workspaceId: 9, toolRunId: 31, sourceText: "This tote keeps your daily essentials together.", instruction: "Make this product copy clearer while preserving facts." })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2 });
+    expect(runContentImproverThroughGateway).toHaveBeenCalledWith({ sourceText: "This tote keeps your daily essentials together.", instruction: "Make this product copy clearer while preserving facts." });
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "content_editor", referenceId: "31" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.content_editor.completed", details: expect.objectContaining({ toolRunId: 31, sourceTextLength: 47 }) }));
+  });
+
+  it("rejects Content Editor proposals when the supplied tool run belongs to another operation", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 32, workspaceId: 9, toolId: "ai-content-improver" } as never);
+    vi.mocked(runContentImproverThroughGateway).mockClear();
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.contentEditorProposal({ workspaceId: 9, toolRunId: 32, sourceText: "Revise this copy." })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("Content Editor") });
+    expect(runContentImproverThroughGateway).not.toHaveBeenCalled();
+  });
+
   it("runs Product Description Generator only within editor access, accounts for neurons, and retains facts outside audit metadata", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 24, workspaceId: 9, toolId: "product-description-generator" } as never);
