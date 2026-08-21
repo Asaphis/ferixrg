@@ -42,6 +42,7 @@ const sessionMocks = vi.hoisted(() => ({
   removeMember: vi.fn().mockResolvedValue({ success: true }),
   cancelInvitation: vi.fn().mockResolvedValue({ success: true }),
   createPublicUrlSource: vi.fn().mockResolvedValue({ store: { id: 11, name: "yourstore.com" }, snapshot: { id: 12, sourceType: "url_scan" } }),
+  beginConnection: vi.fn().mockResolvedValue({ id: 31, status: "pending", readiness: { message: "Connection request recorded for review." } }),
   createDraft: vi.fn().mockResolvedValue({ draft: { id: 21 }, version: { id: 31 } }),
   saveDraftVersion: vi.fn().mockResolvedValue({ id: 32, designState: "{}" }),
   restoreDraftVersion: vi.fn().mockResolvedValue({ id: 31, designState: "{}" }),
@@ -92,6 +93,7 @@ vi.mock("@/lib/trpc", () => ({
         providerReadiness: { useQuery: () => ({ data: [{ provider: "shopify", configured: false, authorizationMode: "oauth_redirect", supportsPublish: false, supportsRollback: false, message: "Setup required" }], isLoading: false }) },
         list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
+        beginConnection: { useMutation: () => ({ mutateAsync: sessionMocks.beginConnection }) },
       },
       aiProviderReadiness: { useQuery: () => ({ data: [{ provider: "cloudflare_workers_ai", configured: false, model: "@cf/meta/llama-3.2-3b-instruct", message: "Setup required" }], isLoading: false }) },
       dashboard: { useQuery: () => ({ data: sessionMocks.dashboard, isLoading: false }) },
@@ -427,18 +429,15 @@ describe("Workspace mobile behaviour", () => {
     expect(view.queryByRole("dialog")).toBeNull();
   });
 
-  it("shows Store connection loading feedback before confirming a successful connection", async () => {
-    vi.useFakeTimers();
+  it("records Store connection requests through the backend readiness contract", async () => {
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
     fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
     fireEvent.click(view.getByRole("button", { name: /Shopify/i }));
     fireEvent.click(view.getByRole("button", { name: "Connect Store" }));
-    expect(view.getByRole("button", { name: /Connecting securely/i })).toBeTruthy();
-    expect(view.getByText(/Verifying store access/i)).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(900); });
-    expect(view.getByRole("heading", { name: "Atelier Forma" })).toBeTruthy();
-    expect(toastMocks.success).toHaveBeenCalledWith("Store connected", expect.any(Object));
+    await waitFor(() => expect(sessionMocks.beginConnection).toHaveBeenCalledWith({ workspaceId: 1, storeId: 10, provider: "shopify", scopes: ["read_products", "read_content", "read_themes"] }));
+    await waitFor(() => expect(view.getByRole("heading", { name: "Atelier Forma" })).toBeTruthy());
+    expect(toastMocks.success).toHaveBeenCalledWith("Connection request recorded", expect.any(Object));
   });
 
   it("gives URL-analysis validation errors, then runs a real public URL inspection and opens its result", async () => {

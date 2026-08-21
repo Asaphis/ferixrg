@@ -85,6 +85,7 @@ export default function Workspace() {
   const removeWorkspaceMemberMutation = trpc.workspace.removeMember.useMutation();
   const cancelWorkspaceInvitationMutation = trpc.workspace.cancelInvitation.useMutation();
   const createPublicUrlSourceMutation = trpc.workspace.stores.createPublicUrlSource.useMutation();
+  const beginStoreConnectionMutation = trpc.workspace.stores.beginConnection.useMutation();
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
@@ -173,13 +174,22 @@ export default function Workspace() {
   };
   const openTool = (toolId: string) => { setToolIntent(toolId); setToolFlow("library"); changeView("Tools Library"); };
   const openStore = (storeId: string) => { window.history.replaceState({}, "", `/app?store=${storeId}`); setActiveStoreId(storeId); changeView("Store workspace"); };
-  const beginStoreConnection = () => {
+  const beginStoreConnection = async () => {
     setConnectionFeedback("loading");
-    window.setTimeout(() => {
+    try {
+      if (!activeWorkspaceId) throw new Error("Workspace is not ready.");
+      const connectionStore = workspaceStoresQuery.data?.find(store => String(store.id) === activeStoreId) ?? workspaceStoresQuery.data?.find(store => store.platform === "shopify") ?? workspaceStoresQuery.data?.[0];
+      if (!connectionStore) throw new Error("Save a Shopify store record before starting a connection.");
+      const result = await beginStoreConnectionMutation.mutateAsync({ workspaceId: activeWorkspaceId, storeId: connectionStore.id, provider: "shopify", scopes: ["read_products", "read_content", "read_themes"] });
+      await authUtils.workspace.stores.list.invalidate();
+      await authUtils.workspace.activity.invalidate();
       setConnectionFeedback("idle");
       setStoreFlow("detail");
-      toast.success("Store connected", { description: "Atelier Forma is ready for analysis, preview, and supported publishing." });
-    }, 900);
+      toast.success("Connection request recorded", { description: result.readiness.message });
+    } catch (error) {
+      setConnectionFeedback("error");
+      toast.error("Connection couldn’t be completed", { description: error instanceof Error ? error.message : "No store data or publishing permissions were changed." });
+    }
   };
   const showConnectionError = () => {
     setConnectionFeedback("error");
