@@ -787,6 +787,18 @@ export async function createTwoStepLoginChallenge(input: { userId: number; token
   });
 }
 
+export async function consumeTwoStepLoginChallenge(tokenHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const rows = await tx.select().from(twoStepLoginChallenges).where(eq(twoStepLoginChallenges.tokenHash, tokenHash)).limit(1);
+    const challenge = rows[0];
+    if (!challenge || challenge.consumedAt || challenge.expiresAt.getTime() <= Date.now()) return undefined;
+    await tx.update(twoStepLoginChallenges).set({ consumedAt: new Date() }).where(eq(twoStepLoginChallenges.id, challenge.id));
+    return challenge;
+  });
+}
+
 export async function isAccountSessionActive(userId: number, tokenHash: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
