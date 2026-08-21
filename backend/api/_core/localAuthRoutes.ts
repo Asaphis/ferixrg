@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { confirmAccountEmailChange, consumeTwoStepLoginChallenge, createAccountSession, createLocalAccount, createTwoStepLoginChallenge, getLocalAccountByEmail, getLocalAccountById, getTwoStepAuthenticator, hasEnabledTwoStepAuthenticator, issueAccountToken, resetLocalPassword, verifyLocalAccount } from "../db";
+import { confirmAccountEmailChange, consumeTwoStepLoginChallenge, consumeTwoStepRecoveryCode, createAccountSession, createLocalAccount, createTwoStepLoginChallenge, getLocalAccountByEmail, getLocalAccountById, getTwoStepAuthenticator, hasEnabledTwoStepAuthenticator, issueAccountToken, resetLocalPassword, verifyLocalAccount } from "../db";
 import { createAccountToken, createLocalOpenId, createTwoStepChallengeToken, decryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, verifyPassword, verifyTotpCode } from "../localAuth";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
@@ -16,7 +16,7 @@ const loginInput = z.object({ email: z.string().email().max(320), password: z.st
 const verificationInput = z.object({ token: z.string().min(1).max(512) });
 const emailInput = z.object({ email: z.string().email().max(320) });
 const passwordResetInput = z.object({ token: z.string().min(1).max(512), password: z.string().min(8).max(256) });
-const twoStepChallengeInput = z.object({ challengeToken: z.string().min(24).max(512), code: z.string().trim().regex(/^\d{6}$/) });
+const twoStepChallengeInput = z.object({ challengeToken: z.string().min(24).max(512), code: z.string().trim().regex(/^\d{6}$/).optional(), recoveryCode: z.string().trim().regex(/^([A-F0-9]{4}-){3}[A-F0-9]{4}$/).optional() }).refine(input => Number(Boolean(input.code)) + Number(Boolean(input.recoveryCode)) === 1, "Provide one verification method.");
 
 function respondInvalidInput(res: Response, message = "Invalid account details.") {
   return res.status(400).json({ success: false, message });
@@ -72,7 +72,11 @@ export function registerLocalAuthRoutes(app: Express) {
     const challenge = await consumeTwoStepLoginChallenge(hashAccountToken(parsed.data.challengeToken));
     if (!challenge) return res.status(401).json({ success: false, message: "This verification challenge is invalid or expired." });
     const [account, authenticator] = await Promise.all([getLocalAccountById(challenge.userId), getTwoStepAuthenticator(challenge.userId)]);
-    if (!account || !authenticator?.enabledAt || !verifyTotpCode(decryptTwoStepSecret(authenticator.encryptedSecret), parsed.data.code)) return res.status(401).json({ success: false, message: "The verification code is invalid or expired." });
+    if (!account || !authenticator?.enabledAt) return res.status(401).json({ success: false, message: "The verification code is invalid or expired." });
+    const verified = parsed.data.code
+      ? verifyTotpCode(decryptTwoStepSecret(authenticator.encryptedSecret), parsed.data.code)
+      : Boolean(await consumeTwoStepRecoveryCode({ userId: challenge.userId, codeHash: hashAccountToken(parsed.data.recoveryCode!) }));
+    if (!verified) return res.status(401).json({ success: false, message: "The verification code is invalid or expired." });
     const sessionReference = createAccountToken();
     await createAccountSession({ userId: account.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + ONE_YEAR_MS) });
     const sessionToken = await sdk.createSessionToken(account.openId, { name: account.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: ONE_YEAR_MS });
