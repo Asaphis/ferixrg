@@ -687,3 +687,6 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 ## Production smoke-test surface
 - [x] Add `GET /api/health` with service status and secret-free AI/provider readiness fields for deployment smoke tests.
 - [x] Document the health check, production migration/build/start sequence, and post-deployment verification order.
+
+## Shopify callback security coverage
+- [x] Add callback-route tests for invalid one-time state, invalid HMAC, missing requested scopes, and successful code exchange with credential persistence and safe redirect behavior.
