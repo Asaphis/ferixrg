@@ -587,6 +587,7 @@
 - [x] Add a bounded Layout Analyzer public-URL executor that records observed semantic layout elements only, without visual arrangement, spacing, alignment, hierarchy, or rendering conclusions.
 - [x] Add a bounded Visual Design Analyzer public-URL executor that records observed style-block, color, and font declarations only, without visual-quality, brand, composition, or rendering conclusions.
 - [x] Add a bounded Visual Hierarchy Analyzer public-URL executor that records observed heading levels and text-bearing interactive elements only, without visual hierarchy, emphasis, or rendering conclusions.
+- [x] Add a dedicated proposal-only AI Store Redesign operation through the existing Cloudflare gateway, preserving workspace permission, tool-run context, capacity, usage, and audit boundaries.
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.

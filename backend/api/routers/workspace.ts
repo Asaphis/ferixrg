@@ -363,6 +363,28 @@ export const workspaceRouter = router({
       return toForbidden(error);
     }
   }),
+  aiStoreRedesign: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), draftId: z.number().int().positive().optional(), message: z.string().trim().min(1).max(11_500), context: z.record(z.string(), z.string().max(500)).optional() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      if (input.toolRunId) {
+        const run = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+        if (!run || run.toolId !== "ai-store-redesign") throw new TRPCError({ code: "BAD_REQUEST", message: "AI Store Redesign must run from an active AI Store Redesign tool run." });
+      }
+      if (input.draftId && !(await listWorkspaceDraftVersions(input.workspaceId, input.draftId))) throw new Error("workspace permission denied");
+      const now = new Date();
+      const utcDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const usedNeurons = await getWorkspaceAiNeuronUsageSince(input.workspaceId, utcDayStart);
+      if (usedNeurons > CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - CLOUDFLARE_MAX_REQUEST_NEURON_RESERVE) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "AI Store Redesign has reached the protected free daily capacity for this workspace. It resets at 00:00 UTC." });
+      const response = await runDesignCopilotThroughGateway({ message: `Create a reviewable storefront redesign proposal only. Do not claim that changes were applied, published, accessed, or inspected.\n\n${input.message}`, context: { ...(input.context ?? {}), operation: "AI Store Redesign" } });
+      const billedNeurons = Math.max(1, Math.ceil(response.neurons ?? 1));
+      await recordWorkspaceUsage({ workspaceId: input.workspaceId, userId: ctx.user.id, category: "ai", quantity: billedNeurons, unit: "neurons", provider: response.provider, referenceType: "ai_store_redesign", ...(input.toolRunId ? { referenceId: String(input.toolRunId) } : {}) });
+      await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "ai.store_redesign.completed", entityType: "ai_request", entityId: input.toolRunId ? String(input.toolRunId) : "workspace", details: { provider: response.provider, model: response.model, neurons: billedNeurons, promptTokens: response.promptTokens, completionTokens: response.completionTokens, toolRunId: input.toolRunId ?? null, draftId: input.draftId ?? null } });
+      return { response: response.response, model: response.model, neurons: billedNeurons, remainingEstimatedNeurons: Math.max(0, CLOUDFLARE_FREE_DAILY_NEURON_LIMIT - usedNeurons - billedNeurons) };
+    } catch (error) {
+      if (error instanceof CloudflareAiError) throw new TRPCError({ code: error.code === "invalid_input" ? "BAD_REQUEST" : "PRECONDITION_FAILED", message: error.message });
+      return toForbidden(error);
+    }
+  }),
   contentImprove: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive().optional(), draftId: z.number().int().positive().optional(), sourceText: z.string().trim().min(1).max(12_000), instruction: z.string().trim().min(1).max(600).optional() })).mutation(async ({ ctx, input }) => {
     try {
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");

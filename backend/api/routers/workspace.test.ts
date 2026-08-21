@@ -203,6 +203,31 @@ describe("workspace router", () => {
     expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.content_improver.completed", details: expect.objectContaining({ toolRunId: 23, sourceTextLength: 62 }) }));
   });
 
+  it("runs AI Store Redesign only from its exact tool run, returns a reviewable proposal, and records bounded usage metadata", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 27, workspaceId: 9, toolId: "ai-store-redesign" } as never);
+    vi.mocked(getWorkspaceAiNeuronUsageSince).mockResolvedValue(18 as never);
+    vi.mocked(runDesignCopilotThroughGateway).mockResolvedValue({ response: "Proposal: Clarify the product promise and use a stronger comparison block. Review before applying.", provider: "cloudflare_workers_ai", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1.4, promptTokens: 28, completionTokens: 18 });
+    vi.mocked(recordWorkspaceUsage).mockResolvedValue({ id: 5 } as never);
+    vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.aiStoreRedesign({ workspaceId: 9, toolRunId: 27, message: "Create a more focused storefront direction for a canvas tote.", context: { device: "Mobile", selectedElement: "Hero" } })).resolves.toMatchObject({ model: "@cf/meta/llama-3.2-3b-instruct", neurons: 2 });
+    expect(runDesignCopilotThroughGateway).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("Create a reviewable storefront redesign proposal only."), context: expect.objectContaining({ operation: "AI Store Redesign", device: "Mobile", selectedElement: "Hero" }) }));
+    expect(recordWorkspaceUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, userId: 42, quantity: 2, unit: "neurons", provider: "cloudflare_workers_ai", referenceType: "ai_store_redesign", referenceId: "27" }));
+    expect(recordWorkspaceActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: "ai.store_redesign.completed", details: expect.not.objectContaining({ message: expect.anything() }) }));
+  });
+
+  it("rejects AI Store Redesign when the supplied tool run belongs to another operation", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 28, workspaceId: 9, toolId: "ai-design-copilot" } as never);
+    vi.mocked(runDesignCopilotThroughGateway).mockClear();
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.aiStoreRedesign({ workspaceId: 9, toolRunId: 28, message: "Create a new direction." })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("AI Store Redesign") });
+    expect(runDesignCopilotThroughGateway).not.toHaveBeenCalled();
+  });
+
   it("runs Product Description Generator only within editor access, accounts for neurons, and retains facts outside audit metadata", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
     vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 24, workspaceId: 9, toolId: "product-description-generator" } as never);

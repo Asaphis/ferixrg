@@ -111,6 +111,7 @@ export function ApprovedToolWorkflow({
   const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
   const contentImproveMutation = trpc.workspace.contentImprove.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
+  const aiStoreRedesignMutation = trpc.workspace.aiStoreRedesign.useMutation();
   const marketingCopyMutation = trpc.workspace.generateMarketingCopy.useMutation();
   const productDescriptionMutation = trpc.workspace.generateProductDescription.useMutation();
   const createDraftMutation = trpc.workspace.createDraft.useMutation();
@@ -183,13 +184,15 @@ export function ApprovedToolWorkflow({
     if (!content.trim()) return;
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
-    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
+    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-store-redesign" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
       setMessages(previous => [...previous, { role: "assistant", content: `**${tool.name}** does not yet have a dedicated server-side AI operation for this workflow. No AI proposal was generated. You can continue with the manual editor, choose a tool with a live AI operation, or return when this executor is released.` }]);
       setFinishNotice("This tool’s AI operation is not available yet. No simulated result was created.");
       return;
     }
     try {
-      const result = tool.id === "cta-generator" || tool.id === "seo-content-generator" || tool.id === "meta-generator"
+      const result = tool.id === "ai-store-redesign"
+        ? await aiStoreRedesignMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } })
+        : tool.id === "cta-generator" || tool.id === "seo-content-generator" || tool.id === "meta-generator"
         ? await marketingCopyMutation.mutateAsync({ workspaceId, toolRunId, mode: tool.id, sourceFacts: content, instruction: `Draft ${tool.name} output using only these supplied facts.` })
         : tool.id === "product-description-generator"
         ? await productDescriptionMutation.mutateAsync({ workspaceId, toolRunId, productFacts: content, instruction: "Draft a concise product description using only these supplied facts." })
@@ -212,7 +215,7 @@ export function ApprovedToolWorkflow({
     const label = savedVersionCount ? `Saved version ${savedVersionCount + 1}` : "Initial working version";
     try {
       if (!draftId) {
-        const created = await createDraftMutation.mutateAsync({ workspaceId, title: `${tool.name} draft`, source: tool.id === "ai-design-copilot" ? "ai" : "tool", label, note: `Saved from ${tool.name} in the approved editor workflow.`, designState, createdByType: proposalApplied ? "ai" : "user" });
+        const created = await createDraftMutation.mutateAsync({ workspaceId, title: `${tool.name} draft`, source: tool.id === "ai-design-copilot" || tool.id === "ai-store-redesign" ? "ai" : "tool", label, note: `Saved from ${tool.name} in the approved editor workflow.`, designState, createdByType: proposalApplied ? "ai" : "user" });
         setDraftId(created.draft.id);
       } else {
         await saveDraftVersionMutation.mutateAsync({ workspaceId, draftId, label, note: `Saved from ${tool.name} in the approved editor workflow.`, designState, createdByType: proposalApplied ? "ai" : "user" });
