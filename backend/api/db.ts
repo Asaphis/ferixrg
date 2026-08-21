@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import {
   activityEvents,
   accountSecurityEvents,
@@ -47,7 +48,7 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(neon(process.env.DATABASE_URL));
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -106,9 +107,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
+    await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -152,8 +151,8 @@ export async function saveEditorDraft(userId: number, draft: DraftPayload) {
         .where(and(eq(editorDrafts.userId, userId), eq(editorDrafts.storeId, draft.storeId), eq(editorDrafts.pageId, draft.pageId)));
     }
 
-    const result = await tx.insert(editorDrafts).values({ ...draft, userId });
-    const rows = await tx.select().from(editorDrafts).where(eq(editorDrafts.id, Number(result[0].insertId))).limit(1);
+    const [result] = await tx.insert(editorDrafts).values({ ...draft, userId }).returning({ id: editorDrafts.id });
+    const rows = await tx.select().from(editorDrafts).where(eq(editorDrafts.id, result.id)).limit(1);
     return rows[0];
   });
 
@@ -213,13 +212,13 @@ export async function ensurePersonalWorkspace(user: { id: number; name?: string 
     if (duplicate[0]) return duplicate[0];
 
     const workspaceName = user.name?.trim() ? `${user.name.trim()}'s workspace` : "My FerixRG workspace";
-    const inserted = await tx.insert(workspaces).values({
+    const [inserted] = await tx.insert(workspaces).values({
       name: workspaceName,
       slug: personalWorkspaceSlug(user.id),
       ownerUserId: user.id,
-    });
-    const workspaceId = Number(inserted[0].insertId);
-    const memberInserted = await tx.insert(workspaceMembers).values({ workspaceId, userId: user.id, role: "owner" });
+    }).returning({ id: workspaces.id });
+    const workspaceId = inserted.id;
+    const [memberInserted] = await tx.insert(workspaceMembers).values({ workspaceId, userId: user.id, role: "owner" }).returning({ id: workspaceMembers.id });
     await tx.insert(subscriptions).values({ workspaceId, plan: "free", status: "active" });
     await tx.insert(activityEvents).values({
       workspaceId,
@@ -231,7 +230,7 @@ export async function ensurePersonalWorkspace(user: { id: number; name?: string 
     });
 
     const [workspace] = await tx.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
-    const [membership] = await tx.select().from(workspaceMembers).where(eq(workspaceMembers.id, Number(memberInserted[0].insertId))).limit(1);
+    const [membership] = await tx.select().from(workspaceMembers).where(eq(workspaceMembers.id, memberInserted.id)).limit(1);
     if (!workspace || !membership) throw new Error("Failed to create workspace");
     return { workspace, membership };
   });
@@ -281,16 +280,16 @@ export async function createWorkspaceInvitation(input: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const created = await db.insert(workspaceInvitations).values(input);
+  const [created] = await db.insert(workspaceInvitations).values(input).returning({ id: workspaceInvitations.id });
   await db.insert(activityEvents).values({
     workspaceId: input.workspaceId,
     actorUserId: input.invitedByUserId,
     eventType: "team.invitation_created",
     entityType: "workspace_invitation",
-    entityId: String(created[0].insertId),
+    entityId: String(created.id),
     details: { email: input.email, role: input.role },
   });
-  const rows = await db.select().from(workspaceInvitations).where(eq(workspaceInvitations.id, Number(created[0].insertId))).limit(1);
+  const rows = await db.select().from(workspaceInvitations).where(eq(workspaceInvitations.id, created.id)).limit(1);
   return rows[0];
 }
 
@@ -355,7 +354,7 @@ export async function acceptWorkspaceInvitation(input: { tokenHash: string; user
     const invitations = await tx.select().from(workspaceInvitations).where(eq(workspaceInvitations.tokenHash, input.tokenHash)).limit(1);
     const invitation = invitations[0];
     if (!invitation || invitation.status !== "pending" || invitation.expiresAt.getTime() < Date.now() || invitation.email.toLowerCase() !== input.email.toLowerCase()) return undefined;
-    await tx.insert(workspaceMembers).values({ workspaceId: invitation.workspaceId, userId: input.userId, role: invitation.role }).onDuplicateKeyUpdate({ set: { role: invitation.role } });
+    await tx.insert(workspaceMembers).values({ workspaceId: invitation.workspaceId, userId: input.userId, role: invitation.role }).onConflictDoUpdate({ target: [workspaceMembers.workspaceId, workspaceMembers.userId], set: { role: invitation.role } });
     await tx.update(workspaceInvitations).set({ status: "accepted", acceptedAt: new Date() }).where(eq(workspaceInvitations.id, invitation.id));
     await tx.insert(activityEvents).values({ workspaceId: invitation.workspaceId, actorUserId: input.userId, eventType: "team.invitation_accepted", entityType: "workspace_invitation", entityId: String(invitation.id), details: { role: invitation.role } });
     return invitation;
@@ -377,8 +376,8 @@ export async function createWorkspaceStore(input: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const created = await db.insert(stores).values(input);
-  const storeId = Number(created[0].insertId);
+  const [created] = await db.insert(stores).values(input).returning({ id: stores.id });
+  const storeId = created.id;
   await db.insert(activityEvents).values({
     workspaceId: input.workspaceId,
     actorUserId: input.createdByUserId,
@@ -401,8 +400,8 @@ export async function getWorkspaceStore(workspaceId: number, storeId: number) {
 export async function createStoreSnapshot(input: { storeId: number; sourceType: "url_scan" | "store_api" | "screenshot" | "theme_export" | "manual_upload"; sourceUrl?: string; storageKey?: string; summary?: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const created = await db.insert(storeSnapshots).values(input);
-  const rows = await db.select().from(storeSnapshots).where(eq(storeSnapshots.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(storeSnapshots).values(input).returning({ id: storeSnapshots.id });
+  const rows = await db.select().from(storeSnapshots).where(eq(storeSnapshots.id, created.id)).limit(1);
   return rows[0];
 }
 
@@ -415,7 +414,7 @@ export async function listStoreSnapshots(storeId: number) {
 export async function beginStoreConnection(input: { storeId: number; provider: "shopify" | "woocommerce" | "magento" | "custom"; scopes?: string[]; authorizationState?: string; authorizationStateExpiresAt?: Date }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.insert(storeConnections).values({ storeId: input.storeId, provider: input.provider, scopes: input.scopes ?? [], authorizationState: input.authorizationState, authorizationStateExpiresAt: input.authorizationStateExpiresAt, status: "pending" }).onDuplicateKeyUpdate({ set: { scopes: input.scopes ?? [], authorizationState: input.authorizationState, authorizationStateExpiresAt: input.authorizationStateExpiresAt, status: "pending", lastError: null, lastCheckedAt: new Date() } });
+  await db.insert(storeConnections).values({ storeId: input.storeId, provider: input.provider, scopes: input.scopes ?? [], authorizationState: input.authorizationState, authorizationStateExpiresAt: input.authorizationStateExpiresAt, status: "pending" }).onConflictDoUpdate({ target: [storeConnections.storeId, storeConnections.provider], set: { scopes: input.scopes ?? [], authorizationState: input.authorizationState, authorizationStateExpiresAt: input.authorizationStateExpiresAt, status: "pending", lastError: null, lastCheckedAt: new Date() } });
   const rows = await db.select().from(storeConnections).where(and(eq(storeConnections.storeId, input.storeId), eq(storeConnections.provider, input.provider))).limit(1);
   return rows[0];
 }
@@ -439,7 +438,7 @@ export async function setStoreConnectionCredential(input: { connectionId: number
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const encryptedCredential = encryptConnectionCredential(input.credential);
-  await db.insert(connectionSecrets).values({ connectionId: input.connectionId, encryptedCredential }).onDuplicateKeyUpdate({ set: { encryptedCredential, updatedAt: new Date() } });
+  await db.insert(connectionSecrets).values({ connectionId: input.connectionId, encryptedCredential }).onConflictDoUpdate({ target: connectionSecrets.connectionId, set: { encryptedCredential, updatedAt: new Date() } });
 }
 
 export async function getStoreConnectionCredential(connectionId: number) {
@@ -483,8 +482,8 @@ export async function listWorkspaceUsage(workspaceId: number, limit = 100) {
 export async function recordWorkspaceUsage(input: { workspaceId: number; userId?: number; category: "tool_run" | "ai" | "storage" | "export" | "publish"; quantity: number; unit: string; provider?: string; referenceType?: string; referenceId?: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const inserted = await db.insert(usageLedger).values(input);
-  return (await db.select().from(usageLedger).where(eq(usageLedger.id, Number(inserted[0].insertId))).limit(1))[0];
+  const [inserted] = await db.insert(usageLedger).values(input).returning({ id: usageLedger.id });
+  return (await db.select().from(usageLedger).where(eq(usageLedger.id, inserted.id)).limit(1))[0];
 }
 
 export async function getWorkspaceAiNeuronUsageSince(workspaceId: number, since: Date) {
@@ -510,8 +509,8 @@ export async function getWorkspaceUsageSummary(workspaceId: number) {
 export async function createWorkspaceRequest(input: { workspaceId?: number; submittedByUserId: number; type: "platform_request" | "support" | "problem" | "feedback" | "feature_request"; subject: string; message: string; context?: Record<string, unknown> }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const created = await db.insert(workspaceRequests).values(input);
-  const request = (await db.select().from(workspaceRequests).where(eq(workspaceRequests.id, Number(created[0].insertId))).limit(1))[0];
+  const [created] = await db.insert(workspaceRequests).values(input).returning({ id: workspaceRequests.id });
+  const request = (await db.select().from(workspaceRequests).where(eq(workspaceRequests.id, created.id)).limit(1))[0];
   if (request?.workspaceId) await db.insert(activityEvents).values({ workspaceId: request.workspaceId, actorUserId: input.submittedByUserId, eventType: `request.${input.type}.submitted`, entityType: "workspace_request", entityId: String(request.id), details: { subject: input.subject } });
   return request;
 }
@@ -531,7 +530,7 @@ export async function listLegalDocuments(documentKey: "terms" | "privacy") {
 export async function acknowledgeResource(input: { userId: number; resourceKey: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.insert(resourceAcknowledgements).values(input).onDuplicateKeyUpdate({ set: { acknowledgedAt: new Date() } });
+  await db.insert(resourceAcknowledgements).values(input).onConflictDoUpdate({ target: [resourceAcknowledgements.userId, resourceAcknowledgements.resourceKey], set: { acknowledgedAt: new Date() } });
   return (await db.select().from(resourceAcknowledgements).where(and(eq(resourceAcknowledgements.userId, input.userId), eq(resourceAcknowledgements.resourceKey, input.resourceKey))).limit(1))[0];
 }
 
@@ -551,10 +550,10 @@ export async function createWorkspaceDraft(input: { workspaceId: number; storeId
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async tx => {
-    const created = await tx.insert(drafts).values({ workspaceId: input.workspaceId, storeId: input.storeId, title: input.title, source: input.source, createdByUserId: input.createdByUserId });
-    const draftId = Number(created[0].insertId);
-    const version = await tx.insert(draftVersions).values({ draftId, versionNumber: 1, createdByUserId: input.createdByUserId, createdByType: input.createdByType ?? "user", label: input.label, note: input.note, designState: input.designState });
-    const versionId = Number(version[0].insertId);
+    const [created] = await tx.insert(drafts).values({ workspaceId: input.workspaceId, storeId: input.storeId, title: input.title, source: input.source, createdByUserId: input.createdByUserId }).returning({ id: drafts.id });
+    const draftId = created.id;
+    const [version] = await tx.insert(draftVersions).values({ draftId, versionNumber: 1, createdByUserId: input.createdByUserId, createdByType: input.createdByType ?? "user", label: input.label, note: input.note, designState: input.designState }).returning({ id: draftVersions.id });
+    const versionId = version.id;
     await tx.update(drafts).set({ currentVersionId: versionId }).where(eq(drafts.id, draftId));
     await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "draft.created", entityType: "draft", entityId: String(draftId), details: { source: input.source, versionId } });
     const draftRows = await tx.select().from(drafts).where(eq(drafts.id, draftId)).limit(1);
@@ -580,8 +579,8 @@ export async function saveWorkspaceDraftVersion(input: { workspaceId: number; dr
     if (!draftRows[0]) return undefined;
     const prior = await tx.select().from(draftVersions).where(eq(draftVersions.draftId, input.draftId)).orderBy(desc(draftVersions.versionNumber)).limit(1);
     const versionNumber = (prior[0]?.versionNumber ?? 0) + 1;
-    const created = await tx.insert(draftVersions).values({ draftId: input.draftId, versionNumber, createdByUserId: input.createdByUserId, createdByType: input.createdByType ?? "user", label: input.label, note: input.note, designState: input.designState, previewStorageKey: input.previewStorageKey });
-    const versionId = Number(created[0].insertId);
+    const [created] = await tx.insert(draftVersions).values({ draftId: input.draftId, versionNumber, createdByUserId: input.createdByUserId, createdByType: input.createdByType ?? "user", label: input.label, note: input.note, designState: input.designState, previewStorageKey: input.previewStorageKey }).returning({ id: draftVersions.id });
+    const versionId = created.id;
     await tx.update(drafts).set({ currentVersionId: versionId, updatedAt: new Date() }).where(eq(drafts.id, input.draftId));
     await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "draft.version_saved", entityType: "draft_version", entityId: String(versionId), details: { draftId: input.draftId, versionNumber } });
     const rows = await tx.select().from(draftVersions).where(eq(draftVersions.id, versionId)).limit(1);
@@ -620,8 +619,8 @@ export async function createWorkspaceDraftAsset(input: { workspaceId: number; dr
     const version = await db.select().from(draftVersions).where(and(eq(draftVersions.id, input.draftVersionId), eq(draftVersions.draftId, input.draftId))).limit(1);
     if (!version[0]) return undefined;
   }
-  const created = await db.insert(draftAssets).values({ draftId: input.draftId, draftVersionId: input.draftVersionId, kind: input.kind, storageKey: input.storageKey, fileName: input.fileName, mimeType: input.mimeType, createdByUserId: input.createdByUserId });
-  const rows = await db.select().from(draftAssets).where(eq(draftAssets.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(draftAssets).values({ draftId: input.draftId, draftVersionId: input.draftVersionId, kind: input.kind, storageKey: input.storageKey, fileName: input.fileName, mimeType: input.mimeType, createdByUserId: input.createdByUserId }).returning({ id: draftAssets.id });
+  const rows = await db.select().from(draftAssets).where(eq(draftAssets.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "draft.asset_uploaded", entityType: "draft_asset", entityId: String(rows[0]?.id ?? input.draftId), details: { draftId: input.draftId, kind: input.kind, fileName: input.fileName } });
   return rows[0];
 }
@@ -650,9 +649,7 @@ export async function updateAccountProfile(userId: number, input: { name?: strin
 export async function beginAccountEmailChange(input: { userId: number; newEmail: string; tokenHash: string; expiresAt: Date }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.insert(accountEmailChanges).values(input).onDuplicateKeyUpdate({
-    set: { newEmail: input.newEmail, tokenHash: input.tokenHash, expiresAt: input.expiresAt, completedAt: null },
-  });
+  await db.insert(accountEmailChanges).values(input).onConflictDoUpdate({ target: accountEmailChanges.userId, set: { newEmail: input.newEmail, tokenHash: input.tokenHash, expiresAt: input.expiresAt, completedAt: null } });
 }
 
 export async function confirmAccountEmailChange(tokenHash: string) {
@@ -744,7 +741,7 @@ export async function hasEnabledTwoStepAuthenticator(userId: number) {
 export async function savePendingTwoStepAuthenticator(input: { userId: number; encryptedSecret: string; keyVersion: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.insert(twoStepAuthenticators).values({ ...input, enabledAt: null, lastVerifiedAt: null }).onDuplicateKeyUpdate({ set: { encryptedSecret: input.encryptedSecret, keyVersion: input.keyVersion, enabledAt: null, lastVerifiedAt: null } });
+  await db.insert(twoStepAuthenticators).values({ ...input, enabledAt: null, lastVerifiedAt: null }).onConflictDoUpdate({ target: twoStepAuthenticators.userId, set: { encryptedSecret: input.encryptedSecret, keyVersion: input.keyVersion, enabledAt: null, lastVerifiedAt: null } });
   const rows = await db.select({ id: twoStepAuthenticators.id, enabledAt: twoStepAuthenticators.enabledAt }).from(twoStepAuthenticators).where(eq(twoStepAuthenticators.userId, input.userId)).limit(1);
   return rows[0];
 }
@@ -762,8 +759,8 @@ export type AccountSecurityDeliveryState = "not_requested" | "not_configured" | 
 export async function recordAccountSecurityEvent(input: { userId: number; eventType: AccountSecurityEventType; deliveryState?: AccountSecurityDeliveryState }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const inserted = await db.insert(accountSecurityEvents).values({ userId: input.userId, eventType: input.eventType, deliveryState: input.deliveryState ?? "not_requested" });
-  return Number(inserted[0].insertId);
+  const [inserted] = await db.insert(accountSecurityEvents).values({ userId: input.userId, eventType: input.eventType, deliveryState: input.deliveryState ?? "not_requested" }).returning({ id: accountSecurityEvents.id });
+  return inserted.id;
 }
 
 export async function updateAccountSecurityEventDelivery(input: { userId: number; eventId: number; deliveryState: AccountSecurityDeliveryState }) {
@@ -814,15 +811,15 @@ export async function createLocalAccount(input: { openId: string; name: string; 
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async tx => {
-    const created = await tx.insert(users).values({
+    const [created] = await tx.insert(users).values({
       openId: input.openId,
       name: input.name,
       email: input.email,
       loginMethod: "email",
       accountStatus: "pending_verification",
       lastSignedIn: new Date(),
-    });
-    const userId = Number(created[0].insertId);
+    }).returning({ id: users.id });
+    const userId = created.id;
     await tx.insert(authIdentities).values({
       userId,
       provider: "email",
@@ -966,8 +963,8 @@ export async function queueWorkspaceValidationRun(input: { workspaceId: number; 
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (!(await getWorkspaceDraftVersion(input.workspaceId, input.draftVersionId))) return undefined;
-  const created = await db.insert(validationRuns).values({ workspaceId: input.workspaceId, draftVersionId: input.draftVersionId, status: "queued" });
-  const rows = await db.select().from(validationRuns).where(eq(validationRuns.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(validationRuns).values({ workspaceId: input.workspaceId, draftVersionId: input.draftVersionId, status: "queued" }).returning({ id: validationRuns.id });
+  const rows = await db.select().from(validationRuns).where(eq(validationRuns.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "validation.queued", entityType: "validation_run", entityId: String(rows[0]?.id ?? 0), details: { draftVersionId: input.draftVersionId } });
   return rows[0];
 }
@@ -1027,8 +1024,8 @@ export async function createWorkspaceReleaseAction(input: { workspaceId: number;
   const eligibility = await getWorkspaceReleaseEligibility(input);
   if (!eligibility.eligible) return undefined;
   const status = input.actionType === "export" ? "approved" : "pending";
-  const created = await db.insert(releaseActions).values({ ...input, status });
-  const rows = await db.select().from(releaseActions).where(eq(releaseActions.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(releaseActions).values({ ...input, status }).returning({ id: releaseActions.id });
+  const rows = await db.select().from(releaseActions).where(eq(releaseActions.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.requestedByUserId, eventType: "release.requested", entityType: "release_action", entityId: String(rows[0]?.id ?? 0), details: { actionType: input.actionType, storeId: input.storeId, draftVersionId: input.draftVersionId } });
   return rows[0];
 }
@@ -1068,7 +1065,7 @@ export async function getWorkspaceSubscription(workspaceId: number) {
   if (!db) throw new Error("Database is not available");
   const rows = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
   if (rows[0]) return rows[0];
-  await db.insert(subscriptions).values({ workspaceId, plan: "free", status: "active" }).onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+  await db.insert(subscriptions).values({ workspaceId, plan: "free", status: "active" }).onConflictDoUpdate({ target: subscriptions.workspaceId, set: { updatedAt: new Date() } });
   return (await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1))[0];
 }
 
@@ -1083,8 +1080,8 @@ export async function queueWorkspaceToolRun(input: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const created = await db.insert(toolRuns).values(input);
-  const toolRunId = Number(created[0].insertId);
+  const [created] = await db.insert(toolRuns).values(input).returning({ id: toolRuns.id });
+  const toolRunId = created.id;
   await db.insert(usageLedger).values({ workspaceId: input.workspaceId, userId: input.requestedByUserId, category: "tool_run", quantity: 1, unit: "run", referenceType: "tool_run", referenceId: String(toolRunId) });
   await db.insert(activityEvents).values({
     workspaceId: input.workspaceId,
@@ -1146,8 +1143,8 @@ export async function createWorkspaceEvidence(input: { workspaceId: number; tool
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (!(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
-  const created = await db.insert(evidenceItems).values({ toolRunId: input.toolRunId, kind: input.kind, title: input.title, sourceUrl: input.sourceUrl, storageKey: input.storageKey, details: input.details });
-  const rows = await db.select().from(evidenceItems).where(eq(evidenceItems.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(evidenceItems).values({ toolRunId: input.toolRunId, kind: input.kind, title: input.title, sourceUrl: input.sourceUrl, storageKey: input.storageKey, details: input.details }).returning({ id: evidenceItems.id });
+  const rows = await db.select().from(evidenceItems).where(eq(evidenceItems.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "tool_run.evidence_added", entityType: "evidence_item", entityId: String(rows[0]?.id ?? input.toolRunId), details: { toolRunId: input.toolRunId, kind: input.kind } });
   return rows[0];
 }
@@ -1162,8 +1159,8 @@ export async function createWorkspaceIssue(input: { workspaceId: number; storeId
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (input.toolRunId && !(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
-  const created = await db.insert(issueRecords).values({ workspaceId: input.workspaceId, storeId: input.storeId, toolRunId: input.toolRunId, draftId: input.draftId, title: input.title, severity: input.severity, location: input.location, details: input.details });
-  const rows = await db.select().from(issueRecords).where(eq(issueRecords.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(issueRecords).values({ workspaceId: input.workspaceId, storeId: input.storeId, toolRunId: input.toolRunId, draftId: input.draftId, title: input.title, severity: input.severity, location: input.location, details: input.details }).returning({ id: issueRecords.id });
+  const rows = await db.select().from(issueRecords).where(eq(issueRecords.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "issue.created", entityType: "issue", entityId: String(rows[0]?.id ?? 0), details: { severity: input.severity, toolRunId: input.toolRunId } });
   return rows[0];
 }
@@ -1191,8 +1188,8 @@ export async function createWorkspaceReport(input: { workspaceId: number; toolRu
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (input.toolRunId && !(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
-  const created = await db.insert(reports).values(input);
-  const rows = await db.select().from(reports).where(eq(reports.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(reports).values(input).returning({ id: reports.id });
+  const rows = await db.select().from(reports).where(eq(reports.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "report.created", entityType: "report", entityId: String(rows[0]?.id ?? 0), details: { toolRunId: input.toolRunId, format: input.format } });
   return rows[0];
 }
@@ -1207,8 +1204,8 @@ export async function createWorkspaceDeveloperHandoff(input: { workspaceId: numb
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (input.toolRunId && !(await getWorkspaceToolRun(input.workspaceId, input.toolRunId))) return undefined;
-  const created = await db.insert(developerHandoffs).values(input);
-  const rows = await db.select().from(developerHandoffs).where(eq(developerHandoffs.id, Number(created[0].insertId))).limit(1);
+  const [created] = await db.insert(developerHandoffs).values(input).returning({ id: developerHandoffs.id });
+  const rows = await db.select().from(developerHandoffs).where(eq(developerHandoffs.id, created.id)).limit(1);
   await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.createdByUserId, eventType: "developer_handoff.created", entityType: "developer_handoff", entityId: String(rows[0]?.id ?? 0), details: { toolRunId: input.toolRunId, issueId: input.issueId } });
   return rows[0];
 }
