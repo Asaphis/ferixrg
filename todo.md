@@ -499,7 +499,7 @@
 - [ ] Add genuine deterministic and AI/provider tool executors plus generated report/export artifacts. The exact 57-tool registry, source validation, queue/start/complete/fail lifecycle, evidence, issues, reports, and developer-handoff persistence contracts are implemented.
 - [ ] Replace remaining release and billing usage records with workspace- and store-scoped backend read models. The rendered dashboard, analysis, issue center, and report history now use scoped live aggregates, stores, tool runs, issue records, reports, and activity.
 - [ ] Add provider execution adapters for approved publish/rollback plans. Validation records, explicit approval/cancellation, export/publish/rollback plan records, passed-validation and critical-issue gating, supported-connection checks, rollback-history checks, and honest unsupported-action boundaries are implemented.
-- [ ] Implement billing, subscription, plan, usage, and entitlement contracts without embedding or requesting payment-provider credentials.
+- [ ] Add a server-side payment-provider adapter when one is selected. Provider-agnostic subscriptions, plan entitlements, free-plan bootstrap, real tool-run ledger records, live usage summaries, billing access rules, and honest read-only Billing & Usage UI are implemented without credentials.
 - [ ] Implement the remaining Platform, Resources, Support, legal-version, feedback, and system-operation contracts behind every approved More action.
 - [ ] Add Cloudflare Workers AI orchestration only after real source, permissions, drafts, tool runs, usage, and audit foundations are complete.
 - [ ] Add integration tests, migration checks, authorization coverage, responsive UI verification, and deployment configuration documentation for the fully implemented system.
@@ -544,3 +544,9 @@
 - [x] Gate rollback plans behind a supported active connection and a prior published release record; never imply provider execution before an adapter exists.
 - [x] Replace the approved Preview & validate placeholder with a live validation and release-review panel.
 - [ ] Add server-side provider executors that can process approved plans only after platform adapters are configured during deployment.
+
+## Blueprint Step 8 — billing and usage
+- [x] Add provider-agnostic plan entitlements and initialize every workspace with an idempotent active free subscription record.
+- [x] Record actual queued tool-run usage in the workspace ledger and expose a role-protected subscription, ledger, and usage-summary contract.
+- [x] Replace Billing & Usage panel metrics and records with live subscription, entitlement, and ledger data.
+- [x] Keep billing actions explicitly read-only until a server-side payment provider is configured; no payment credentials, checkout, receipts, or subscription changes are simulated.

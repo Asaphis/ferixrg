@@ -30,6 +30,7 @@ import {
   workspaceMembers,
 } from "../database/schema";
 import { ENV } from './_core/env';
+import { entitlementForPlan, type FerixPlan } from "../shared/billingPlans";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -210,6 +211,7 @@ export async function ensurePersonalWorkspace(user: { id: number; name?: string 
     });
     const workspaceId = Number(inserted[0].insertId);
     const memberInserted = await tx.insert(workspaceMembers).values({ workspaceId, userId: user.id, role: "owner" });
+    await tx.insert(subscriptions).values({ workspaceId, plan: "free", status: "active" });
     await tx.insert(activityEvents).values({
       workspaceId,
       actorUserId: user.id,
@@ -438,6 +440,26 @@ export async function listWorkspaceUsage(workspaceId: number, limit = 100) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(usageLedger).where(eq(usageLedger.workspaceId, workspaceId)).orderBy(desc(usageLedger.createdAt)).limit(limit);
+}
+
+export async function recordWorkspaceUsage(input: { workspaceId: number; userId?: number; category: "tool_run" | "ai" | "storage" | "export" | "publish"; quantity: number; unit: string; provider?: string; referenceType?: string; referenceId?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const inserted = await db.insert(usageLedger).values(input);
+  return (await db.select().from(usageLedger).where(eq(usageLedger.id, Number(inserted[0].insertId))).limit(1))[0];
+}
+
+export async function getWorkspaceUsageSummary(workspaceId: number) {
+  const [subscription, ledger] = await Promise.all([getWorkspaceSubscription(workspaceId), listWorkspaceUsage(workspaceId, 1_000)]);
+  const plan = (subscription?.plan ?? "free") as FerixPlan;
+  const entitlements = entitlementForPlan(plan);
+  const totals = ledger.reduce<Record<string, number>>((summary, entry) => { summary[entry.category] = (summary[entry.category] ?? 0) + entry.quantity; return summary; }, {});
+  return {
+    subscription: subscription ?? null,
+    plan: { id: plan, ...entitlements },
+    usage: { toolRuns: totals.tool_run ?? 0, aiCredits: totals.ai ?? 0, storageBytes: totals.storage ?? 0, exports: totals.export ?? 0, publishActions: totals.publish ?? 0 },
+    ledger,
+  };
 }
 
 export async function listWorkspaceToolRuns(workspaceId: number, limit = 50) {
@@ -858,7 +880,9 @@ export async function getWorkspaceSubscription(workspaceId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1);
-  return rows[0];
+  if (rows[0]) return rows[0];
+  await db.insert(subscriptions).values({ workspaceId, plan: "free", status: "active" }).onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+  return (await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId)).limit(1))[0];
 }
 
 export async function queueWorkspaceToolRun(input: {
@@ -874,6 +898,7 @@ export async function queueWorkspaceToolRun(input: {
   if (!db) throw new Error("Database is not available");
   const created = await db.insert(toolRuns).values(input);
   const toolRunId = Number(created[0].insertId);
+  await db.insert(usageLedger).values({ workspaceId: input.workspaceId, userId: input.requestedByUserId, category: "tool_run", quantity: 1, unit: "run", referenceType: "tool_run", referenceId: String(toolRunId) });
   await db.insert(activityEvents).values({
     workspaceId: input.workspaceId,
     actorUserId: input.requestedByUserId,

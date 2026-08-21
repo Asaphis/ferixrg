@@ -20,6 +20,7 @@ import {
   createWorkspaceStore,
   ensurePersonalWorkspace,
   getWorkspaceSubscription,
+  getWorkspaceUsageSummary,
   getWorkspaceStore,
   getWorkspaceDashboardReadModel,
   getWorkspaceReleaseEligibility,
@@ -256,6 +257,14 @@ export const workspaceRouter = router({
     try {
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "billing");
       return listWorkspaceUsage(input.workspaceId, input.limit);
+    } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  usageSummary: protectedProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "billing");
+      return getWorkspaceUsageSummary(input.workspaceId);
     } catch (error) {
       return toForbidden(error);
     }

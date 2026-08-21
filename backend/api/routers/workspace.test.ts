@@ -57,9 +57,10 @@ vi.mock("../db", () => ({
   getWorkspaceAccess: vi.fn(),
   getWorkspaceDashboardReadModel: vi.fn(),
   getWorkspaceReleaseEligibility: vi.fn(),
+  getWorkspaceUsageSummary: vi.fn(),
 }));
 
-import { acceptWorkspaceInvitation, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
 import { storagePut } from "../storage";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
@@ -99,6 +100,15 @@ describe("workspace router", () => {
 
     await expect(caller.workspace.dashboard({ workspaceId: 9 })).resolves.toMatchObject({ stores: { connected: 1 }, issues: { open: 2 } });
     expect(getWorkspaceDashboardReadModel).toHaveBeenCalledWith(9);
+  });
+
+  it("returns the provider-agnostic plan and ledger usage summary only to billing access", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "billing" } } as never);
+    vi.mocked(getWorkspaceUsageSummary).mockResolvedValue({ plan: { id: "free", monthlyToolRuns: 20 }, usage: { toolRuns: 2, aiCredits: 0 }, ledger: [] } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.usageSummary({ workspaceId: 9 })).resolves.toMatchObject({ plan: { id: "free" }, usage: { toolRuns: 2 } });
+    expect(getWorkspaceUsageSummary).toHaveBeenCalledWith(9);
   });
 
   it("allows an editor to create a store in an accessible workspace", async () => {
