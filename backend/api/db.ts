@@ -1002,6 +1002,16 @@ export async function createWorkspaceReleaseAction(input: { workspaceId: number;
   return rows[0];
 }
 
+export async function updateWorkspaceReleaseActionExecution(input: { workspaceId: number; releaseActionId: number; actorUserId: number; status: "processing" | "published" | "reverted" | "failed"; providerReference?: string; errorMessage?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const action = await getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
+  if (!action || (input.status === "processing" ? action.status !== "approved" : action.status !== "processing")) return undefined;
+  await db.update(releaseActions).set({ status: input.status, providerReference: input.providerReference, errorMessage: input.errorMessage, completedAt: input.status === "processing" ? null : new Date() }).where(eq(releaseActions.id, input.releaseActionId));
+  await db.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: `release.${input.status}`, entityType: "release_action", entityId: String(input.releaseActionId), details: { actionType: action.actionType, providerReference: input.providerReference ?? null, hasError: Boolean(input.errorMessage) } });
+  return getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
+}
+
 export async function approveWorkspaceReleaseAction(input: { workspaceId: number; releaseActionId: number; actorUserId: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

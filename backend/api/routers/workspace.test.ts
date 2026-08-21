@@ -62,16 +62,18 @@ vi.mock("../db", () => ({
   getWorkspaceReport: vi.fn(),
   getWorkspaceDashboardReadModel: vi.fn(),
   getWorkspaceDraftVersion: vi.fn(),
+  getWorkspaceReleaseAction: vi.fn(),
   getWorkspaceReleaseEligibility: vi.fn(),
   getWorkspaceUsageSummary: vi.fn(),
   getWorkspaceAiNeuronUsageSince: vi.fn(),
   recordWorkspaceUsage: vi.fn(),
+  updateWorkspaceReleaseActionExecution: vi.fn(),
 }));
 
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
 vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runAccessibilityFixAssistantThroughGateway: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn(), runMarketingCopyThroughGateway: vi.fn(), runProductDescriptionGeneratorThroughGateway: vi.fn() }));
 
-import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseAction, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole, updateWorkspaceReleaseActionExecution } from "../db";
 import { failWorkspaceToolRun } from "../db";
 import { storageGet, storagePut } from "../storage";
 import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
@@ -559,6 +561,23 @@ describe("workspace router", () => {
     expect(storagePut).not.toHaveBeenCalledWith(expect.stringContaining("tool-runs/79"), expect.anything(), expect.anything());
   });
 
+  it("executes the exact Page Analyzer from public URL evidence with page-scoped observed metrics", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html lang="en"><head><title>Product page</title><meta name="viewport" content="width=device-width"><meta name="description" content="A product page"><link rel="canonical" href="https://shop.example/products/tote"></head><body><main><h1>Canvas Tote</h1><p>Everyday carry.</p><a href="/cart">Add to cart</a></main></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 70, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "page-analyzer", inputSummary: { url: "https://shop.example/products/tote" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 81, toolRunId: 70 } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/70/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/70/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 101, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 70, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 70 });
+
+    expect(result.inspection).toMatchObject({ url: "https://shop.example/products/tote", statusCode: 200, title: "Product page", language: "en", headingCount: 1, paragraphCount: 1, mainLandmarkCount: 1 });
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_page_structure_and_metadata_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
   it("executes the exact Heading Structure Analyzer from public URL evidence and records a missing-H1 observation only when observed", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop collections"><link rel="canonical" href="https://shop.example/"></head><body><h2>Collections</h2><h3>Featured</h3></body></html>')); controller.close(); } }) }));
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
@@ -1041,6 +1060,18 @@ describe("workspace router", () => {
     await expect(caller.workspace.approveReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "approved" });
     await expect(caller.workspace.cancelReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "cancelled" });
     expect(createWorkspaceReleaseAction).toHaveBeenCalledWith(expect.objectContaining({ requestedByUserId: 42, actionType: "publish" }));
+  });
+
+  it("executes only approved release plans and fails closed when the provider adapter is not configured", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "admin" } } as never);
+    vi.mocked(getWorkspaceReleaseAction).mockResolvedValue({ id: 132, workspaceId: 9, storeId: 10, actionType: "publish", status: "approved" } as never);
+    vi.mocked(getWorkspaceStore).mockResolvedValue({ id: 10, workspaceId: 9, url: "https://shop.example" } as never);
+    vi.mocked(listStoreConnections).mockResolvedValue([{ id: 1, provider: "shopify", status: "connected" }] as never);
+    vi.mocked(updateWorkspaceReleaseActionExecution).mockClear();
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.executeReleaseAction({ workspaceId: 9, releaseActionId: 132 })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringMatching(/not enabled|not configured/i) });
+    expect(updateWorkspaceReleaseActionExecution).not.toHaveBeenCalled();
   });
 
   it("compares two persisted versions from one draft without visual or scoring claims and creates evidence plus a report", async () => {

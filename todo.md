@@ -637,3 +637,10 @@
 Checkpoint: Accessibility Fix Assistant live proposal workflow completed and validated on 2026-08-21. The operation returns reviewable recommendations only; it does not claim to audit, test, score, make compliant, edit, publish, or change a store.
 
 Remaining next work from the shared replay sequence: checkpoint this capability, then continue with the next remaining backend executor from the exact-tool registry.
+
+## Continued backend execution hardening
+- [x] Add a bounded Page Analyzer public-URL executor using the existing observed page structure and metadata evidence, with a truthful page-specific execution label and report artifact.
+- [x] Add an approved-release execution mutation that enforces admin access, approved-plan state, active supported connection, provider readiness, publish/rollback capability, processing transition, provider reference, failure persistence, and audit metadata.
+- [x] Bind the approved release-review frontend to the explicit provider-execution action while preserving cancellation and fail-closed unsupported states.
+
+Checkpoint note: provider-side execution remains intentionally unavailable for the unconfigured adapters; the new path is ready to activate only when a reviewed deployment adapter advertises configuration and capability.

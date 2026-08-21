@@ -28,6 +28,7 @@ import {
   getWorkspaceDashboardReadModel,
   getWorkspaceDraftVersion,
   getWorkspaceAiNeuronUsageSince,
+  getWorkspaceReleaseAction,
   getWorkspaceReleaseEligibility,
   getWorkspaceToolRun,
   listUserWorkspaces,
@@ -62,6 +63,7 @@ import {
   startWorkspaceValidationRun,
   completeWorkspaceValidationRun,
   updateWorkspaceIssueStatus,
+  updateWorkspaceReleaseActionExecution,
   updateWorkspaceInvitationRole,
   updateWorkspaceMemberRole,
 } from "../db";
@@ -72,6 +74,7 @@ import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolR
 
 const dedicatedPublicUrlExecutorToolIds = new Set([
   "storefront-analyzer",
+  "page-analyzer",
   "heading-structure-analyzer",
   "image-seo-analyzer",
   "seo-analyzer",
@@ -717,7 +720,7 @@ export const workspaceRouter = router({
         if (inspection.metaDescriptionLength === 0) observedIssueInputs.push({ title: "Meta description markup is not declared", severity: "low", details: { observed: "meta description tag absent" } });
         const issues = await Promise.all(observedIssueInputs.map(issue => createWorkspaceIssue({ workspaceId: input.workspaceId, storeId: running.storeId ?? undefined, toolRunId: input.toolRunId, title: issue.title, severity: issue.severity, location: inspection.url, details: { ...issue.details, evidenceId: evidence?.id ?? null, inspectionUrl: inspection.url }, actorUserId: ctx.user.id })));
         const issueRecords = issues.filter((issue): issue is NonNullable<typeof issue> => issue !== undefined).map(issue => ({ id: issue.id, title: issue.title, severity: issue.severity }));
-        const execution = running.toolId === "heading-structure-analyzer" ? "deterministic_heading_structure_inspection" : running.toolId === "image-seo-analyzer" ? "deterministic_image_seo_inspection" : running.toolId === "seo-analyzer" ? "deterministic_seo_metadata_inspection" : running.toolId === "accessibility-analyzer" ? "deterministic_accessibility_indicator_inspection" : running.toolId === "site-structure-analyzer" ? "deterministic_site_structure_indicator_inspection" : running.toolId === "navigation-analyzer" ? "deterministic_navigation_indicator_inspection" : running.toolId === "performance-analyzer" ? "deterministic_fetch_and_document_size_inspection" : running.toolId === "cta-analyzer" ? "deterministic_interactive_text_inspection" : running.toolId === "content-quality-analyzer" ? "deterministic_extracted_text_inspection" : running.toolId === "product-page-analyzer" ? "deterministic_product_json_ld_inspection" : running.toolId === "image-optimization-analyzer" ? "deterministic_image_markup_inspection" : running.toolId === "asset-analyzer" ? "deterministic_asset_reference_inspection" : running.toolId === "responsive-analyzer" ? "deterministic_responsive_markup_inspection" : running.toolId === "mobile-ux-analyzer" ? "deterministic_mobile_markup_inspection" : running.toolId === "trust-credibility-analyzer" ? "deterministic_credibility_structured_data_inspection" : running.toolId === "ux-analyzer" ? "deterministic_ux_markup_inspection" : running.toolId === "color-contrast-analyzer" ? "deterministic_color_style_declaration_inspection" : running.toolId === "typography-analyzer" ? "deterministic_typography_font_family_inspection" : running.toolId === "conversion-analyzer" ? "deterministic_commerce_path_markup_inspection" : running.toolId === "breakpoint-analyzer" ? "deterministic_media_query_condition_inspection" : running.toolId === "collection-analyzer" ? "deterministic_collection_path_link_inspection" : running.toolId === "product-presentation-analyzer" ? "deterministic_product_image_markup_inspection" : running.toolId === "product-content-analyzer" ? "deterministic_product_content_declaration_inspection" : running.toolId === "cart-analyzer" ? "deterministic_cart_path_markup_inspection" : running.toolId === "checkout-ux-analyzer" ? "deterministic_checkout_path_markup_inspection" : running.toolId === "customer-journey-analyzer" ? "deterministic_journey_path_link_inspection" : running.toolId === "layout-analyzer" ? "deterministic_semantic_layout_markup_inspection" : running.toolId === "visual-design-analyzer" ? "deterministic_observed_style_declaration_inspection" : running.toolId === "visual-hierarchy-analyzer" ? "deterministic_heading_and_interactive_markup_inspection" : "deterministic_public_url_inspection";
+        const execution = running.toolId === "page-analyzer" ? "deterministic_page_structure_and_metadata_inspection" : running.toolId === "heading-structure-analyzer" ? "deterministic_heading_structure_inspection" : running.toolId === "image-seo-analyzer" ? "deterministic_image_seo_inspection" : running.toolId === "seo-analyzer" ? "deterministic_seo_metadata_inspection" : running.toolId === "accessibility-analyzer" ? "deterministic_accessibility_indicator_inspection" : running.toolId === "site-structure-analyzer" ? "deterministic_site_structure_indicator_inspection" : running.toolId === "navigation-analyzer" ? "deterministic_navigation_indicator_inspection" : running.toolId === "performance-analyzer" ? "deterministic_fetch_and_document_size_inspection" : running.toolId === "cta-analyzer" ? "deterministic_interactive_text_inspection" : running.toolId === "content-quality-analyzer" ? "deterministic_extracted_text_inspection" : running.toolId === "product-page-analyzer" ? "deterministic_product_json_ld_inspection" : running.toolId === "image-optimization-analyzer" ? "deterministic_image_markup_inspection" : running.toolId === "asset-analyzer" ? "deterministic_asset_reference_inspection" : running.toolId === "responsive-analyzer" ? "deterministic_responsive_markup_inspection" : running.toolId === "mobile-ux-analyzer" ? "deterministic_mobile_markup_inspection" : running.toolId === "trust-credibility-analyzer" ? "deterministic_credibility_structured_data_inspection" : running.toolId === "ux-analyzer" ? "deterministic_ux_markup_inspection" : running.toolId === "color-contrast-analyzer" ? "deterministic_color_style_declaration_inspection" : running.toolId === "typography-analyzer" ? "deterministic_typography_font_family_inspection" : running.toolId === "conversion-analyzer" ? "deterministic_commerce_path_markup_inspection" : running.toolId === "breakpoint-analyzer" ? "deterministic_media_query_condition_inspection" : running.toolId === "collection-analyzer" ? "deterministic_collection_path_link_inspection" : running.toolId === "product-presentation-analyzer" ? "deterministic_product_image_markup_inspection" : running.toolId === "product-content-analyzer" ? "deterministic_product_content_declaration_inspection" : running.toolId === "cart-analyzer" ? "deterministic_cart_path_markup_inspection" : running.toolId === "checkout-ux-analyzer" ? "deterministic_checkout_path_markup_inspection" : running.toolId === "customer-journey-analyzer" ? "deterministic_journey_path_link_inspection" : running.toolId === "layout-analyzer" ? "deterministic_semantic_layout_markup_inspection" : running.toolId === "visual-design-analyzer" ? "deterministic_observed_style_declaration_inspection" : running.toolId === "visual-hierarchy-analyzer" ? "deterministic_heading_and_interactive_markup_inspection" : "deterministic_public_url_inspection";
         const resultSummary = { execution, toolId: running.toolId, inspection, observedIssueIds: issueRecords.map(issue => issue.id) };
         const reportJson = JSON.stringify({ generatedAt: new Date().toISOString(), toolRunId: input.toolRunId, toolId: running.toolId, source: { type: "public_url", url: inspection.url }, inspection, observedIssues: issueRecords }, null, 2);
         const upload = await storagePut(`workspace-${input.workspaceId}/tool-runs/${input.toolRunId}/public-url-inspection.json`, Buffer.from(reportJson), "application/json");
@@ -1035,6 +1038,39 @@ export const workspaceRouter = router({
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId, requiredRole);
       return getWorkspaceReleaseEligibility(input);
     } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  executeReleaseAction: protectedProcedure.input(workspaceInput.extend({ releaseActionId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "admin");
+      const action = await getWorkspaceReleaseAction(input.workspaceId, input.releaseActionId);
+      if (!action || action.status !== "approved") throw new TRPCError({ code: "BAD_REQUEST", message: "Only an approved release plan can be executed." });
+      if (action.actionType === "export") throw new TRPCError({ code: "BAD_REQUEST", message: "Export plans are completed through the generated package flow, not a store provider executor." });
+      if (!action.storeId) throw new TRPCError({ code: "BAD_REQUEST", message: "A store is required before provider execution." });
+      const store = await getWorkspaceStore(input.workspaceId, action.storeId);
+      if (!store) throw new Error("workspace permission denied");
+      const connection = (await listStoreConnections(action.storeId)).find(item => item.status === "connected");
+      if (!connection) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "A supported active store connection is required before provider execution." });
+      const adapter = getStoreProviderAdapter(connection.provider);
+      const readiness = adapter.readiness();
+      const supportsAction = action.actionType === "publish" ? readiness.supportsPublish : readiness.supportsRollback;
+      if (!readiness.configured || !supportsAction) throw new TRPCError({ code: "PRECONDITION_FAILED", message: readiness.message });
+      const processing = await updateWorkspaceReleaseActionExecution({ workspaceId: input.workspaceId, releaseActionId: input.releaseActionId, actorUserId: ctx.user.id, status: "processing" });
+      if (!processing) throw new TRPCError({ code: "BAD_REQUEST", message: "This release plan is no longer available for execution." });
+      try {
+        const result = adapter.executeRelease({ action: action.actionType, storeUrl: store.url });
+        const status = action.actionType === "publish" ? "published" : "reverted";
+        const completed = await updateWorkspaceReleaseActionExecution({ workspaceId: input.workspaceId, releaseActionId: input.releaseActionId, actorUserId: ctx.user.id, status, providerReference: result.providerReference });
+        if (!completed) throw new Error("The provider result could not be recorded.");
+        return { action: completed, readiness, providerReference: result.providerReference };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "The provider could not execute this release plan.";
+        await updateWorkspaceReleaseActionExecution({ workspaceId: input.workspaceId, releaseActionId: input.releaseActionId, actorUserId: ctx.user.id, status: "failed", errorMessage: message });
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message });
+      }
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
       return toForbidden(error);
     }
   }),

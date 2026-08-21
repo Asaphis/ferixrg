@@ -15,7 +15,7 @@ export type StoreProviderAdapter = {
   provider: ManagedStoreProvider;
   readiness(): ProviderReadiness;
   beginAuthorization(input: { storeUrl: string; requestedScopes: string[] }): { status: "not_configured"; message: string };
-  executeRelease(input: { action: "publish" | "rollback"; storeUrl: string }): never;
+  executeRelease(input: { action: "publish" | "rollback"; storeUrl: string }): { providerReference: string };
 };
 
 function unsupportedRelease(provider: ManagedStoreProvider): never {
