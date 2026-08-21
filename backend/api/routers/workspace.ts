@@ -302,9 +302,10 @@ export const workspaceRouter = router({
         const adapter = getStoreProviderAdapter(input.provider);
         const readiness = adapter.readiness();
         if (!readiness.configured) throw new TRPCError({ code: "PRECONDITION_FAILED", message: readiness.message });
-        const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes });
         const authorization = adapter.beginAuthorization({ storeUrl: store.url ?? "", requestedScopes: input.scopes ?? [] });
-        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider, configured: readiness.configured } });
+        if (authorization.status !== "authorization_required") throw new TRPCError({ code: "PRECONDITION_FAILED", message: authorization.message });
+        const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes, authorizationState: authorization.state, authorizationStateExpiresAt: new Date(Date.now() + 10 * 60 * 1000) });
+        await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider, configured: readiness.configured, requestedScopes: input.scopes ?? [] } });
         return { ...connection, readiness, authorization };
       } catch (error) {
         return toForbidden(error);

@@ -5,6 +5,7 @@ import {
   accountSecurityEvents,
   accountEmailChanges,
   accountTokens,
+  connectionSecrets,
   authIdentities,
   drafts,
   draftAssets,
@@ -38,6 +39,7 @@ import {
 } from "../database/schema";
 import { ENV } from './_core/env';
 import { entitlementForPlan, type FerixPlan } from "../shared/billingPlans";
+import { decryptConnectionCredential, encryptConnectionCredential } from "./connectionSecrets";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -410,10 +412,10 @@ export async function listStoreSnapshots(storeId: number) {
   return db.select().from(storeSnapshots).where(eq(storeSnapshots.storeId, storeId)).orderBy(desc(storeSnapshots.capturedAt));
 }
 
-export async function beginStoreConnection(input: { storeId: number; provider: "shopify" | "woocommerce" | "magento" | "custom"; scopes?: string[] }) {
+export async function beginStoreConnection(input: { storeId: number; provider: "shopify" | "woocommerce" | "magento" | "custom"; scopes?: string[]; authorizationState?: string; authorizationStateExpiresAt?: Date }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.insert(storeConnections).values({ storeId: input.storeId, provider: input.provider, scopes: input.scopes ?? [], status: "pending" }).onDuplicateKeyUpdate({ set: { scopes: input.scopes ?? [], status: "pending", lastError: null, lastCheckedAt: new Date() } });
+  await db.insert(storeConnections).values({ storeId: input.storeId, provider: input.provider, scopes: input.scopes ?? [], authorizationState: input.authorizationState, authorizationStateExpiresAt: input.authorizationStateExpiresAt, status: "pending" }).onDuplicateKeyUpdate({ set: { scopes: input.scopes ?? [], authorizationState: input.authorizationState, authorizationStateExpiresAt: input.authorizationStateExpiresAt, status: "pending", lastError: null, lastCheckedAt: new Date() } });
   const rows = await db.select().from(storeConnections).where(and(eq(storeConnections.storeId, input.storeId), eq(storeConnections.provider, input.provider))).limit(1);
   return rows[0];
 }
@@ -422,6 +424,35 @@ export async function listStoreConnections(storeId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(storeConnections).where(eq(storeConnections.storeId, storeId)).orderBy(desc(storeConnections.updatedAt));
+}
+
+export async function getStoreConnectionByAuthorizationState(provider: "shopify" | "woocommerce" | "magento" | "custom", authorizationState: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select({ connection: storeConnections, store: stores }).from(storeConnections).innerJoin(stores, eq(storeConnections.storeId, stores.id)).where(and(eq(storeConnections.provider, provider), eq(storeConnections.authorizationState, authorizationState))).limit(1);
+  const row = rows[0];
+  if (!row || !row.connection.authorizationStateExpiresAt || row.connection.authorizationStateExpiresAt.getTime() < Date.now()) return undefined;
+  return row;
+}
+
+export async function setStoreConnectionCredential(input: { connectionId: number; credential: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const encryptedCredential = encryptConnectionCredential(input.credential);
+  await db.insert(connectionSecrets).values({ connectionId: input.connectionId, encryptedCredential }).onDuplicateKeyUpdate({ set: { encryptedCredential, updatedAt: new Date() } });
+}
+
+export async function getStoreConnectionCredential(connectionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const row = (await db.select().from(connectionSecrets).where(eq(connectionSecrets.connectionId, connectionId)).limit(1))[0];
+  return row ? decryptConnectionCredential(row.encryptedCredential) : undefined;
+}
+
+export async function clearStoreConnectionAuthorizationState(connectionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(storeConnections).set({ authorizationState: null, authorizationStateExpiresAt: null }).where(eq(storeConnections.id, connectionId));
 }
 
 export async function setStoreConnectionStatus(input: { storeId: number; provider: "shopify" | "woocommerce" | "magento" | "custom"; status: "pending" | "connected" | "expired" | "revoked" | "failed"; lastError?: string | null }) {

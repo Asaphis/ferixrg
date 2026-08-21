@@ -653,3 +653,10 @@ Checkpoint note: provider-side execution remains intentionally unavailable for t
 ## Provider-selector truthfulness
 - [x] Generalize Store onboarding across Shopify, WooCommerce, Adobe Commerce, and custom adapter readiness instead of presenting every platform as Shopify.
 - [x] Keep provider names, URL input, store creation, requested scopes, loading, and not-configured errors aligned with the selected server-side adapter.
+
+## Production-safe Shopify authorization foundation
+- [x] Add versioned AES-256-GCM encryption for provider credentials using `STORE_CONNECTION_ENCRYPTION_KEY`; plaintext tokens never enter browser state or activity metadata.
+- [x] Add one-time, expiring authorization state fields and encrypted connection-secret persistence to the database schema and generated migration.
+- [x] Add pure Shopify OAuth helpers for `*.myshopify.com` validation, state-bearing authorization URLs, callback HMAC verification, least-privilege scope handling, and server-side token exchange requests.
+- [x] Add the server callback route that validates state and HMAC, checks granted scopes, encrypts the token, updates connection status, records activity, and redirects with only a connection status.
+- [x] Upgrade the provider adapter to return a real Shopify authorization URL only when all server-side prerequisites are configured; unsupported providers and release operations remain fail-closed.

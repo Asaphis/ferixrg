@@ -1,5 +1,6 @@
-export type ManagedStoreProvider = "shopify" | "woocommerce" | "magento" | "custom";
+import { buildShopifyAuthorizationUrl, SHOPIFY_CALLBACK_PATH, SHOPIFY_DEFAULT_SCOPES, shopifyRedirectUri } from "./shopifyOAuth";
 
+export type ManagedStoreProvider = "shopify" | "woocommerce" | "magento" | "custom";
 export type ProviderReadiness = {
   provider: ManagedStoreProvider;
   configured: boolean;
@@ -10,11 +11,11 @@ export type ProviderReadiness = {
   supportsRollback: boolean;
   message: string;
 };
-
+export type ProviderAuthorization = { status: "not_configured"; message: string } | { status: "authorization_required"; authorizationUrl: string; state: string; message: string };
 export type StoreProviderAdapter = {
   provider: ManagedStoreProvider;
   readiness(): ProviderReadiness;
-  beginAuthorization(input: { storeUrl: string; requestedScopes: string[] }): { status: "not_configured"; message: string };
+  beginAuthorization(input: { storeUrl: string; requestedScopes: string[] }): ProviderAuthorization;
   executeRelease(input: { action: "publish" | "rollback"; storeUrl: string }): { providerReference: string };
 };
 
@@ -22,28 +23,37 @@ function unsupportedRelease(provider: ManagedStoreProvider): never {
   throw new Error(`${provider} publish and rollback execution is not configured. FerixRG can retain an approved release plan but cannot perform a provider-side change until its secure adapter is implemented and configured.`);
 }
 
-function adapter(readiness: () => ProviderReadiness): StoreProviderAdapter {
-  const current = readiness();
+function adapter(provider: ManagedStoreProvider, readiness: () => ProviderReadiness): StoreProviderAdapter {
   return {
-    provider: current.provider,
+    provider,
     readiness,
-    beginAuthorization: () => ({ status: "not_configured", message: current.message }),
-    executeRelease: ({ action }) => unsupportedRelease(current.provider),
+    beginAuthorization: input => {
+      const current = readiness();
+      if (!current.configured) return { status: "not_configured", message: current.message };
+      if (provider !== "shopify") return { status: "not_configured", message: current.message };
+      const clientId = process.env.SHOPIFY_CLIENT_ID;
+      const appOrigin = process.env.FERIXRG_APP_ORIGIN;
+      if (!clientId || !appOrigin) return { status: "not_configured", message: current.message };
+      const redirectUri = process.env.SHOPIFY_REDIRECT_URI || shopifyRedirectUri(appOrigin);
+      const authorization = buildShopifyAuthorizationUrl({ storeUrl: input.storeUrl, clientId, redirectUri, scopes: input.requestedScopes.length ? input.requestedScopes : SHOPIFY_DEFAULT_SCOPES });
+      return { status: "authorization_required", authorizationUrl: authorization.authorizationUrl, state: authorization.state, message: "Redirect the merchant to Shopify to approve the requested least-privilege scopes." };
+    },
+    executeRelease: () => unsupportedRelease(provider),
   };
 }
 
 const adapters: Record<ManagedStoreProvider, StoreProviderAdapter> = {
-  shopify: adapter(() => ({
+  shopify: adapter("shopify", () => ({
     provider: "shopify",
-    configured: Boolean(process.env.SHOPIFY_CLIENT_ID && process.env.SHOPIFY_CLIENT_SECRET && process.env.FERIXRG_APP_ORIGIN),
+    configured: Boolean(process.env.SHOPIFY_CLIENT_ID && process.env.SHOPIFY_CLIENT_SECRET && process.env.FERIXRG_APP_ORIGIN && process.env.STORE_CONNECTION_ENCRYPTION_KEY),
     authorizationMode: "oauth_redirect",
     requiredEnvironment: ["SHOPIFY_CLIENT_ID", "SHOPIFY_CLIENT_SECRET", "FERIXRG_APP_ORIGIN", "STORE_CONNECTION_ENCRYPTION_KEY"],
-    requiredMerchantSetup: ["Create or configure the Shopify app", "Register the exact HTTPS OAuth callback URL", "Approve least-privilege Admin API scopes"],
+    requiredMerchantSetup: ["Create or configure the Shopify app", `Register the exact HTTPS callback URL (${SHOPIFY_CALLBACK_PATH})`, "Approve least-privilege Admin API scopes"],
     supportsPublish: false,
     supportsRollback: false,
     message: "Shopify connection setup is not enabled until the server-side OAuth callback, encrypted token storage, and provider executor are configured.",
   })),
-  woocommerce: adapter(() => ({
+  woocommerce: adapter("woocommerce", () => ({
     provider: "woocommerce",
     configured: false,
     authorizationMode: "merchant_key",
@@ -53,7 +63,7 @@ const adapters: Record<ManagedStoreProvider, StoreProviderAdapter> = {
     supportsRollback: false,
     message: "WooCommerce connection setup requires a secure HTTPS callback and encrypted server-side credential storage before it can be enabled.",
   })),
-  magento: adapter(() => ({
+  magento: adapter("magento", () => ({
     provider: "magento",
     configured: false,
     authorizationMode: "admin_integration",
@@ -63,7 +73,7 @@ const adapters: Record<ManagedStoreProvider, StoreProviderAdapter> = {
     supportsRollback: false,
     message: "Adobe Commerce/Magento connection setup requires an approved Admin integration and encrypted server-side credential storage before it can be enabled.",
   })),
-  custom: adapter(() => ({
+  custom: adapter("custom", () => ({
     provider: "custom",
     configured: false,
     authorizationMode: "custom",

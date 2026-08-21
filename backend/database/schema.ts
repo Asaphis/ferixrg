@@ -217,6 +217,8 @@ export const storeConnections = mysqlTable(
     storeId: int("storeId").notNull().references(() => stores.id, { onDelete: "cascade" }),
     provider: mysqlEnum("provider", ["shopify", "woocommerce", "magento", "custom"]).notNull(),
     credentialReference: varchar("credentialReference", { length: 512 }),
+    authorizationState: varchar("authorizationState", { length: 128 }),
+    authorizationStateExpiresAt: timestamp("authorizationStateExpiresAt"),
     scopes: json("scopes"),
     status: mysqlEnum("status", ["pending", "connected", "expired", "revoked", "failed"]).default("pending").notNull(),
     lastCheckedAt: timestamp("lastCheckedAt"),
@@ -226,6 +228,20 @@ export const storeConnections = mysqlTable(
   },
   table => ({
     storeProviderUnique: uniqueIndex("store_connections_store_provider_unique").on(table.storeId, table.provider),
+  }),
+);
+
+export const connectionSecrets = mysqlTable(
+  "connectionSecrets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    connectionId: int("connectionId").notNull().references(() => storeConnections.id, { onDelete: "cascade" }),
+    encryptedCredential: text("encryptedCredential").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    connectionUnique: uniqueIndex("connection_secrets_connection_unique").on(table.connectionId),
   }),
 );
 
