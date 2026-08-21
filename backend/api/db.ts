@@ -1032,6 +1032,12 @@ export async function listWorkspaceReports(workspaceId: number) {
   return db.select().from(reports).where(eq(reports.workspaceId, workspaceId)).orderBy(desc(reports.createdAt));
 }
 
+export async function getWorkspaceReport(workspaceId: number, reportId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return (await db.select().from(reports).where(and(eq(reports.workspaceId, workspaceId), eq(reports.id, reportId))).limit(1))[0];
+}
+
 export async function createWorkspaceReport(input: { workspaceId: number; toolRunId?: number; title: string; format: "web" | "pdf" | "csv" | "json" | "zip"; storageKey?: string; summary?: string; createdByUserId: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

@@ -52,6 +52,7 @@ const sessionMocks = vi.hoisted(() => ({
   acknowledgeResource: vi.fn().mockResolvedValue({ id: 1, resourceKey: "whats-new" }),
   designCopilot: vi.fn().mockResolvedValue({ response: "Review the hierarchy and keep the primary action visible.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   executePublicUrlToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, inspection: { statusCode: 200 }, report: { id: 90 } }),
+  reportDownload: vi.fn().mockResolvedValue({ reportId: 90, format: "json", url: "/manus-storage/reports/inspection.json" }),
 }));
 vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/lib/trpc", () => ({
@@ -96,6 +97,7 @@ vi.mock("@/lib/trpc", () => ({
       acknowledgeResource: { useMutation: () => ({ mutateAsync: sessionMocks.acknowledgeResource }) },
       designCopilot: { useMutation: () => ({ mutateAsync: sessionMocks.designCopilot }) },
       executePublicUrlToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.executePublicUrlToolRun, isPending: false }) },
+      reportDownload: { useMutation: () => ({ mutateAsync: sessionMocks.reportDownload }) },
     },
     account: {
       profile: { useQuery: () => ({ data: sessionMocks.profile, isLoading: false }) },

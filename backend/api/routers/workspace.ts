@@ -21,6 +21,7 @@ import {
   createWorkspaceStore,
   createWorkspaceRequest,
   ensurePersonalWorkspace,
+  getWorkspaceReport,
   getWorkspaceSubscription,
   getWorkspaceUsageSummary,
   getWorkspaceStore,
@@ -64,7 +65,7 @@ import {
   updateWorkspaceMemberRole,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
-import { storagePut } from "../storage";
+import { storageGet, storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
 import { CloudflareAiError } from "../cloudflareAi";
@@ -487,6 +488,19 @@ export const workspaceRouter = router({
       await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
       return listWorkspaceReports(input.workspaceId);
     } catch (error) {
+      return toForbidden(error);
+    }
+  }),
+  reportDownload: protectedProcedure.input(workspaceInput.extend({ reportId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId);
+      const report = await getWorkspaceReport(input.workspaceId, input.reportId);
+      if (!report) throw new Error("workspace permission denied");
+      if (!report.storageKey) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This report record does not have a generated artifact yet." });
+      const artifact = await storageGet(report.storageKey);
+      return { reportId: report.id, format: report.format, url: artifact.url };
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
       return toForbidden(error);
     }
   }),

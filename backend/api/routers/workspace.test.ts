@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../storage", () => ({ storagePut: vi.fn() }));
+vi.mock("../storage", () => ({ storageGet: vi.fn(), storagePut: vi.fn() }));
 
 vi.mock("../db", () => ({
   ensurePersonalWorkspace: vi.fn(),
@@ -59,6 +59,7 @@ vi.mock("../db", () => ({
   approveWorkspaceReleaseAction: vi.fn(),
   cancelWorkspaceReleaseAction: vi.fn(),
   getWorkspaceAccess: vi.fn(),
+  getWorkspaceReport: vi.fn(),
   getWorkspaceDashboardReadModel: vi.fn(),
   getWorkspaceReleaseEligibility: vi.fn(),
   getWorkspaceUsageSummary: vi.fn(),
@@ -69,8 +70,8 @@ vi.mock("../db", () => ({
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
 vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runDesignCopilotThroughGateway: vi.fn() }));
 
-import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
-import { storagePut } from "../storage";
+import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole } from "../db";
+import { storageGet, storagePut } from "../storage";
 import { listCentralAiReadiness, runDesignCopilotThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
@@ -335,5 +336,15 @@ describe("workspace router", () => {
     await expect(caller.workspace.approveReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "approved" });
     await expect(caller.workspace.cancelReleaseAction({ workspaceId: 9, releaseActionId: 131 })).resolves.toMatchObject({ status: "cancelled" });
     expect(createWorkspaceReleaseAction).toHaveBeenCalledWith(expect.objectContaining({ requestedByUserId: 42, actionType: "publish" }));
+  });
+
+  it("returns a stored report artifact only to an authorized workspace member", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "viewer" } } as never);
+    vi.mocked(getWorkspaceReport).mockResolvedValue({ id: 101, workspaceId: 9, format: "json", storageKey: "workspace-9/reports/inspection.json" } as never);
+    vi.mocked(storageGet).mockResolvedValue({ key: "workspace-9/reports/inspection.json", url: "/manus-storage/workspace-9/reports/inspection.json" });
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    await expect(caller.workspace.reportDownload({ workspaceId: 9, reportId: 101 })).resolves.toEqual({ reportId: 101, format: "json", url: "/manus-storage/workspace-9/reports/inspection.json" });
+    expect(storageGet).toHaveBeenCalledWith("workspace-9/reports/inspection.json");
   });
 });
