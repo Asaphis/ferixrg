@@ -127,4 +127,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ productLinkCount: 1, collectionLinkCount: 1, cartLinkCount: 1, checkoutLinkCount: 1 });
   });
+
+  it("records semantic layout elements without rendering arrangement or hierarchy", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><header>Header</header><main><section>Feature</section><section><article>Story</article></section></main><footer>Footer</footer></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ headerElementCount: 1, mainLandmarkCount: 1, sectionElementCount: 2, articleElementCount: 1, footerElementCount: 1, semanticLayoutElementCount: 6 });
+  });
 });

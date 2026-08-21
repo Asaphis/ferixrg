@@ -584,6 +584,7 @@
 - [x] Add a bounded Cart Analyzer public-URL executor that records observed cart-path links and cart form actions only, without cart-clarity, quantity-control, shipping, upsell, or CTA conclusions.
 - [x] Add a bounded Checkout UX Analyzer public-URL executor that records observed checkout-path links and checkout form actions only, without clarity, friction, trust, payment, mobile, or completion conclusions.
 - [x] Add a bounded Customer Journey Analyzer public-URL executor that records observed product, collection, cart, and checkout link paths only, without a journey map, friction, progression, or purchase conclusions.
+- [x] Add a bounded Layout Analyzer public-URL executor that records observed semantic layout elements only, without visual arrangement, spacing, alignment, hierarchy, or rendering conclusions.
 - [x] Add a bounded Heading Structure Analyzer path for public URLs: capture observed H1–H6 text and order, persist evidence and JSON export, and create a missing-H1 issue only when the HTML lacks an H1 element.
 - [x] Add a bounded Image SEO Analyzer path for public URLs using observed image alternative-text coverage only.
 - [x] Add a bounded SEO Analyzer public-URL result using only observed title, description markup, canonical, heading, link, and image fields.

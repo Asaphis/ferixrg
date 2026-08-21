@@ -67,6 +67,11 @@ export type PublicUrlInspection = {
   collectionLinkCount: number;
   observedCollectionPaths: string[];
   productLinkCount: number;
+  headerElementCount: number;
+  footerElementCount: number;
+  sectionElementCount: number;
+  articleElementCount: number;
+  semanticLayoutElementCount: number;
   productImageStructuredDataCount: number;
   productDescriptionStructuredDataCount: number;
   productDescriptionCharacterCount: number;
@@ -284,6 +289,15 @@ function extractProductPathLinks(html: string) {
   return { productLinkCount };
 }
 
+function extractSemanticLayoutElements(html: string) {
+  const headerElementCount = (html.match(/<header\b[^>]*>/gi) ?? []).length;
+  const mainElementCount = (html.match(/<main\b[^>]*>/gi) ?? []).length;
+  const footerElementCount = (html.match(/<footer\b[^>]*>/gi) ?? []).length;
+  const sectionElementCount = (html.match(/<section\b[^>]*>/gi) ?? []).length;
+  const articleElementCount = (html.match(/<article\b[^>]*>/gi) ?? []).length;
+  return { headerElementCount, footerElementCount, sectionElementCount, articleElementCount, semanticLayoutElementCount: headerElementCount + mainElementCount + footerElementCount + sectionElementCount + articleElementCount };
+}
+
 function extractAssetReferences(html: string, baseUrl: URL) {
   const references: Array<{ kind: "image" | "stylesheet" | "script"; value: string }> = [];
   for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
@@ -382,6 +396,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
   const mediaQueryConditions = extractMediaQueryConditions(html);
   const collectionPathLinks = extractCollectionPathLinks(html);
   const productPathLinks = extractProductPathLinks(html);
+  const semanticLayoutElements = extractSemanticLayoutElements(html);
   return {
     url: url.toString(),
     fetchedAt: new Date().toISOString(),
@@ -454,6 +469,11 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     collectionLinkCount: collectionPathLinks.collectionLinkCount,
     observedCollectionPaths: collectionPathLinks.observedCollectionPaths,
     productLinkCount: productPathLinks.productLinkCount,
+    headerElementCount: semanticLayoutElements.headerElementCount,
+    footerElementCount: semanticLayoutElements.footerElementCount,
+    sectionElementCount: semanticLayoutElements.sectionElementCount,
+    articleElementCount: semanticLayoutElements.articleElementCount,
+    semanticLayoutElementCount: semanticLayoutElements.semanticLayoutElementCount,
     bytesRead: new TextEncoder().encode(html).byteLength,
   };
 }
