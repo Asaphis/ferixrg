@@ -97,4 +97,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ collectionLinkCount: 3, observedCollectionPaths: ["/collections/summer", "/collection/new"] });
   });
+
+  it("records Product JSON-LD image declarations and page image elements without assessing visual presentation", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><script type="application/ld+json">{"@type":"Product","name":"Canvas Tote","image":["https://shop.example/tote-1.jpg","https://shop.example/tote-2.jpg"]}</script></head><body><img src="tote-1.jpg" alt="Tote"><img src="tote-2.jpg" alt="Tote detail"></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ imageCount: 2, productStructuredDataCount: 1, productImageStructuredDataCount: 2 });
+  });
 });

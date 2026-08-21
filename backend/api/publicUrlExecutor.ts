@@ -64,6 +64,7 @@ export type PublicUrlInspection = {
   observedMediaQueryConditions: string[];
   collectionLinkCount: number;
   observedCollectionPaths: string[];
+  productImageStructuredDataCount: number;
   bytesRead: number;
 };
 
@@ -152,7 +153,8 @@ function extractProductStructuredData(html: string) {
   }
   const productNames = productNodes.flatMap(node => typeof node.name === "string" ? [node.name.trim().slice(0, 240)] : []).filter(Boolean).slice(0, 20);
   const productOfferCount = productNodes.reduce((count, node) => count + (Array.isArray(node.offers) ? node.offers.length : node.offers ? 1 : 0), 0);
-  return { productStructuredDataCount: productNodes.length, productNames, productOfferCount };
+  const productImageStructuredDataCount = productNodes.reduce((count, node) => count + (Array.isArray(node.image) ? node.image.length : node.image ? 1 : 0), 0);
+  return { productStructuredDataCount: productNodes.length, productNames, productOfferCount, productImageStructuredDataCount };
 }
 
 function extractCredibilityStructuredData(html: string) {
@@ -394,6 +396,7 @@ export async function inspectPublicUrl(value: string): Promise<PublicUrlInspecti
     productStructuredDataCount: productStructuredData.productStructuredDataCount,
     productNames: productStructuredData.productNames,
     productOfferCount: productStructuredData.productOfferCount,
+    productImageStructuredDataCount: productStructuredData.productImageStructuredDataCount,
     imagesLazyLoaded: imageTags.filter(tag => /\bloading\s*=\s*["']lazy["']/i.test(tag)).length,
     imagesWithDimensions: imageTags.filter(tag => Boolean(attribute(tag, "width")) && Boolean(attribute(tag, "height"))).length,
     imagesWithoutDimensions: imageTags.filter(tag => !attribute(tag, "width") || !attribute(tag, "height")).length,
