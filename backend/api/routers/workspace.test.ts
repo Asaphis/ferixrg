@@ -365,7 +365,7 @@ describe("workspace router", () => {
 
   it("fails unsupported public-URL tools without creating generic inspection output", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
-    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 79, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "visual-hierarchy-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 79, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "ai-store-redesign", inputSummary: { url: "https://shop.example" } } as never);
     vi.mocked(failWorkspaceToolRun).mockResolvedValue({ id: 79, status: "failed" } as never);
     const caller = appRouter.createCaller(authenticatedContext());
 
@@ -812,6 +812,24 @@ describe("workspace router", () => {
     expect(result.inspection).toMatchObject({ inlineStyleBlockCount: 1, inlineColorDeclarationCount: 1, styleBlockColorDeclarationCount: 1, inlineFontFamilyDeclarationCount: 1, styleBlockFontFamilyDeclarationCount: 1 });
     expect(result.issues).toEqual([]);
     expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_observed_style_declaration_inspection" }) }));
+    vi.unstubAllGlobals();
+  });
+
+  it("executes the exact Visual Hierarchy Analyzer with observed headings and interactive markup only", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><head><title>Shop</title><meta name="viewport" content="width=device-width"><meta name="description" content="Shop"><link rel="canonical" href="https://shop.example/"></head><body><h1>Welcome</h1><h2>Featured</h2><h2>Details</h2><a href="/products/tote">Shop tote</a><button>View collection</button></body></html>')); controller.close(); } }) }));
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 97, workspaceId: 9, status: "running", sourceType: "public_url", toolId: "visual-hierarchy-analyzer", inputSummary: { url: "https://shop.example" } } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 106, toolRunId: 97 } as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/97/public-url-inspection.json", url: "/manus-storage/workspace-9/tool-runs/97/public-url-inspection.json" });
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 126, workspaceId: 9, format: "json" } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 97, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+
+    const result = await caller.workspace.executePublicUrlToolRun({ workspaceId: 9, toolRunId: 97 });
+
+    expect(result.inspection).toMatchObject({ headingCount: 3, ctaElementsWithText: 2 });
+    expect(result.issues).toEqual([]);
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ resultSummary: expect.objectContaining({ execution: "deterministic_heading_and_interactive_markup_inspection" }) }));
     vi.unstubAllGlobals();
   });
 

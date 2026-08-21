@@ -139,4 +139,10 @@ describe("public URL inspection executor", () => {
 
     await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ inlineStyleBlockCount: 1, inlineColorDeclarationCount: 1, styleBlockColorDeclarationCount: 1, inlineFontFamilyDeclarationCount: 1, styleBlockFontFamilyDeclarationCount: 1 });
   });
+
+  it("records headings and text-bearing interactive elements without assessing visual hierarchy", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('<html><body><h1>Welcome</h1><h2>Featured</h2><h2>Details</h2><a href="/products/tote">Shop tote</a><button>View collection</button></body></html>')); controller.close(); } }) }));
+
+    await expect(inspectPublicUrl("https://shop.example")).resolves.toMatchObject({ headingCount: 3, headings: [{ level: 1, text: "Welcome" }, { level: 2, text: "Featured" }, { level: 2, text: "Details" }], ctaElementsWithText: 2 });
+  });
 });
