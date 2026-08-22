@@ -12,6 +12,20 @@ describe("public URL inspection executor", () => {
     expect(() => validatePublicInspectionUrl("http://localhost:3000")).toThrow(/public storefront/i);
   });
 
+  it("rejects a redirect to a private network destination before following it", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ status: 302, headers: { get: (name: string) => name === "location" ? "http://127.0.0.1:3000/admin" : null } });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(inspectPublicUrl("https://shop.example")).rejects.toThrow(/public storefront/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails inspection for non-2xx responses instead of creating a successful result", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 503, headers: { get: () => "text/html" } }));
+
+    await expect(inspectPublicUrl("https://shop.example")).rejects.toThrow(/HTTP 503/i);
+  });
+
   it("records elapsed fetch-and-read time as an observed page-transfer indicator", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValueOnce(1_000).mockReturnValueOnce(1_275);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200, headers: { get: (name: string) => name === "content-type" ? "text/html" : null }, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode("<html><body>Store</body></html>")); controller.close(); } }) }));

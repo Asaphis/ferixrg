@@ -409,8 +409,9 @@ export function ApprovedToolWorkflow({
           <span className="tool-workflow-kicker">What would you like to use?</span>
           <h2>Choose a source for this tool.</h2>
           <div className="tool-workflow-sources">
-            {tool.sources.map(item => (
-              <button
+            {tool.sources.map(item => {
+              const availability = getSourceAvailability(item, tool.id);
+              return <button
                 type="button"
                 className={source === item ? "active" : ""}
                 aria-pressed={source === item}
@@ -421,10 +422,11 @@ export function ApprovedToolWorkflow({
                 <span>
                   <b>{item}</b>
                   <small>{sourceCopy[item]?.detail}</small>
+                  {!availability.available && <em>{availability.label}</em>}
                 </span>
                 {source === item ? <Check /> : <ChevronRight />}
-              </button>
-            ))}
+              </button>;
+            })}
           </div>
         </article>
         <article className="tool-workflow-card tool-workflow-source-detail">

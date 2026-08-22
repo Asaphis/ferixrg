@@ -73,6 +73,12 @@ import { storageGet, storageGetSignedUrl, storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
 
+const imageSignatures: Record<string, (bytes: Buffer) => boolean> = {
+  "image/png": bytes => bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  "image/jpeg": bytes => bytes.length >= 3 && bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
+  "image/webp": bytes => bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP",
+};
+
 const dedicatedPublicUrlExecutorToolIds = new Set([
   "storefront-analyzer",
   "page-analyzer",
@@ -286,6 +292,10 @@ export const workspaceRouter = router({
         if (!(await getWorkspaceStore(input.workspaceId, input.storeId))) throw new Error("workspace permission denied");
         const bytes = Buffer.from(input.contentBase64, "base64");
         if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new TRPCError({ code: "BAD_REQUEST", message: "Upload a valid file up to 8 MB." });
+        if (input.sourceType === "screenshot") {
+          const signatureCheck = imageSignatures[input.mimeType.toLowerCase()];
+          if (!signatureCheck || !signatureCheck(bytes)) throw new TRPCError({ code: "BAD_REQUEST", message: "Screenshot uploads must be valid PNG, JPEG, or WEBP images." });
+        }
         const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
         const upload = await storagePut(`workspace-${input.workspaceId}/store-${input.storeId}/sources/${safeName}`, bytes, input.mimeType);
         const snapshot = await createStoreSnapshot({ storeId: input.storeId, sourceType: input.sourceType, storageKey: upload.key, summary: `Uploaded source: ${safeName}` });

@@ -33,8 +33,17 @@ type TeamRole = "Owner" | "Admin" | "Editor" | "Viewer" | "Billing";
 type TeamMember = { id: string; name: string; email: string; role: TeamRole; status: "Active" | "Pending"; source?: "member" | "invitation"; sourceId?: number };
 type WorkspaceIssue = { id: number; severity: string; title: string; detail: string; tag: string; impact: string; measures: Array<[string, string]>; status: string };
 type EditorVersion = { id: string; title: string; label: string; time: string; note: string; tone: "current" | "baseline"; designState: string; isCurrent: boolean };
+type UrlAnalysisResult = { storeId: string; runId: number; reportId: number | null; url: string; statusCode: number; title: string | null; issueCount: number };
 
 function Brand() { return <a className="brand" href="/"><img src={markAsset} alt="FerixRG" /><span>FERIX<b>RG</b></span></a>; }
+
+function useStableComponent<T extends object = Record<string, never>>(render: (props: T) => React.ReactElement | null) {
+  const renderRef = useRef(render);
+  renderRef.current = render;
+  const componentRef = useRef<React.ComponentType<T> | null>(null);
+  if (!componentRef.current) componentRef.current = props => renderRef.current(props);
+  return componentRef.current;
+}
 
 export default function Workspace() {
   const [location, setLocation] = useLocation();
@@ -101,6 +110,19 @@ export default function Workspace() {
     const returnTo = `${window.location.pathname}${window.location.search}`;
     setLocation(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
   }, [authQuery.data, authQuery.isError, authQuery.isLoading, setLocation]);
+  const StableOverview = useStableComponent(() => <Overview />);
+  const StableStoresFlow = useStableComponent(() => <StoresFlow />);
+  const StableStorePanel = useStableComponent(() => <StorePanel />);
+  const StableToolsLibrary = useStableComponent(() => <ToolsLibrary />);
+  const StableAnalysis = useStableComponent(() => <Analysis />);
+  const StableIssues = useStableComponent(() => <Issues />);
+  const StableRedesign = useStableComponent(() => <Redesign />);
+  const StableEditor = useStableComponent(() => <Editor />);
+  const StableValidationRelease = useStableComponent(() => <ValidationRelease />);
+  const StableReports = useStableComponent(() => <Reports />);
+  const StableMoreFlow = useStableComponent(() => <MoreFlow />);
+  const StablePlaceholder = useStableComponent(Placeholder);
+  const StableTeamManagement = useStableComponent(TeamManagement);
   if (authQuery.isError) return <main className="workspace-shell"><section className="workspace-empty-state"><h1>We could not verify your session</h1><p>The dashboard could not reach the account service. Your session was not discarded. Please retry.</p><button className="primary-button" onClick={() => void authQuery.refetch()}>Retry session check</button></section></main>;
   const initialView = useMemo(() => {
     if (location.includes("tools")) return "Tools Library"; if (location.includes("stores")) return "Stores"; if (location.includes("more")) return "More"; if (location.includes("issues")) return "Issues"; if (location.includes("redesign")) return "Redesign"; if (location.includes("editor")) return "Visual editor"; if (location.includes("analysis")) return "Analysis"; return "Overview";
@@ -117,14 +139,14 @@ export default function Workspace() {
   const [selectedToolSource, setSelectedToolSource] = useState<string | null>(() => requestedToolSource);
 
   const [expandedToolGroup, setExpandedToolGroup] = useState<ToolCategory>("Content & AI");
-  const [activeStoreId, setActiveStoreId] = useState(() => new URLSearchParams(window.location.search).get("store") ?? "atelier-forma");
+  const [activeStoreId, setActiveStoreId] = useState(() => new URLSearchParams(window.location.search).get("store") ?? "");
   const activeStoreRecord = workspaceStoresQuery.data?.find(store => String(store.id) === activeStoreId) ?? workspaceStoresQuery.data?.[0];
   const activeStoreRecordId = activeStoreRecord?.id;
   const activeStoreConnectionsQuery = trpc.workspace.stores.connections.useQuery({ workspaceId: activeWorkspaceId ?? 0, storeId: activeStoreRecordId ?? 0 }, { enabled: Boolean(activeWorkspaceId && activeStoreRecordId), retry: false, refetchOnWindowFocus: false });
   const [dashboardSearch, setDashboardSearch] = useState("");
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [storeFlow, setStoreFlow] = useState<"list" | "add" | "connect" | "url" | "url-progress" | "detail" | "settings" | "disconnect">(() => new URLSearchParams(window.location.search).get("url") ? "url" : "list");
+  const [storeFlow, setStoreFlow] = useState<"list" | "add" | "connect" | "url" | "url-progress" | "url-results" | "detail" | "settings" | "disconnect">(() => new URLSearchParams(window.location.search).get("url") ? "url" : "list");
   const [toolFlow, setToolFlow] = useState<"library" | "setup" | "run" | "results" | "issue" | "fix" | "publish" | "success" | "export">(() => requestedToolStage === "results" ? "results" : requestedToolStage === "editor" ? "fix" : requestedToolStage === "finish" ? "publish" : requestedToolStage === "setup" ? "setup" : "library");
   const [moreFlow, setMoreFlow] = useState<"home" | "team" | "billing" | "profile" | "preferences" | "platform" | "resources" | "support">(() => ["team", "billing", "profile", "preferences", "platform", "resources", "support"].includes(requestedMoreFlow ?? "") ? requestedMoreFlow as "team" | "billing" | "profile" | "preferences" | "platform" | "resources" | "support" : "home");
   const [moreNotice, setMoreNotice] = useState("");
@@ -132,6 +154,7 @@ export default function Workspace() {
   const [connectionFeedback, setConnectionFeedback] = useState<"idle" | "loading" | "error">("idle");
   const [connectionProvider, setConnectionProvider] = useState<"shopify" | "woocommerce" | "magento" | "custom">("shopify");
   const [urlAnalysisFeedback, setUrlAnalysisFeedback] = useState<"idle" | "error">("idle");
+  const [urlAnalysisResult, setUrlAnalysisResult] = useState<UrlAnalysisResult | null>(null);
   const initialStoreUrl = useMemo(() => new URLSearchParams(window.location.search).get("url")?.trim() ?? "", [location]);
   const storeUrlRef = useRef(initialStoreUrl);
   const [logoutPrompt, setLogoutPrompt] = useState<"none" | "confirm" | "unsaved">("none");
@@ -248,12 +271,14 @@ export default function Workspace() {
       const sourceRecord = await createPublicUrlSourceMutation.mutateAsync({ workspaceId: activeWorkspaceId, name, url: parsed.toString() });
       const queuedRun = await queueToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolId: "storefront-analyzer", sourceType: "public_url", storeId: sourceRecord.store.id, inputSummary: { url: parsed.toString(), sourceSnapshotId: sourceRecord.snapshot.id } });
       const startedRun = await startToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolRunId: queuedRun.id });
-      await executePublicUrlToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolRunId: startedRun.id });
+      const execution = await executePublicUrlToolRunMutation.mutateAsync({ workspaceId: activeWorkspaceId, toolRunId: startedRun.id });
+      setUrlAnalysisResult({ storeId: String(sourceRecord.store.id), runId: startedRun.id, reportId: execution.report?.id ?? null, url: execution.inspection.url, statusCode: execution.inspection.statusCode, title: execution.inspection.title ?? null, issueCount: execution.issues?.length ?? 0 });
+      setActiveStoreId(String(sourceRecord.store.id));
       await authUtils.workspace.stores.list.invalidate();
       await authUtils.workspace.activity.invalidate();
       await authUtils.workspace.dashboard.invalidate();
       await authUtils.workspace.reports.invalidate();
-      setStoreFlow("list");
+      setStoreFlow("url-results");
     } catch (error) {
       setUrlAnalysisFeedback("error");
       toast.error("We couldn’t complete that storefront analysis", { description: error instanceof Error ? error.message : "No analysis result was saved." });
@@ -320,19 +345,19 @@ export default function Workspace() {
   function PageHeading({ label, title, copy, action }: { label: string; title: string; copy: string; action?: React.ReactNode }) { return <div className="page-heading"><div><span className="eyebrow">{label}</span><h1>{title}</h1><p className="subtle">{copy}</p></div>{action}</div>; }
 
   function renderView() {
-    if (view === "Overview") return <Overview />;
-    if (view === "Stores") return <StoresFlow />;
-    if (view === "Store workspace") return <StorePanel />;
-    if (view === "Tools Library") return <ToolsLibrary />;
-    if (view === "Analysis") return <Analysis />;
-    if (view === "Issues") return <Issues />;
-    if (view === "Redesign") return <Redesign />;
-    if (view === "Visual editor") return <Editor />;
-    if (view === "Preview & validate") return <ValidationRelease />;
-    if (view === "Versions") return <Placeholder title="Every deliberate change deserves a trace." copy="Review the draft history, compare score changes, restore a prior version, and keep publish decisions grounded in validation evidence." icon={<Activity />} action="Create a baseline version" />;
-    if (view === "Reports") return <Reports />;
-    if (view === "More") return <MoreFlow />;
-    return <Placeholder title="A technical answer should include the context." copy="Use the Developer Tools to scan a URL, inspect responsive evidence, and create a concise implementation handoff." icon={<Code2 />} action="Start a URL diagnostic" />;
+    if (view === "Overview") return <StableOverview />;
+    if (view === "Stores") return <StableStoresFlow />;
+    if (view === "Store workspace") return <StableStorePanel />;
+    if (view === "Tools Library") return <StableToolsLibrary />;
+    if (view === "Analysis") return <StableAnalysis />;
+    if (view === "Issues") return <StableIssues />;
+    if (view === "Redesign") return <StableRedesign />;
+    if (view === "Visual editor") return <StableEditor />;
+    if (view === "Preview & validate") return <StableValidationRelease />;
+    if (view === "Versions") return <StablePlaceholder title="Every deliberate change deserves a trace." copy="Review the draft history, compare score changes, restore a prior version, and keep publish decisions grounded in validation evidence." icon={<Activity />} action="Create a baseline version" />;
+    if (view === "Reports") return <StableReports />;
+    if (view === "More") return <StableMoreFlow />;
+    return <StablePlaceholder title="A technical answer should include the context." copy="Use the Developer Tools to scan a URL, inspect responsive evidence, and create a concise implementation handoff." icon={<Code2 />} action="Start a URL diagnostic" />;
   }
 
   function ToolsLibrary() {
@@ -400,6 +425,7 @@ export default function Workspace() {
     };
     if (storeFlow === "url") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("add")} title="Analyze a Store URL" copy="Enter a publicly accessible storefront URL to analyze the visible experience without connecting your store." /><form onSubmit={event => { event.preventDefault(); void beginUrlAnalysis(); }}><label className="flow-input-label">Storefront URL<div className="flow-input"><Link2 /><input type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" defaultValue={storeUrlRef.current} onChange={event => { storeUrlRef.current = event.target.value; if (urlAnalysisFeedback === "error") setUrlAnalysisFeedback("idle"); }} aria-label="Storefront URL" aria-invalid={urlAnalysisFeedback === "error"} /><button type="button" className="flow-input-clear" aria-label="Clear storefront URL" disabled={false} onClick={event => { storeUrlRef.current = ""; const input = event.currentTarget.parentElement?.querySelector("input"); if (input) input.value = ""; setUrlAnalysisFeedback("idle"); }}>×</button></div></label>{urlAnalysisFeedback === "error" && <section className="flow-inline-error" role="alert"><b>That URL can’t be analyzed yet.</b><p>Enter a public storefront URL starting with http:// or https://, then try again.</p></section>}<section className="flow-card"><b>URL analysis unlocks</b><p>Visible design, structure, responsiveness, performance, and accessibility analysis.</p><div className="flow-access-row"><span>Storefront analysis</span><b>✓</b></div><div className="flow-access-row"><span>Publishing or editing</span><em>Connect a supported store</em></div></section><button type="submit" className="flow-primary" disabled={createPublicUrlSourceMutation.isPending || queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending}><ScanLine /> {createPublicUrlSourceMutation.isPending || queueToolRunMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending ? "Sending request…" : "Analyze URL"}</button></form></section>;
     if (storeFlow === "url-progress") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("url")} title="Analyzing store…" copy={`${storeUrlRef.current.replace(/^https?:\/\//, "")} · Visible storefront analysis`} /><div className="flow-live-status" aria-live="polite"><RefreshCw className="animate-spin" /><span>Analysis is running. Results will open automatically.</span></div><div className="flow-progress">{[["Loading storefront", true], ["Inspecting visible structure", true], ["Checking responsive layout", false], ["Generating recommendations", false]].map(([label, done], index) => <div className={done ? "complete" : index === 2 ? "active" : ""} key={String(label)}><i>{done ? "✓" : index === 2 ? "●" : "○"}</i><span>{label}</span><small>{done ? "Done" : index === 2 ? "Running" : "Next"}</small></div>)}</div><section className="flow-notice"><b>URL analysis mode</b><p>You can save evidence and recommendations. Editing and publishing become available after a supported connection.</p></section><button className="flow-secondary" onClick={() => navigateStores("url")}><ArrowRight /> Cancel and edit URL</button></section>;
+    if (storeFlow === "url-results" && urlAnalysisResult) return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("list")} title="Storefront analysis complete" copy={`${urlAnalysisResult.url.replace(/^https?:\/\//, "")} · persisted public URL evidence`} /><section className="flow-success-panel"><span className="flow-success-icon"><Check /></span><div><span className="flow-section-label">Completed run #{urlAnalysisResult.runId}</span><h2>{urlAnalysisResult.title || "Public storefront inspection"}</h2><p>The backend saved a bounded public-page inspection and report. No private store access or publishing permission was used.</p></div></section><section className="flow-card"><div className="flow-access-row"><span>HTTP response</span><b>{urlAnalysisResult.statusCode}</b></div><div className="flow-access-row"><span>Observed issue records</span><b>{urlAnalysisResult.issueCount}</b></div><div className="flow-access-row"><span>Report artifact</span><em>{urlAnalysisResult.reportId ? `Report #${urlAnalysisResult.reportId}` : "Not created"}</em></div></section><button className="flow-primary" onClick={() => navigateStores("detail")}><ArrowRight /> Open store workspace</button><button className="flow-secondary" onClick={() => navigateStores("url")}><Link2 /> Analyze another URL</button></section>;
     if (storeFlow === "settings") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("detail")} title="Store Connection" copy={`${selectedStore.platform} · ${selectedStore.connection} · ${selectedStore.lastActivity}`} /><section className="flow-card"><span className="flow-section-label">Current capabilities</span><div className="flow-access-row"><span>Store information, products & pages</span><em>{selectedConnectionReady ? "Available" : "Not available"}</em></div><div className="flow-access-row"><span>Themes & resources</span><em>{selectedConnectionReady ? "Available" : "Not available"}</em></div><div className="flow-access-row"><span>Publishing</span><em>{selectedConnectionReady ? "Available after approval" : selectedProviderReadiness?.message ?? "Requires configured provider"}</em></div></section><section className="flow-menu-list"><button onClick={() => navigateStores("connect")}><span>Reconnect Store</span><ChevronRight /></button><button onClick={() => navigateStores("connect")}><span>Refresh Permissions</span><ChevronRight /></button><button onClick={() => navigateStores("detail")}><span>View Connection Details</span><ChevronRight /></button></section><button className="flow-danger" onClick={() => navigateStores("disconnect")}>Disconnect Store</button></section>;
     if (storeFlow === "disconnect") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("settings")} title="Disconnect this store?" copy={`Disconnecting ${selectedStore.name} revokes its provider connection. Previous analyses, snapshots, reports, and drafts remain available.`} /><div className="flow-warning-icon">!</div><section className="flow-card"><div className="flow-access-row"><span>Store connection</span><em>Removed</em></div><div className="flow-access-row"><span>Saved work</span><b>Kept</b></div><div className="flow-access-row"><span>Publishing controls</span><em>Unavailable</em></div></section><button className="flow-danger" disabled={connectionFeedback === "loading" || disconnectStoreMutation.isPending} onClick={() => void disconnectStore()}>{connectionFeedback === "loading" || disconnectStoreMutation.isPending ? "Disconnecting…" : "Disconnect"}</button><button className="flow-secondary" onClick={() => navigateStores("settings")}>Cancel</button></section>;
     if (storeFlow === "detail") return <section className="mobile-flow-page"><FlowHeader back={() => navigateStores("list")} title={selectedStore.name} copy={`${selectedStore.platform} · ${selectedStore.connection} · ${selectedStore.lastActivity}`} action={<button className="flow-top-action" onClick={() => navigateStores("settings")}><Settings /></button>} /><div className="flow-action-row"><button onClick={() => { setToolFlow("setup"); changeView("Tools Library"); }}><ScanLine />Analyze</button><button onClick={() => { setToolFlow("library"); changeView("Tools Library"); }}><Wand2 />Tools</button><button onClick={() => changeView("Preview & validate")}><Eye />Preview</button><button onClick={() => { setToolFlow("publish"); changeView("Tools Library"); }}><Check />Publish</button></div><section className="flow-health"><div><span>Store health</span><b>{selectedStore.health || "—"}<small>{selectedStore.health ? "/100" : "not measured"}</small></b></div><div className="flow-score-grid">{[["Design","Not measured"],["UX","Not measured"],["Mobile","Not measured"],["Performance","Not measured"],["SEO","Not measured"],["Conversion","Not measured"]].map(([label, score]) => <span key={String(label)}>{label}<b>{score}</b></span>)}</div></section><section className="flow-card"><span className="flow-section-label">Available capabilities</span>{["Analyze storefront", "Inspect pages", "Generate redesign", "Edit supported elements", "Preview changes"].map(item => <div className="flow-access-row" key={item}><span>✓ {item}</span><b>Available</b></div>)}<div className="flow-access-row"><span>{selectedConnectionReady ? "✓ Publish changes" : "⚠ Publish changes"}</span><em>{selectedConnectionReady ? "Available after validation and approval" : selectedProviderReadiness?.message ?? "Requires a configured provider"}</em></div></section><section className="flow-card"><span className="flow-section-label">Connection state</span><b>{selectedConnection?.status ? `${selectedConnection.provider} · ${selectedConnection.status}` : "No connection record"}</b><p>{selectedProviderReadiness?.message ?? "Provider readiness is unavailable."}</p></section><section className="flow-card"><span className="flow-section-label">Recent work</span><b>{selectedStore.drafts ? `${selectedStore.drafts} active drafts` : "No saved drafts"}</b><p>{selectedStore.openIssues ? `${selectedStore.openIssues} open issue records need review.` : "No issue evidence is recorded for this store yet."}</p></section></section>;
@@ -473,7 +499,7 @@ export default function Workspace() {
       support: { title: "Support", copy: "Get help, report a problem, or share feedback with the product team.", rows: ["Contact support", "Report a problem", "Send feedback", "Feature requests", "Sign out"] },
     };
     if (moreAction) return <MoreActionPanel section={moreAction.section} action={moreAction.action} profile={accountProfileQuery.data ? { name: accountProfileQuery.data.name, email: accountProfileQuery.data.email } : undefined} preferences={accountPreferencesQuery.data} sessions={accountSessionsQuery.data} billing={workspaceUsageSummaryQuery.data} storeProviderReadiness={storeProviderReadinessQuery.data} aiProviderReadiness={aiProviderReadinessQuery.data} onSaveProfile={async input => { await updateProfileMutation.mutateAsync(input); await authUtils.account.profile.invalidate(); }} onSavePreferences={async input => { await updatePreferencesMutation.mutateAsync(input); await authUtils.account.preferences.invalidate(); }} onRequestEmailChange={async input => requestEmailChangeMutation.mutateAsync(input)} onRequestPasswordReset={async () => requestPasswordResetMutation.mutateAsync()} onRevokeSession={async sessionId => { await revokeSessionMutation.mutateAsync({ sessionId }); await authUtils.account.sessions.invalidate(); }} onRevokeOtherSessions={async () => { const result = await revokeOtherSessionsMutation.mutateAsync(); await authUtils.account.sessions.invalidate(); return result; }} onSubmitWorkspaceRequest={async input => { if (!activeWorkspaceId) throw new Error("Workspace is not ready."); await submitWorkspaceRequestMutation.mutateAsync({ workspaceId: activeWorkspaceId, ...input, context: { selectedView: view, selectedStoreId: activeStoreId ?? null, selectedToolId: toolIntent } }); await authUtils.workspace.requests.invalidate(); await authUtils.workspace.activity.invalidate(); }} onReadLegalDocuments={async documentKey => { const result = await (documentKey === "terms" ? legalTermsQuery.refetch() : legalPrivacyQuery.refetch()); return { count: result.data?.length ?? 0 }; }} onAcknowledgeResource={async resourceKey => { await acknowledgeResourceMutation.mutateAsync({ resourceKey }); }} onBack={() => { setMoreAction(null); window.scrollTo({ top: 0, behavior: "smooth" }); }} />;
-    if (moreFlow === "team") return <TeamManagement back={back} />;
+    if (moreFlow === "team") return <StableTeamManagement back={back} />;
     const alignedDetail = moreFlow !== "home";
     const detailIcon = moreFlow === "billing" ? <BarChart3 /> : moreFlow === "profile" ? <Settings /> : moreFlow === "preferences" ? <Bell /> : moreFlow === "platform" ? <Layers3 /> : moreFlow === "resources" ? <FileBarChart /> : <CircleHelp />;
     const detailAction = moreFlow === "billing" ? "Manage plan" : moreFlow === "profile" ? "Edit profile" : moreFlow === "preferences" ? "Save preferences" : moreFlow === "platform" ? "Review integrations" : moreFlow === "resources" ? "Open documentation" : "Contact support";

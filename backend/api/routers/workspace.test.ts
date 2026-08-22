@@ -500,11 +500,21 @@ describe("workspace router", () => {
     vi.mocked(recordWorkspaceActivity).mockResolvedValue(undefined);
     const caller = appRouter.createCaller(authenticatedContext());
 
-    const result = await caller.workspace.stores.uploadSource({ workspaceId: 9, storeId: 31, fileName: "reference.png", mimeType: "image/png", contentBase64: Buffer.from("reference image").toString("base64"), sourceType: "screenshot" });
+    const result = await caller.workspace.stores.uploadSource({ workspaceId: 9, storeId: 31, fileName: "reference.png", mimeType: "image/png", contentBase64: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString("base64"), sourceType: "screenshot" });
 
     expect(storagePut).toHaveBeenCalledWith(expect.stringContaining("workspace-9/store-31/sources/reference.png"), expect.any(Buffer), "image/png");
     expect(createStoreSnapshot).toHaveBeenCalledWith(expect.objectContaining({ storeId: 31, sourceType: "screenshot", storageKey: "workspace-9/store-31/sources/reference_123.png" }));
     expect(result.storage.url).toContain("/manus-storage/");
+  });
+
+  it("rejects screenshot bytes that do not match the declared image type", async () => {
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceStore).mockResolvedValue({ id: 31, workspaceId: 9 } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+    vi.mocked(storagePut).mockClear();
+
+    await expect(caller.workspace.stores.uploadSource({ workspaceId: 9, storeId: 31, fileName: "not-an-image.png", mimeType: "image/png", contentBase64: Buffer.from("not an image").toString("base64"), sourceType: "screenshot" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(storagePut).not.toHaveBeenCalled();
   });
 
   it("persists and restores editor versions only within an editor-accessible workspace", async () => {

@@ -78,7 +78,7 @@ const sessionMocks = vi.hoisted(() => ({
   createReport: vi.fn().mockResolvedValue({ id: 90, format: "json" }),
   createDeveloperHandoff: vi.fn().mockResolvedValue({ id: 120, title: "Recorded handoff", status: "draft" }),
   executeScreenshotToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, analysis: "Observed uploaded screenshot evidence.", provider: "forge", model: "vision", report: { id: 90 } }),
-  executePublicUrlToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, inspection: { statusCode: 200 }, report: { id: 90 } }),
+  executePublicUrlToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, inspection: { url: "https://atelier-forma.example/", statusCode: 200, title: "Atelier Forma" }, issues: [], report: { id: 90 } }),
   executeDraftVersionComparison: vi.fn().mockResolvedValue({ run: { id: 141, status: "completed" }, comparison: { execution: "deterministic_persisted_draft_version_comparison", draftId: 14, serializedStateMatches: false, base: { versionId: 51, label: "Baseline", createdAt: new Date("2026-08-01T00:00:00.000Z"), createdByType: "user", designStateBytes: 19 }, comparison: { versionId: 52, label: "Revision", createdAt: new Date("2026-08-02T00:00:00.000Z"), createdByType: "ai", designStateBytes: 18 }, boundary: "Compares persisted version metadata and serialized state only. It does not render, score, assess visual quality, validate, publish, or change a store." }, report: { id: 90 } }),
   reportDownload: vi.fn().mockResolvedValue({ reportId: 90, format: "json", url: "/manus-storage/reports/inspection.json" }),
 }));
@@ -168,7 +168,7 @@ vi.mock("@/lib/trpc", () => ({
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate }, connections: { invalidate: sessionMocks.invalidate } }, dashboard: { invalidate: sessionMocks.invalidate }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate }, requests: { invalidate: sessionMocks.invalidate } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate }, connections: { invalidate: sessionMocks.invalidate } }, dashboard: { invalidate: sessionMocks.invalidate }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate }, reports: { invalidate: sessionMocks.invalidate }, requests: { invalidate: sessionMocks.invalidate } } }),
   },
 }));
 
@@ -561,7 +561,6 @@ describe("Workspace mobile behaviour", () => {
   });
 
   it("gives URL-analysis validation errors, then runs a real public URL inspection and opens its result", async () => {
-    vi.useFakeTimers();
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
     fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
@@ -580,5 +579,8 @@ describe("Workspace mobile behaviour", () => {
     expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "storefront-analyzer", sourceType: "public_url" }));
     expect(sessionMocks.startToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71 });
     expect(sessionMocks.executePublicUrlToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71 });
+    await waitFor(() => expect(view.getByRole("heading", { name: "Storefront analysis complete" })).toBeTruthy());
+    expect(view.getByRole("heading", { name: "Atelier Forma" })).toBeTruthy();
+    expect(view.getByText("Report #90")).toBeTruthy();
   });
 });

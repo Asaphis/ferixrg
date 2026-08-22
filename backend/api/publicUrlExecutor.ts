@@ -1,3 +1,6 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 export type PublicUrlInspection = {
   url: string;
   fetchedAt: string;
@@ -79,6 +82,46 @@ export type PublicUrlInspection = {
 };
 
 const MAX_DOCUMENT_BYTES = 1_000_000;
+const MAX_REDIRECTS = 5;
+const PUBLIC_URL_ERROR = "FerixRG can inspect public storefront URLs only.";
+
+function normalizedHostname(hostname: string) {
+  return hostname.toLowerCase().replace(/^\[|\]$/g, "");
+}
+
+function isPrivateAddress(address: string) {
+  const normalized = normalizedHostname(address);
+  const version = isIP(normalized);
+  if (version === 4) {
+    const octets = normalized.split(".").map(Number);
+    const [first, second] = octets;
+    return first === 0 || first === 10 || first === 127 || (first === 169 && second === 254) || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168);
+  }
+  if (version === 6) {
+    const mappedIpv4 = normalized.startsWith("::ffff:") ? normalized.slice(7) : "";
+    if (mappedIpv4 && isIP(mappedIpv4) === 4) return isPrivateAddress(mappedIpv4);
+    return normalized === "::" || normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd") || /^(?:fe[89ab])/.test(normalized);
+  }
+  return false;
+}
+
+function isReservedDocumentationDomain(hostname: string) {
+  return hostname === "example" || hostname.endsWith(".example") || hostname === "invalid" || hostname.endsWith(".invalid") || hostname === "test" || hostname.endsWith(".test");
+}
+
+async function assertPublicDestination(url: URL) {
+  const hostname = normalizedHostname(url.hostname);
+  if (isReservedDocumentationDomain(hostname)) return;
+  if (isIP(hostname) && isPrivateAddress(hostname)) throw new Error(PUBLIC_URL_ERROR);
+  try {
+    const addresses = await lookup(hostname, { all: true, verbatim: true });
+    if (!addresses.length || addresses.some(address => isPrivateAddress(address.address))) throw new Error(PUBLIC_URL_ERROR);
+  } catch (error) {
+    if (error instanceof Error && error.message === PUBLIC_URL_ERROR) throw error;
+    throw new Error(PUBLIC_URL_ERROR);
+  }
+}
+
 
 function textMatch(html: string, pattern: RegExp) {
   const match = html.match(pattern)?.[1];
@@ -343,10 +386,27 @@ function extractMobileMarkupIndicators(html: string) {
 export function validatePublicInspectionUrl(value: string) {
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Use a public HTTP or HTTPS URL.");
-  const hostname = url.hostname.toLowerCase();
-  const isPrivateIp = /^(?:127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)/.test(hostname);
-  if (hostname === "localhost" || hostname === "::1" || hostname.endsWith(".local") || hostname.endsWith(".internal") || isPrivateIp) throw new Error("FerixRG can inspect public storefront URLs only.");
+  const hostname = normalizedHostname(url.hostname);
+  if (hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal") || (isIP(hostname) > 0 && isPrivateAddress(hostname))) throw new Error(PUBLIC_URL_ERROR);
   return url;
+}
+
+async function fetchPublicPage(initialUrl: URL) {
+  let currentUrl = initialUrl;
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    await assertPublicDestination(currentUrl);
+    const response = await fetch(currentUrl, { redirect: "manual", headers: { "User-Agent": "FerixRG-Storefront-Inspector/1.0 (+https://ferixrg.example)" }, signal: AbortSignal.timeout(15_000) });
+    if (response.status >= 300 && response.status < 400) {
+      if (redirectCount === MAX_REDIRECTS) throw new Error("The public page redirected too many times.");
+      const location = response.headers.get("location");
+      if (!location) throw new Error("The public page returned an invalid redirect.");
+      currentUrl = validatePublicInspectionUrl(new URL(location, currentUrl).toString());
+      continue;
+    }
+    if (response.status < 200 || response.status >= 300) throw new Error(`The public page returned HTTP ${response.status}.`);
+    return { response, url: currentUrl };
+  }
+  throw new Error("The public page could not be fetched safely.");
 }
 
 async function readBody(response: Response) {
@@ -373,9 +433,9 @@ async function readBody(response: Response) {
 }
 
 export async function inspectPublicUrl(value: string): Promise<PublicUrlInspection> {
-  const url = validatePublicInspectionUrl(value);
+  const requestedUrl = validatePublicInspectionUrl(value);
   const startedAt = Date.now();
-  const response = await fetch(url, { redirect: "follow", headers: { "User-Agent": "FerixRG-Storefront-Inspector/1.0 (+https://ferixrg.example)" }, signal: AbortSignal.timeout(15_000) });
+  const { response, url } = await fetchPublicPage(requestedUrl);
   const contentType = response.headers.get("content-type");
   const html = contentType?.toLowerCase().includes("text/html") ? await readBody(response) : "";
   const imageTags = html.match(/<img\b[^>]*>/gi) ?? [];
