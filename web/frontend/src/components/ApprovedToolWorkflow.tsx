@@ -119,7 +119,8 @@ export function ApprovedToolWorkflow({
   const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
   const source = resolveToolSource(internalSource, tool.sources);
   const chooseSource = (next: ToolSource) => { setInternalSource(next); onSourceChange?.(next); };
-  const [url, setUrl] = useState("");
+  const urlInputRef = useRef<HTMLInputElement>(null);
+  const readUrl = () => urlInputRef.current?.value.trim() ?? "";
   const [reportReady, setReportReady] = useState(false);
   const [selectedElement, setSelectedElement] = useState("Buy button");
   const [device, setDevice] = useState("Mobile");
@@ -223,7 +224,7 @@ export function ApprovedToolWorkflow({
       setRunError("");
       if (source === "Connected store") throw new Error("Connected-store execution is not enabled until the provider API and OAuth adapter are configured.");
       if (source === "Public URL" || source === "Specific page URL") {
-        const cleanUrl = url.trim();
+        const cleanUrl = readUrl();
         if (!cleanUrl) throw new Error("Enter a public storefront URL before running this tool.");
         let parsedUrl: URL;
         try { parsedUrl = new URL(cleanUrl); } catch { throw new Error("Enter a complete URL beginning with https://."); }
@@ -241,7 +242,7 @@ export function ApprovedToolWorkflow({
           return { fileName: file.name, storageKey: uploaded.storage.key, url: uploaded.storage.url };
         }));
       }
-      const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined, uploadedSources } });
+      const queued = await queueToolRunMutation.mutateAsync({ workspaceId, toolId: tool.id, sourceType, inputSummary: { source, url: source === "Public URL" || source === "Specific page URL" ? readUrl() : undefined, uploadedSources } });
       const started = await startToolRunMutation.mutateAsync({ workspaceId, toolRunId: queued.id });
       if (tool.id === "before-after-comparator" && sourceType === "saved_draft") {
         if (!baseVersionId || !comparisonVersionId) throw new Error("Choose one baseline version and one comparison version before running this tool.");
@@ -326,7 +327,7 @@ export function ApprovedToolWorkflow({
       setFinishNotice("Your workspace is still loading. Try saving again in a moment.");
       return;
     }
-    const designState = JSON.stringify({ toolId: tool.id, toolName: tool.name, source, url: source === "Public URL" || source === "Specific page URL" ? url : undefined, selectedElement, device, proposalApplied, selectedInspector: inspectorTab });
+    const designState = JSON.stringify({ toolId: tool.id, toolName: tool.name, source, url: source === "Public URL" || source === "Specific page URL" ? readUrl() : undefined, selectedElement, device, proposalApplied, selectedInspector: inspectorTab });
     const label = savedVersionCount ? `Saved version ${savedVersionCount + 1}` : "Initial working version";
     try {
       if (!draftId) {
@@ -393,7 +394,7 @@ export function ApprovedToolWorkflow({
           {(source === "Public URL" || source === "Specific page URL") && (
             <label className="tool-workflow-input">
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
-              <div><Link2 /><input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" value={url} onChange={event => { setUrl(event.target.value); setRunError(""); }} /><button type="button" aria-label="Clear URL" onClick={() => setUrl("")} disabled={!url}>×</button></div>
+              <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" defaultValue="" onInput={() => setRunError("")} /><button type="button" aria-label="Clear URL" onClick={() => { if (urlInputRef.current) urlInputRef.current.value = ""; setRunError(""); }} disabled={false}>×</button></div>
             </label>
           )}
           {source === "Connected store" && (
@@ -436,7 +437,7 @@ export function ApprovedToolWorkflow({
       <WorkflowHeader
         kicker={`Running · ${tool.name}`}
         title={`${tool.name} is checking your input.`}
-        copy={`${source} · ${source === "Public URL" ? url.replace(/^https?:\/\//, "") : sourceDetail.support}`}
+        copy={`${source} · ${source === "Public URL" ? readUrl().replace(/^https?:\/\//, "") : sourceDetail.support}`}
         back={() => move("setup")}
       />
       <section className="tool-workflow-processing-grid">

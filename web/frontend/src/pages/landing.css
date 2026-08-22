@@ -53,3 +53,12 @@ html,body,#root{max-width:100%;overflow-x:hidden}
   .home-page .hero-copy-rich>.landing-eyebrow{display:block;width:100%;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.35}
   .home-page .hero-copy-rich>h1,.home-page .hero-copy-rich>p{min-width:0;max-width:100%;overflow-wrap:break-word}
 }
+
+
+/* Verified fix for the red-marked mobile overflow: the Home eyebrow is text-only and must not be an anonymous flex item. */
+@media (max-width:600px){
+  .home-page .landing-canvas{width:100%;max-width:100%;min-width:0}
+  .home-page .rich-hero{width:calc(100% - 26px);max-width:calc(100% - 26px);min-width:0;box-sizing:border-box}
+  .home-page .hero-copy-rich{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+  .home-page .hero-copy-rich>.landing-eyebrow{display:block;width:100%;max-width:100%;min-width:0;white-space:normal;overflow-wrap:break-word;word-break:normal;line-height:1.35}
+}

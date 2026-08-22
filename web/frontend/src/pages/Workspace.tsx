@@ -143,7 +143,7 @@ export default function Workspace() {
   const [connectionFeedback, setConnectionFeedback] = useState<"idle" | "loading" | "error">("idle");
   const [connectionProvider, setConnectionProvider] = useState<"shopify" | "woocommerce" | "magento" | "custom">("shopify");
   const [urlAnalysisFeedback, setUrlAnalysisFeedback] = useState<"idle" | "error">("idle");
-  const storeUrlRef = useRef("https://yourstore.com");
+  const storeUrlRef = useRef("");
   const [logoutPrompt, setLogoutPrompt] = useState<"none" | "confirm" | "unsaved">("none");
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingEditorExit, setPendingEditorExit] = useState<string | "logout" | null>(null);
