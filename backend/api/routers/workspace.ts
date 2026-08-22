@@ -68,7 +68,7 @@ import {
   updateWorkspaceMemberRole,
 } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
-import { storageGet, storagePut } from "../storage";
+import { storageGet, storageGetSignedUrl, storagePut } from "../storage";
 import { requireWorkspaceAccess } from "../workspaceAccess";
 import { connectionRequiredToolIds, isCanonicalToolId } from "../../shared/toolRegistry";
 
@@ -106,7 +106,7 @@ const dedicatedPublicUrlExecutorToolIds = new Set([
   "visual-hierarchy-analyzer",
 ]);
 import { CloudflareAiError } from "../cloudflareAi";
-import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
+import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway, runScreenshotAnalysisThroughGateway } from "../aiGateway";
 import { getStoreProviderAdapter, listStoreProviderReadiness } from "../storeProviders";
 import { inspectPublicUrl } from "../publicUrlExecutor";
 
@@ -732,6 +732,35 @@ export const workspaceRouter = router({
         const message = error instanceof Error ? error.message : "Public URL inspection failed.";
         await failWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, errorMessage: message });
         throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      return toForbidden(error);
+    }
+  }),
+  executeScreenshotToolRun: protectedProcedure.input(workspaceInput.extend({ toolRunId: z.number().int().positive(), storageKeys: z.array(z.string().trim().min(1).max(512)).min(1).max(10) })).mutation(async ({ ctx, input }) => {
+    try {
+      await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+      const existing = await getWorkspaceToolRun(input.workspaceId, input.toolRunId);
+      if (!existing || existing.toolId !== "screenshot-analyzer" || existing.sourceType !== "upload") throw new TRPCError({ code: "BAD_REQUEST", message: "Screenshot Analyzer requires an uploaded screenshot tool run." });
+      const uploadedSources = Array.isArray((existing.inputSummary as Record<string, unknown> | null)?.uploadedSources) ? (existing.inputSummary as { uploadedSources: Array<{ url?: unknown; storageKey?: unknown }> }).uploadedSources : [];
+      const allowedKeys = new Set(uploadedSources.flatMap(item => typeof item.storageKey === "string" ? [item.storageKey] : []));
+      if (!input.storageKeys.every(key => allowedKeys.has(key))) throw new TRPCError({ code: "BAD_REQUEST", message: "The screenshot analysis request must use the files uploaded for this tool run." });
+      const running = existing.status === "queued" ? await startWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id }) : existing;
+      if (!running || running.status !== "running") throw new TRPCError({ code: "BAD_REQUEST", message: "Only queued or running Screenshot Analyzer runs can execute." });
+      try {
+        const imageUrls = await Promise.all(input.storageKeys.map(storageGetSignedUrl));
+        const analysis = await runScreenshotAnalysisThroughGateway({ toolName: "Screenshot Analyzer", imageUrls });
+        const reportJson = JSON.stringify({ generatedAt: new Date().toISOString(), toolRunId: input.toolRunId, toolId: "screenshot-analyzer", source: { type: "screenshots", count: input.storageKeys.length }, provider: analysis.provider, model: analysis.model, analysis: analysis.response }, null, 2);
+        const upload = await storagePut(`workspace-${input.workspaceId}/tool-runs/${input.toolRunId}/screenshot-analysis.json`, Buffer.from(reportJson), "application/json");
+        const evidence = await createWorkspaceEvidence({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, kind: "provider_summary", title: "AI screenshot analysis", storageKey: upload.key, details: { provider: analysis.provider, model: analysis.model, screenshotCount: input.storageKeys.length, promptTokens: analysis.promptTokens, completionTokens: analysis.completionTokens }, actorUserId: ctx.user.id });
+        const report = await createWorkspaceReport({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, title: "Screenshot Analyzer AI report", format: "json", storageKey: upload.key, summary: "AI analysis of uploaded screenshot evidence with screenshot-only limitations.", createdByUserId: ctx.user.id });
+        const run = await completeWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, resultSummary: { execution: "vision_screenshot_analysis", provider: analysis.provider, model: analysis.model, screenshotCount: input.storageKeys.length, evidenceId: evidence?.id ?? null, reportId: report?.id ?? null } });
+        return { run, analysis: analysis.response, provider: analysis.provider, model: analysis.model, report: report ? { id: report.id, storageKey: upload.key, url: upload.url } : null };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Screenshot analysis failed.";
+        await failWorkspaceToolRun({ workspaceId: input.workspaceId, toolRunId: input.toolRunId, actorUserId: ctx.user.id, errorMessage: message });
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message });
       }
     } catch (error) {
       if (error instanceof TRPCError) throw error;

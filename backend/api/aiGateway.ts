@@ -74,3 +74,22 @@ export async function runMarketingCopyThroughGateway(input: MarketingCopyRequest
   const result = await adapter.runMarketingCopy(input);
   return { ...result, provider: adapter.provider };
 }
+
+
+export async function runScreenshotAnalysisThroughGateway(input: { toolName: string; imageUrls: string[] }) {
+  if (!input.imageUrls.length) throw new Error("At least one uploaded screenshot is required for visual analysis.");
+  const { invokeLLM } = await import("./_core/llm");
+  const response = await invokeLLM({
+    messages: [
+      { role: "system", content: "You are FerixRG Screenshot Analyzer. Analyze only the supplied storefront screenshots. Return concise, evidence-aware findings about visible layout, hierarchy, typography, spacing, contrast, responsive clues, and actionable issues. Do not claim access to the live store, hidden code, checkout, private data, or measurements not visible in the images. Clearly distinguish visible observations from recommendations. Do not invent scores, URLs, business facts, or performance data." },
+      { role: "user", content: [
+        { type: "text", text: `Analyze these ${input.imageUrls.length} screenshot${input.imageUrls.length === 1 ? "" : "s"} for the FerixRG ${input.toolName} workflow. Return: 1) visible observations, 2) prioritized issues, 3) practical recommendations, 4) limitations of screenshot-only evidence.` },
+        ...input.imageUrls.map(url => ({ type: "image_url" as const, image_url: { url, detail: "auto" as const } })),
+      ] },
+    ],
+  });
+  const content = response.choices[0]?.message?.content;
+  const text = typeof content === "string" ? content.trim() : "";
+  if (!text) throw new Error("The screenshot analysis provider returned no readable result.");
+  return { response: text, provider: "built_in_llm", model: response.model, promptTokens: response.usage?.prompt_tokens ?? null, completionTokens: response.usage?.completion_tokens ?? null };
+}

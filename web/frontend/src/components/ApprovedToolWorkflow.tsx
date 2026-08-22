@@ -58,6 +58,8 @@ const stages: Array<{ id: Stage; label: string }> = [
   { id: "finish", label: "Finish" },
 ];
 
+const publicUrlExecutorToolIds = new Set(["storefront-analyzer", "page-analyzer", "site-structure-analyzer", "visual-design-analyzer", "layout-analyzer", "visual-hierarchy-analyzer", "typography-analyzer", "color-contrast-analyzer", "ux-analyzer", "conversion-analyzer", "cta-analyzer", "trust-credibility-analyzer", "customer-journey-analyzer", "responsive-analyzer", "mobile-ux-analyzer", "breakpoint-analyzer", "product-page-analyzer", "product-presentation-analyzer", "product-content-analyzer", "navigation-analyzer", "collection-analyzer", "cart-analyzer", "checkout-ux-analyzer", "content-quality-analyzer", "seo-analyzer", "heading-structure-analyzer", "image-seo-analyzer", "performance-analyzer", "image-optimization-analyzer", "asset-analyzer", "accessibility-analyzer"]);
+
 const resolveToolSource = (value: string | undefined, sources: ToolSource[]): ToolSource => {
   const aliases: Record<string, ToolSource> = {
     url: "Public URL",
@@ -146,6 +148,8 @@ export function ApprovedToolWorkflow({
   const [baseVersionId, setBaseVersionId] = useState<number | null>(null);
   const [comparisonVersionId, setComparisonVersionId] = useState<number | null>(null);
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
+  const [screenshotEvidenceCount, setScreenshotEvidenceCount] = useState(0);
+  const [screenshotAnalysis, setScreenshotAnalysis] = useState("");
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [runError, setRunError] = useState("");
@@ -165,6 +169,7 @@ export function ApprovedToolWorkflow({
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
   const executeDraftVersionComparisonMutation = trpc.workspace.executeDraftVersionComparison.useMutation();
+  const executeScreenshotToolRunMutation = trpc.workspace.executeScreenshotToolRun.useMutation();
   const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
   const contentImproveMutation = trpc.workspace.contentImprove.useMutation();
   const designCopilotMutation = trpc.workspace.designCopilot.useMutation();
@@ -230,7 +235,9 @@ export function ApprovedToolWorkflow({
         try { parsedUrl = new URL(cleanUrl); } catch { throw new Error("Enter a complete URL beginning with https://."); }
         if (!/^https?:$/.test(parsedUrl.protocol)) throw new Error("Only http:// and https:// storefront URLs can be analyzed.");
       }
-      if (source !== "Screenshots" && source !== "Public URL" && source !== "Specific page URL" && source !== "Saved draft") throw new Error(`${source} is not executable yet. Choose Public URL or Screenshots for this tool.`);
+      if (sourceType === "public_url" && !publicUrlExecutorToolIds.has(tool.id)) throw new Error(`${tool.name} does not have a dedicated public-URL executor yet. No run was queued.`);
+      if (source === "Screenshots" && tool.id !== "screenshot-analyzer") throw new Error(`${tool.name} does not have a screenshot-analysis executor yet. Choose Screenshot Analyzer; no run was queued.`);
+      if (source === "Saved draft" && tool.id !== "before-after-comparator") throw new Error(`${tool.name} does not have a saved-draft executor yet. No run was queued.`);
       let uploadedSources: Array<{ fileName: string; storageKey: string; url: string }> = [];
       if (source === "Screenshots") {
         if (!storeId) throw new Error("Open or add a store before uploading screenshots.");
@@ -249,6 +256,8 @@ export function ApprovedToolWorkflow({
         const execution = await executeDraftVersionComparisonMutation.mutateAsync({ workspaceId, toolRunId: started.id, baseVersionId, comparisonVersionId });
         setReportId(execution.report?.id ?? null);
         setComparisonResult(execution.comparison as ComparisonResult);
+        setScreenshotEvidenceCount(0);
+        setScreenshotAnalysis("");
         setInspection(null);
         setObservedIssues([]);
       } else if (sourceType === "public_url") {
@@ -257,15 +266,18 @@ export function ApprovedToolWorkflow({
         setInspection(execution.inspection);
         setObservedIssues(execution.issues ?? []);
         setComparisonResult(null);
+        setScreenshotEvidenceCount(0);
+        setScreenshotAnalysis("");
       } else if (source === "Screenshots") {
         const evidence = await Promise.all(uploadedSources.map(uploaded => addToolEvidenceMutation.mutateAsync({ workspaceId, toolRunId: started.id, kind: "screenshot", title: uploaded.fileName, storageKey: uploaded.storageKey, details: { source: "user_uploaded_screenshot", fileName: uploaded.fileName } })));
-        const report = await createReportMutation.mutateAsync({ workspaceId, toolRunId: started.id, title: `${tool.name} screenshot report`, format: "json", summary: `Stored ${evidence.length} uploaded screenshot${evidence.length === 1 ? "" : "s"} as reviewable evidence.` });
-        await completeToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id, resultSummary: { execution: "persisted_screenshot_evidence", source: "Screenshots", evidenceCount: evidence.length, reportId: report.id } });
-        setReportId(report.id);
+        const execution = await executeScreenshotToolRunMutation.mutateAsync({ workspaceId, toolRunId: started.id, storageKeys: uploadedSources.map(uploaded => uploaded.storageKey) });
+        setReportId(execution.report?.id ?? null);
+        setScreenshotEvidenceCount(evidence.length);
+        setScreenshotAnalysis(execution.analysis);
         setInspection(null);
         setObservedIssues([]);
         setComparisonResult(null);
-      } else { setReportId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); }
+      } else { setReportId(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setInspection(null); setObservedIssues([]); setComparisonResult(null); }
       setToolRunId(started.id);
       move("results");
     } catch (error) {
@@ -426,7 +438,7 @@ export function ApprovedToolWorkflow({
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
-          <button type="button" className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
+          <button type="button" className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
@@ -442,7 +454,7 @@ export function ApprovedToolWorkflow({
       />
       <section className="tool-workflow-processing-grid">
         <article className="tool-workflow-card tool-workflow-progress-card">
-          <div className="tool-workflow-progress-ring"><b>72%</b><span>almost ready</span></div>
+          <div className="tool-workflow-progress-ring"><b>{toolRunId ? "RUN" : "—"}</b><span>{toolRunId ? "record created" : "not started"}</span></div>
           <div className="tool-workflow-processing-stages">
             {[
               [`Preparing ${source.toLowerCase()} context`, "Complete"],
@@ -454,7 +466,7 @@ export function ApprovedToolWorkflow({
           </div>
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           <button className="tool-workflow-secondary" onClick={() => move("setup")}>Cancel and change source</button>
-          <button className="tool-workflow-primary" onClick={() => move("results")}>{toolRunId ? "See run record" : "See result"}</button>
+          <button className="tool-workflow-primary" disabled={!toolRunId} onClick={() => move("results")}>{toolRunId ? "See run record" : "No run record"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-context-card">
           <span className="tool-workflow-kicker">Your run</span>
@@ -481,17 +493,17 @@ export function ApprovedToolWorkflow({
       <section className="tool-workflow-results-grid">
         <article className="tool-workflow-card tool-workflow-score-card">
           <span className="tool-workflow-kicker">Your result</span>
-          <h2>{comparisonResult ? "Saved versions compared" : inspection?.title ?? (inspection ? "Observed public page" : "No executor-created result")}</h2>
+          <h2>{comparisonResult ? "Saved versions compared" : screenshotAnalysis ? "Screenshot analysis complete" : screenshotEvidenceCount ? "Screenshot evidence stored" : inspection?.title ?? (inspection ? "Observed public page" : "No executor-created result")}</h2>
           <div className="tool-workflow-capability"><ShieldCheck /><span><b>{capability.mode}</b><small>{capability.label}</small></span></div>
-          <div className="tool-workflow-score"><b>{comparisonResult ? (comparisonResult.serializedStateMatches ? "Match" : "Different") : inspection ? inspection.statusCode : "—"}</b><span>{comparisonResult ? "serialized saved state" : inspection ? "HTTP response" : "no measured score"}</span></div>
-          <p>{comparisonResult ? comparisonResult.boundary : inspection ? `Observed from ${observedHost}. This is a bounded page inspection, not a visual-quality or conversion score.` : "A measured result appears only after a supported executor records evidence for this run."}</p>
-          <div className="tool-workflow-stats">{comparisonResult ? <><span><b>{comparisonResult.base.designStateBytes}</b><small>baseline bytes</small></span><span><b>{comparisonResult.comparison.designStateBytes}</b><small>comparison bytes</small></span><span><b>{comparisonResult.serializedStateMatches ? "same" : "different"}</b><small>serialized state</small></span></> : inspection ? <><span><b>{inspection.headingCount}</b><small>headings observed</small></span><span><b>{inspection.imageCount}</b><small>images observed</small></span><span><b>{observedIssues.length}</b><small>observed issue records</small></span></> : <span><b>Awaiting evidence</b><small>no recorded checks</small></span>}</div>
+          <div className="tool-workflow-score"><b>{comparisonResult ? (comparisonResult.serializedStateMatches ? "Match" : "Different") : screenshotEvidenceCount ? screenshotEvidenceCount : inspection ? inspection.statusCode : "—"}</b><span>{comparisonResult ? "serialized saved state" : screenshotEvidenceCount ? "uploaded files" : inspection ? "HTTP response" : "no measured score"}</span></div>
+          <p>{comparisonResult ? comparisonResult.boundary : screenshotAnalysis ? "The AI analysis below was generated from the uploaded screenshots only. It does not claim access to hidden code, live store data, or measurements not visible in the images." : screenshotEvidenceCount ? "The selected screenshot files were uploaded to protected workspace storage and recorded as evidence. No visual score or AI interpretation was produced." : inspection ? `Observed from ${observedHost}. This is a bounded page inspection, not a visual-quality or conversion score.` : "A measured result appears only after a supported executor records evidence for this run."}</p>
+          <div className="tool-workflow-stats">{screenshotEvidenceCount ? <span><b>{screenshotEvidenceCount}</b><small>screenshot files stored</small></span> : comparisonResult ? <><span><b>{comparisonResult.base.designStateBytes}</b><small>baseline bytes</small></span><span><b>{comparisonResult.comparison.designStateBytes}</b><small>comparison bytes</small></span><span><b>{comparisonResult.serializedStateMatches ? "same" : "different"}</b><small>serialized state</small></span></> : inspection ? <><span><b>{inspection.headingCount}</b><small>headings observed</small></span><span><b>{inspection.imageCount}</b><small>images observed</small></span><span><b>{observedIssues.length}</b><small>observed issue records</small></span></> : <span><b>Awaiting evidence</b><small>no recorded checks</small></span>}</div>
           <button className="tool-workflow-secondary" disabled={!reportId || reportDownloadMutation.isPending} onClick={() => { void downloadGeneratedReport(); }}><Download /> {reportDownloadMutation.isPending ? "Preparing download…" : reportReady ? "Report downloaded" : reportId ? "Download report" : "No export artifact"}</button>
         </article>
         <article className="tool-workflow-card tool-workflow-evidence-card">
           <span className="tool-workflow-kicker">Where it happens</span>
-          {comparisonResult ? <div className="tool-workflow-evidence-note"><b>Persisted version records</b><p>Baseline: {comparisonResult.base.label} · {new Date(comparisonResult.base.createdAt).toLocaleString()} · {comparisonResult.base.createdByType}. Comparison: {comparisonResult.comparison.label} · {new Date(comparisonResult.comparison.createdAt).toLocaleString()} · {comparisonResult.comparison.createdByType}.</p></div> : <><div className="tool-workflow-evidence-visual"><img src={evidenceAsset} alt="Mobile product page evidence" /><span>Buy button</span></div><div className="tool-workflow-evidence-note"><b>{inspection ? "Observed page evidence" : "No observed evidence yet"}</b><p>{inspection ? `${inspection.hasViewport ? "Viewport metadata is present" : "Viewport metadata is absent"}; ${inspection.canonicalUrl ? "a canonical URL is declared" : "no canonical URL was observed"}; ${inspection.linkCount} links were counted.` : "Run a supported executor to create evidence before a result or recommendation is shown."}</p></div></>}
-          <div className="tool-workflow-result-metrics"><span>{inspection ? (observedIssues.length ? "Observed issue records" : "Observed fields") : "Result boundary"}</span>{inspection ? (observedIssues.length ? observedIssues.map(issue => <b key={issue.id}>{issue.severity} · {issue.title}</b>) : [inspection.language ? `Language · ${inspection.language}` : "Language not declared", `Meta description markup · ${inspection.metaDescriptionLength} chars`, `${inspection.bytesRead} bytes inspected`].map(metric => <b key={metric}>{metric}</b>)) : <b>No generated evidence</b>}</div>
+          {screenshotEvidenceCount ? <><div className="tool-workflow-evidence-visual">{selectedPreviews[0] ? <img src={selectedPreviews[0]} alt="Uploaded screenshot preview" /> : <div className="tool-workflow-evidence-note"><b>Uploaded evidence</b></div>}<span>Uploaded screenshot evidence</span></div><div className="tool-workflow-evidence-note"><b>{screenshotAnalysis ? "AI analysis from uploaded screenshots" : "Stored in workspace evidence"}</b><p>{screenshotAnalysis || `${screenshotEvidenceCount} screenshot file${screenshotEvidenceCount === 1 ? "" : "s"} uploaded and attached to this tool run. No visual score is claimed beyond the provider response.`}</p></div></> : comparisonResult ? <div className="tool-workflow-evidence-note"><b>Persisted version records</b><p>Baseline: {comparisonResult.base.label} · {new Date(comparisonResult.base.createdAt).toLocaleString()} · {comparisonResult.base.createdByType}. Comparison: {comparisonResult.comparison.label} · {new Date(comparisonResult.comparison.createdAt).toLocaleString()} · {comparisonResult.comparison.createdByType}.</p></div> : inspection ? <div className="tool-workflow-evidence-note"><b>Observed page evidence</b><p>{inspection.hasViewport ? "Viewport metadata is present" : "Viewport metadata is absent"}; {inspection.canonicalUrl ? "a canonical URL is declared" : "no canonical URL was observed"}; {inspection.linkCount} links were counted from the fetched document.</p></div> : <div className="tool-workflow-evidence-note"><b>No observed evidence yet</b><p>Run a supported executor to create evidence before a result or recommendation is shown.</p></div>}
+          <div className="tool-workflow-result-metrics"><span>{screenshotEvidenceCount ? "Stored evidence" : inspection ? (observedIssues.length ? "Observed issue records" : "Observed fields") : "Result boundary"}</span>{screenshotEvidenceCount ? <b>{screenshotEvidenceCount} uploaded screenshot{screenshotEvidenceCount === 1 ? "" : "s"}</b> : inspection ? (observedIssues.length ? observedIssues.map(issue => <b key={issue.id}>{issue.severity} · {issue.title}</b>) : [inspection.language ? `Language · ${inspection.language}` : "Language not declared", `Meta description markup · ${inspection.metaDescriptionLength} chars`, `${inspection.bytesRead} bytes inspected`].map(metric => <b key={metric}>{metric}</b>)) : <b>No generated evidence</b>}</div>
           {tool.id === "heading-structure-analyzer" && inspection?.headings && <div className="tool-workflow-result-metrics"><span>Observed heading order</span>{inspection.headings.length ? inspection.headings.map((heading, index) => <b key={`${heading.level}-${index}`}>H{heading.level} · {heading.text || "No text observed"}</b>) : <b>No heading elements were observed.</b>}</div>}
           {tool.id === "image-seo-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed image alternative text</span><b>{inspection.imagesWithAlt ?? Math.max(inspection.imageCount - inspection.imagesWithoutAlt, 0)} image{(inspection.imagesWithAlt ?? Math.max(inspection.imageCount - inspection.imagesWithoutAlt, 0)) === 1 ? "" : "s"} with alt text</b><b>{inspection.imagesWithoutAlt} image{inspection.imagesWithoutAlt === 1 ? "" : "s"} without alt text</b></div>}
           {tool.id === "seo-analyzer" && inspection && <div className="tool-workflow-result-metrics"><span>Observed page SEO fields</span><b>Title · {inspection.title || "not observed"}</b><b>Meta description markup · {inspection.metaDescriptionLength ? `${inspection.metaDescriptionLength} chars` : "not observed"}</b><b>Canonical · {inspection.canonicalUrl || "not observed"}</b><b>{inspection.headingCount} headings · {inspection.linkCount} links · {inspection.imageCount} images observed</b></div>}
@@ -563,7 +575,7 @@ export function ApprovedToolWorkflow({
               <div className="tool-workflow-version-placeholder"><span>AI suggestion</span><b>Reviewable proposal only</b><small>Apply remains a manual editor decision; no store change is made.</small></div>
             </div>
           ) : (
-            <div className="tool-workflow-live-canvas"><img src={evidenceAsset} alt="Editable storefront preview" /><div className="tool-workflow-selection"><span>{selectedElement}</span></div></div>
+            <div className="tool-workflow-live-canvas">{selectedPreviews[0] ? <img src={selectedPreviews[0]} alt="Uploaded screenshot preview" /> : <div className="tool-workflow-no-preview"><b>No rendered storefront preview is available.</b><span>This workspace can store reviewable draft metadata, but it does not claim to render or change a live store.</span></div>}<div className="tool-workflow-selection"><span>{selectedElement}</span></div></div>
           )}
           {proposalVisible && <div className="tool-workflow-proposal-actions"><button className="tool-workflow-primary" onClick={() => { setProposalApplied(true); setProposalVisible(false); setEditorDirty(true); setFinishNotice(`AI suggestion applied to ${editorDraftLabel}. You can continue editing it manually.`); }}>Apply change</button><button className="tool-workflow-secondary" onClick={() => setProposalVisible(false)}>Keep current</button></div>}
           <div className="tool-workflow-health-strip"><b>{inspection ? `HTTP ${inspection.statusCode} observed` : "Design health not measured"}</b><span>{latestValidation ? "Validation record available" : "No visual or score validation has been run"}</span><button onClick={() => requestEditorExit("review")}>Review validation</button></div>
@@ -571,7 +583,7 @@ export function ApprovedToolWorkflow({
         <aside className="tool-workflow-inspector">
           <div className="tool-workflow-inspector-tabs"><button className={inspectorTab === "edit" ? "active" : ""} onClick={() => setInspectorTab("edit")}>Edit</button><button className={inspectorTab === "ai" ? "active" : ""} onClick={() => setInspectorTab("ai")}>Ask AI</button><button className={inspectorTab === "history" ? "active" : ""} onClick={() => setInspectorTab("history")}>History</button></div>
           {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={() => { void saveVersion(); }} />}
-          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI suggestion"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
+          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" disabled={!messages.some(message => message.role === "assistant" && message.content !== `I am looking at **${tool.name}** on Product page → ${selectedElement} → ${device}. Tell me what you would like to improve, or attach a visual reference.`)} onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI response"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
           {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], [savedVersionCount ? `Saved version ${savedVersionCount}` : "Current working version", proposalApplied ? "AI suggestion applied" : "Current element changes"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={() => { void saveVersion(); }} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={() => { void saveVersion(); }}><Save /> Save version</button></div>}
         </aside>
       </div>
@@ -637,7 +649,7 @@ function SpecialistWorkspace({ route, tool, source, scope, onBack, onContinue, o
     <section className="tool-specialist-grid">
       <article className="tool-workflow-card tool-specialist-context"><span className="tool-workflow-kicker">Current context</span><h2>{tool.name}</h2><div><b>Input</b><span>{source}</span></div><div><b>Result</b><span>{tool.outcome}</span></div><div><b>Scope</b><span>{scope}</span></div></article>
       <article className="tool-workflow-card tool-specialist-evidence"><span className="tool-workflow-kicker">Evidence and recommendations</span><h2>{technical ? "What needs implementation" : "What this result tells you"}</h2><div className="tool-specialist-list"><span><i>1</i><b>{technical ? "Prioritized cause" : "Priority finding"}</b><small>{technical ? "Evidence points to a change that should be reviewed before implementation." : "The visible customer path has one clear decision to improve first."}</small></span><span><i>2</i><b>{technical ? "Expected impact" : "Recommended next step"}</b><small>{technical ? "The recommendation is recorded with scope and expected impact." : route.primaryDescription}</small></span><span><i>3</i><b>{technical ? "Delivery path" : "Safe continuation"}</b><small>{technical ? "Prepare an implementation package rather than altering a visual draft." : "Save, export, or enter the appropriate focused workspace."}</small></span></div></article>
-      <article className="tool-workflow-card tool-specialist-action"><span className="tool-workflow-kicker">Next action</span><h2>{route.workspace}</h2><p>{technical ? "This workspace keeps the technical brief, affected context, acceptance criteria, and delivery choices together." : "Review the evidence and keep a clear record of the next decision."}</p>{route.allowsAi ? <button className="tool-workflow-primary" onClick={onAskAi}><Sparkles /> Create AI plan</button> : <button className="tool-workflow-primary" onClick={() => undefined}><FileDown /> Review recommendation</button>}<button className="tool-workflow-secondary" onClick={onContinue}>{technical ? "Review handoff package" : "Continue to review"} <ArrowRight /></button><button className="tool-specialist-export"><Download /> Download report and evidence</button></article>
+      <article className="tool-workflow-card tool-specialist-action"><span className="tool-workflow-kicker">Next action</span><h2>{route.workspace}</h2><p>{technical ? "This workspace keeps the technical brief, affected context, acceptance criteria, and delivery choices together." : "Review the evidence and keep a clear record of the next decision."}</p>{route.allowsAi ? <button className="tool-workflow-primary" onClick={onAskAi}><Sparkles /> Create AI plan</button> : <button className="tool-workflow-primary" disabled><FileDown /> No recommendation executor</button>}<button className="tool-workflow-secondary" onClick={onContinue}>{technical ? "Review handoff package" : "Continue to review"} <ArrowRight /></button><button className="tool-specialist-export" disabled><Download /> No report artifact</button></article>
     </section>
   </section>;
 }
