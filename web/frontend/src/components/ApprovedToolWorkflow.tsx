@@ -119,7 +119,7 @@ export function ApprovedToolWorkflow({
   const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
   const source = resolveToolSource(internalSource, tool.sources);
   const chooseSource = (next: ToolSource) => { setInternalSource(next); onSourceChange?.(next); };
-  const [url, setUrl] = useState("https://atelierforma.com");
+  const [url, setUrl] = useState("");
   const [reportReady, setReportReady] = useState(false);
   const [selectedElement, setSelectedElement] = useState("Buy button");
   const [device, setDevice] = useState("Mobile");
@@ -222,6 +222,13 @@ export function ApprovedToolWorkflow({
       if (!workspaceId) throw new Error("Workspace is still loading");
       setRunError("");
       if (source === "Connected store") throw new Error("Connected-store execution is not enabled until the provider API and OAuth adapter are configured.");
+      if (source === "Public URL" || source === "Specific page URL") {
+        const cleanUrl = url.trim();
+        if (!cleanUrl) throw new Error("Enter a public storefront URL before running this tool.");
+        let parsedUrl: URL;
+        try { parsedUrl = new URL(cleanUrl); } catch { throw new Error("Enter a complete URL beginning with https://."); }
+        if (!/^https?:$/.test(parsedUrl.protocol)) throw new Error("Only http:// and https:// storefront URLs can be analyzed.");
+      }
       if (source !== "Screenshots" && source !== "Public URL" && source !== "Specific page URL" && source !== "Saved draft") throw new Error(`${source} is not executable yet. Choose Public URL or Screenshots for this tool.`);
       let uploadedSources: Array<{ fileName: string; storageKey: string; url: string }> = [];
       if (source === "Screenshots") {
