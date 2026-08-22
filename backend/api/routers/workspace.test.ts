@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../storage", () => ({ storageGet: vi.fn(), storagePut: vi.fn() }));
+vi.mock("../storage", () => ({ storageGet: vi.fn(), storagePut: vi.fn(), storageGetSignedUrl: vi.fn() }));
 
 vi.mock("../db", () => ({
   ensurePersonalWorkspace: vi.fn(),
@@ -71,12 +71,12 @@ vi.mock("../db", () => ({
 }));
 
 vi.mock("../cloudflareAi", () => ({ CloudflareAiError: class CloudflareAiError extends Error { constructor(message: string, public code: string) { super(message); } } }));
-vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runAccessibilityFixAssistantThroughGateway: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn(), runMarketingCopyThroughGateway: vi.fn(), runProductDescriptionGeneratorThroughGateway: vi.fn() }));
+vi.mock("../aiGateway", () => ({ listCentralAiReadiness: vi.fn(), runAccessibilityFixAssistantThroughGateway: vi.fn(), runContentImproverThroughGateway: vi.fn(), runDesignCopilotThroughGateway: vi.fn(), runMarketingCopyThroughGateway: vi.fn(), runProductDescriptionGeneratorThroughGateway: vi.fn(), runScreenshotAnalysisThroughGateway: vi.fn() }));
 
 import { acceptWorkspaceInvitation, acknowledgeResource, approveWorkspaceReleaseAction, beginStoreConnection, cancelWorkspaceInvitation, cancelWorkspaceReleaseAction, completeWorkspaceToolRun, completeWorkspaceValidationRun, createStoreSnapshot, createWorkspaceDeveloperHandoff, createWorkspaceDraft, createWorkspaceDraftAsset, createWorkspaceEvidence, createWorkspaceIssue, createWorkspaceReleaseAction, createWorkspaceReport, createWorkspaceRequest, createWorkspaceStore, ensurePersonalWorkspace, getWorkspaceAccess, getWorkspaceAiNeuronUsageSince, getWorkspaceDashboardReadModel, getWorkspaceDraftVersion, getWorkspaceReleaseAction, getWorkspaceReleaseEligibility, getWorkspaceReport, getWorkspaceStore, getWorkspaceToolRun, getWorkspaceUsageSummary, listLegalDocuments, listStoreConnections, listStoreSnapshots, listWorkspaceDeveloperHandoffs, listWorkspaceDraftAssets, listWorkspaceDraftVersions, listWorkspaceIssues, listWorkspaceReports, listWorkspaceRequests, listWorkspaceStores, listWorkspaceValidationRuns, queueWorkspaceToolRun, queueWorkspaceValidationRun, recordWorkspaceActivity, recordWorkspaceUsage, removeWorkspaceMember, restoreWorkspaceDraftVersion, saveWorkspaceDraftVersion, startWorkspaceToolRun, startWorkspaceValidationRun, updateWorkspaceInvitationRole, updateWorkspaceIssueStatus, updateWorkspaceMemberRole, updateWorkspaceReleaseActionExecution } from "../db";
 import { failWorkspaceToolRun } from "../db";
-import { storageGet, storagePut } from "../storage";
-import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway } from "../aiGateway";
+import { storageGet, storageGetSignedUrl, storagePut } from "../storage";
+import { listCentralAiReadiness, runAccessibilityFixAssistantThroughGateway, runContentImproverThroughGateway, runDesignCopilotThroughGateway, runMarketingCopyThroughGateway, runProductDescriptionGeneratorThroughGateway, runScreenshotAnalysisThroughGateway } from "../aiGateway";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
@@ -1108,6 +1108,53 @@ describe("workspace router", () => {
     expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 141, kind: "validation", title: "Persisted draft-version comparison" }));
     expect(createWorkspaceReport).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 141, title: "Before/After persisted draft comparison", format: "json" }));
     expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 141, resultSummary: expect.objectContaining({ execution: "deterministic_persisted_draft_version_comparison", evidenceId: 801, reportId: 901 }) }));
+  });
+  it("executes Screenshot Analyzer only for its uploaded files and persists the signed-URL vision result", async () => {
+    vi.mocked(storageGetSignedUrl).mockClear();
+    vi.mocked(runScreenshotAnalysisThroughGateway).mockClear();
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 151, workspaceId: 9, toolId: "screenshot-analyzer", sourceType: "upload", status: "queued", inputSummary: { uploadedSources: [{ storageKey: "workspace-9/source/checkout.png" }] } } as never);
+    vi.mocked(startWorkspaceToolRun).mockResolvedValue({ id: 151, workspaceId: 9, toolId: "screenshot-analyzer", sourceType: "upload", status: "running" } as never);
+    vi.mocked(storageGetSignedUrl).mockResolvedValue("https://signed.example/checkout.png");
+    vi.mocked(runScreenshotAnalysisThroughGateway).mockResolvedValue({ response: "The screenshot shows a visible checkout hierarchy.", provider: "built_in_llm", model: "vision-model", promptTokens: 11, completionTokens: 19 });
+    vi.mocked(storagePut).mockResolvedValue({ key: "workspace-9/tool-runs/151/screenshot-analysis.json", url: "https://storage.example/151.json" } as never);
+    vi.mocked(createWorkspaceEvidence).mockResolvedValue({ id: 851 } as never);
+    vi.mocked(createWorkspaceReport).mockResolvedValue({ id: 951 } as never);
+    vi.mocked(completeWorkspaceToolRun).mockResolvedValue({ id: 151, status: "completed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+    const result = await caller.workspace.executeScreenshotToolRun({ workspaceId: 9, toolRunId: 151, storageKeys: ["workspace-9/source/checkout.png"] });
+    expect(storageGetSignedUrl).toHaveBeenCalled();
+    expect(storageGetSignedUrl.mock.calls[0]?.[0]).toBe("workspace-9/source/checkout.png");
+    expect(runScreenshotAnalysisThroughGateway).toHaveBeenCalledWith({ toolName: "Screenshot Analyzer", imageUrls: ["https://signed.example/checkout.png"] });
+    expect(createWorkspaceEvidence).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 151, kind: "provider_summary", storageKey: "workspace-9/tool-runs/151/screenshot-analysis.json" }));
+    expect(createWorkspaceReport).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 151, title: "Screenshot Analyzer AI report", format: "json" }));
+    expect(completeWorkspaceToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 9, toolRunId: 151, resultSummary: expect.objectContaining({ execution: "vision_screenshot_analysis", evidenceId: 851, reportId: 951 }) }));
+    expect(result).toMatchObject({ analysis: "The screenshot shows a visible checkout hierarchy.", provider: "built_in_llm", report: { id: 951, storageKey: "workspace-9/tool-runs/151/screenshot-analysis.json" } });
+  });
+  it("rejects screenshot storage keys that were not uploaded for the same tool run", async () => {
+    vi.mocked(storageGetSignedUrl).mockClear();
+    vi.mocked(runScreenshotAnalysisThroughGateway).mockClear();
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 152, workspaceId: 9, toolId: "screenshot-analyzer", sourceType: "upload", status: "running", inputSummary: { uploadedSources: [{ storageKey: "workspace-9/source/allowed.png" }] } } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+    await expect(caller.workspace.executeScreenshotToolRun({ workspaceId: 9, toolRunId: 152, storageKeys: ["workspace-9/source/other.png"] })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringMatching(/files uploaded for this tool run/i) });
+    expect(storageGetSignedUrl).not.toHaveBeenCalledWith("workspace-9/source/other.png");
+    expect(runScreenshotAnalysisThroughGateway).not.toHaveBeenCalled();
+  });
+  it("marks a screenshot run failed when signed storage or vision analysis cannot complete", async () => {
+    vi.mocked(storageGetSignedUrl).mockClear();
+    vi.mocked(runScreenshotAnalysisThroughGateway).mockClear();
+    vi.mocked(failWorkspaceToolRun).mockClear();
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "editor" } } as never);
+    vi.mocked(getWorkspaceToolRun).mockResolvedValue({ id: 153, workspaceId: 9, toolId: "screenshot-analyzer", sourceType: "upload", status: "running", inputSummary: { uploadedSources: [{ storageKey: "workspace-9/source/failure.png" }] } } as never);
+    vi.mocked(storageGetSignedUrl).mockResolvedValue("https://signed.example/failure.png");
+    vi.mocked(runScreenshotAnalysisThroughGateway).mockRejectedValue(new Error("Vision provider is not configured."));
+    vi.mocked(failWorkspaceToolRun).mockResolvedValue({ id: 153, status: "failed" } as never);
+    const caller = appRouter.createCaller(authenticatedContext());
+    await expect(caller.workspace.executeScreenshotToolRun({ workspaceId: 9, toolRunId: 153, storageKeys: ["workspace-9/source/failure.png"] })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: "Vision provider is not configured." });
+    expect(failWorkspaceToolRun).toHaveBeenCalledWith({ workspaceId: 9, toolRunId: 153, actorUserId: 42, errorMessage: "Vision provider is not configured." });
+    expect(completeWorkspaceToolRun).not.toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 153 }));
+    expect(createWorkspaceReport).not.toHaveBeenCalledWith(expect.objectContaining({ toolRunId: 153 }));
   });
   it("returns a stored report artifact only to an authorized workspace member", async () => {
     vi.mocked(getWorkspaceAccess).mockResolvedValue({ workspace: { id: 9 }, membership: { role: "viewer" } } as never);
