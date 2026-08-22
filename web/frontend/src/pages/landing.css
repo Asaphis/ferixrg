@@ -12,3 +12,15 @@ html,body,#root{max-width:100%;overflow-x:hidden}
 .landing-canvas>*{max-width:100%;box-sizing:border-box}
 .landing-canvas img,.landing-canvas video{max-width:100%}
 @media(max-width:820px){.landing-section,.rich-hero,.landing-nav,.landing-footer{width:100%;max-width:100%;box-sizing:border-box}.landing-nav{padding-left:14px;padding-right:14px}.landing-section{padding-left:16px;padding-right:16px}.landing-visual-stage{max-width:100%;overflow:hidden}}
+
+/* Mobile Home hero montage: keep the complete composition centered like the metrics card below. */
+@media (max-width:600px){
+  .home-page .rich-hero{overflow:hidden}
+  .home-page .hero-montage{width:min(100%,360px);height:330px;margin:16px auto 0;align-self:center;overflow:hidden}
+  .home-page .montage-workspace{left:0;width:70%;}
+  .home-page .montage-browser{left:16%;width:70%;}
+  .home-page .montage-phone{left:7%;}
+  .home-page .montage-insight{right:0;}
+  .home-page .montage-impact,.home-page .montage-badge{right:0;}
+  .home-page .montage-connector{right:27%;}
+}
