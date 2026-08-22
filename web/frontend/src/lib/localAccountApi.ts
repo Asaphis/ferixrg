@@ -7,6 +7,8 @@ export type LocalAccountResult = {
   configured?: boolean;
   code?: string;
   message?: string;
+  challengeToken?: string;
+  expiresAt?: string;
 };
 
 export class LocalAccountApiError extends Error {
@@ -19,7 +21,7 @@ export class LocalAccountApiError extends Error {
   }
 }
 
-async function requestLocalAccount(path: string, body: Record<string, string>): Promise<LocalAccountResult> {
+async function requestLocalAccount(path: string, body: Record<string, string | boolean>, allowChallenge = false): Promise<LocalAccountResult> {
   const response = await fetch(apiUrl(path), {
     method: "POST",
     credentials: "include",
@@ -27,7 +29,7 @@ async function requestLocalAccount(path: string, body: Record<string, string>): 
     body: JSON.stringify(body),
   });
   const result = (await response.json().catch(() => ({}))) as LocalAccountResult;
-  if (!response.ok || !result.success) {
+  if (!response.ok || (!result.success && !(allowChallenge && result.code === "TWO_STEP_REQUIRED" && result.challengeToken))) {
     throw new LocalAccountApiError(result.message || "We could not complete that account request. Please try again.", result.code);
   }
   return result;
@@ -37,8 +39,12 @@ export function registerLocalAccount(input: { name: string; email: string; passw
   return requestLocalAccount("/api/account/register", input);
 }
 
-export function loginLocalAccount(input: { email: string; password: string }) {
-  return requestLocalAccount("/api/account/login", input);
+export function loginLocalAccount(input: { email: string; password: string; remember: boolean }) {
+  return requestLocalAccount("/api/account/login", { email: input.email, password: input.password, remember: input.remember }, true);
+}
+
+export function verifyTwoStepLocalAccount(input: { challengeToken: string; code?: string; recoveryCode?: string }) {
+  return requestLocalAccount("/api/account/verify-two-step", input);
 }
 
 export function verifyLocalAccount(token: string) {

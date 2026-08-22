@@ -1,22 +1,54 @@
 import type { Express, Request, Response } from "express";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
 import { confirmAccountEmailChange, consumeTwoStepLoginChallenge, consumeTwoStepRecoveryCode, createAccountSession, createLocalAccount, createTwoStepLoginChallenge, getLocalAccountByEmail, getLocalAccountById, getTwoStepAuthenticator, getUserPreferences, hasEnabledTwoStepAuthenticator, issueAccountToken, recordAccountSecurityEvent, resetLocalPassword, updateAccountSecurityEventDelivery, verifyLocalAccount } from "../db";
 import { createAccountToken, createLocalOpenId, createTwoStepChallengeToken, decryptTwoStepSecret, hashAccountToken, hashPassword, isStrongPassword, normalizeEmail, verifyPassword, verifyTotpCode } from "../localAuth";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { ENV } from "./env";
 import { accountEmailOrigin, sendPasswordResetEmail, sendSecurityAlertEmail, sendVerificationEmail, transactionalEmailConfigured } from "../transactionalEmail";
+import { REMEMBER_BRIDGE_COOKIE, REMEMBER_BRIDGE_TTL_MS, getLocalSessionTtl } from "../sessionPolicy";
 
 const registrationInput = z.object({
   name: z.string().trim().min(1).max(160),
   email: z.string().email().max(320),
   password: z.string().min(8).max(256),
 });
-const loginInput = z.object({ email: z.string().email().max(320), password: z.string().min(1).max(256) });
+const loginInput = z.object({ email: z.string().email().max(320), password: z.string().min(1).max(256), remember: z.boolean().default(false) });
 const verificationInput = z.object({ token: z.string().min(1).max(512) });
 const emailInput = z.object({ email: z.string().email().max(320) });
 const passwordResetInput = z.object({ token: z.string().min(1).max(512), password: z.string().min(8).max(256) });
 const twoStepChallengeInput = z.object({ challengeToken: z.string().min(24).max(512), code: z.string().trim().regex(/^\d{6}$/).optional(), recoveryCode: z.string().trim().regex(/^([A-F0-9]{4}-){3}[A-F0-9]{4}$/).optional() }).refine(input => Number(Boolean(input.code)) + Number(Boolean(input.recoveryCode)) === 1, "Provide one verification method.");
+
+function signedRememberPreference(remember: boolean) {
+  const value = remember ? "1" : "0";
+  const signature = createHmac("sha256", ENV.cookieSecret).update(value).digest("base64url");
+  return `${value}.${signature}`;
+}
+
+function readCookie(req: Request, name: string) {
+  return req.headers.cookie?.split(";").map(item => item.trim()).find(item => item.startsWith(`${name}=`))?.slice(name.length + 1);
+}
+
+function readRememberPreference(req: Request) {
+  const raw = readCookie(req, REMEMBER_BRIDGE_COOKIE);
+  if (!raw) return false;
+  const [value, signature] = raw.split(".");
+  if (!value || !signature || !/^[01]$/.test(value)) return false;
+  const expected = createHmac("sha256", ENV.cookieSecret).update(value).digest("base64url");
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer) ? value === "1" : false;
+}
+
+function setRememberBridge(res: Response, req: Request, remember: boolean) {
+  res.cookie(REMEMBER_BRIDGE_COOKIE, signedRememberPreference(remember), { ...getSessionCookieOptions(req), maxAge: REMEMBER_BRIDGE_TTL_MS });
+}
+
+function clearRememberBridge(res: Response, req: Request) {
+  res.cookie(REMEMBER_BRIDGE_COOKIE, "", { ...getSessionCookieOptions(req), maxAge: -1 });
+}
 
 function respondInvalidInput(res: Response, message = "Invalid account details.") {
   return res.status(400).json({ success: false, message });
@@ -64,14 +96,16 @@ export function registerLocalAuthRoutes(app: Express) {
     if (await hasEnabledTwoStepAuthenticator(account.user.id)) {
       const challenge = createTwoStepChallengeToken();
       await createTwoStepLoginChallenge({ userId: account.user.id, tokenHash: challenge.tokenHash, expiresAt: challenge.expiresAt });
+      setRememberBridge(res, req, parsed.data.remember);
       return res.status(202).json({ success: false, code: "TWO_STEP_REQUIRED", challengeToken: challenge.rawToken, expiresAt: challenge.expiresAt.toISOString() });
     }
 
     const sessionReference = createAccountToken();
-    await createAccountSession({ userId: account.user.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + ONE_YEAR_MS) });
+    const sessionTtl = getLocalSessionTtl(parsed.data.remember);
+    await createAccountSession({ userId: account.user.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + sessionTtl) });
     await recordSuccessfulSignInAlert(account.user, "local_sign_in_completed");
-    const sessionToken = await sdk.createSessionToken(account.user.openId, { name: account.user.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: ONE_YEAR_MS });
-    res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: ONE_YEAR_MS });
+    const sessionToken = await sdk.createSessionToken(account.user.openId, { name: account.user.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: sessionTtl });
+    res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: sessionTtl });
     return res.json({ success: true });
   });
 
@@ -86,11 +120,14 @@ export function registerLocalAuthRoutes(app: Express) {
       ? verifyTotpCode(decryptTwoStepSecret(authenticator.encryptedSecret), parsed.data.code)
       : Boolean(await consumeTwoStepRecoveryCode({ userId: challenge.userId, codeHash: hashAccountToken(parsed.data.recoveryCode!) }));
     if (!verified) return res.status(401).json({ success: false, message: "The verification code is invalid or expired." });
+    const remember = readRememberPreference(req);
+    clearRememberBridge(res, req);
     const sessionReference = createAccountToken();
-    await createAccountSession({ userId: account.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + ONE_YEAR_MS) });
+    const sessionTtl = getLocalSessionTtl(remember);
+    await createAccountSession({ userId: account.id, tokenHash: sessionReference.tokenHash, expiresAt: new Date(Date.now() + sessionTtl) });
     await recordSuccessfulSignInAlert(account, "two_step_login_completed");
-    const sessionToken = await sdk.createSessionToken(account.openId, { name: account.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: ONE_YEAR_MS });
-    res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: ONE_YEAR_MS });
+    const sessionToken = await sdk.createSessionToken(account.openId, { name: account.name ?? "", sessionId: sessionReference.rawToken, expiresInMs: sessionTtl });
+    res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: sessionTtl });
     return res.json({ success: true });
   });
 

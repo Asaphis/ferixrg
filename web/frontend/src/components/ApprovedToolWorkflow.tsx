@@ -1,6 +1,6 @@
 import type { ToolDefinition, ToolSource } from "@/lib/toolCatalog";
 import { getToolRoute, type ToolRoute } from "@/lib/toolRouting";
-import { getRunCapability } from "@/lib/toolCapabilities";
+import { getRunCapability, getSourceAvailability } from "@/lib/toolCapabilities";
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,6 +35,8 @@ import "./tool-workflow-specialist.css";
 type Stage = "setup" | "processing" | "results" | "editor" | "review" | "finish";
 type InspectorTab = "edit" | "ai" | "history";
 type ChatMessage = { role: "user" | "assistant"; content: string };
+
+const liveAiToolIds = new Set(["ai-design-copilot", "ai-store-redesign", "visual-style-studio", "responsive-studio", "layout-composer", "component-builder", "content-editor", "accessibility-fix-assistant", "ai-content-improver", "product-description-generator", "cta-generator", "seo-content-generator", "meta-generator"]);
 type PublicUrlInspection = { url: string; statusCode: number; title: string | null; language: string | null; metaDescriptionLength: number; canonicalUrl: string | null; hasViewport: boolean; headingCount: number; headings?: Array<{ level: 1 | 2 | 3 | 4 | 5 | 6; text: string }>; imageCount: number; imagesWithAlt?: number; imagesWithoutAlt: number; linkCount: number; linksWithText?: number; linksWithoutText?: number; navigationLandmarkCount?: number; mainLandmarkCount?: number; fetchAndReadDurationMs?: number; ctaElementCount?: number; ctaElementsWithText?: number; ctaElementsWithoutText?: number; ctaTexts?: string[]; bodyTextCharacterCount?: number; bodyTextWordCount?: number; paragraphCount?: number; paragraphsWithText?: number; emptyHeadingCount?: number; productStructuredDataCount?: number; productNames?: string[]; productOfferCount?: number; productImageStructuredDataCount?: number; productDescriptionStructuredDataCount?: number; productDescriptionCharacterCount?: number; imagesLazyLoaded?: number; imagesWithDimensions?: number; imagesWithoutDimensions?: number; assetReferenceCount?: number; imageAssetReferenceCount?: number; stylesheetAssetReferenceCount?: number; scriptAssetReferenceCount?: number; assetHosts?: string[]; inlineStyleBlockCount?: number; inlineMediaQueryCount?: number; responsiveImageSrcsetCount?: number; telephoneLinkCount?: number; telephoneInputCount?: number; mobileInputModeCount?: number; organizationStructuredDataCount?: number; reviewStructuredDataCount?: number; aggregateRatingStructuredDataCount?: number; formElementCount?: number; ariaRoleAttributeCount?: number; skipLinkCount?: number; inlineColorDeclarationCount?: number; styleBlockColorDeclarationCount?: number; observedColorValues?: string[]; inlineFontFamilyDeclarationCount?: number; styleBlockFontFamilyDeclarationCount?: number; observedFontFamilies?: string[]; cartLinkCount?: number; checkoutLinkCount?: number; cartOrCheckoutFormActionCount?: number; cartFormActionCount?: number; checkoutFormActionCount?: number; mediaQueryConditionCount?: number; observedMediaQueryConditions?: string[]; collectionLinkCount?: number; observedCollectionPaths?: string[]; productLinkCount?: number; headerElementCount?: number; footerElementCount?: number; sectionElementCount?: number; articleElementCount?: number; semanticLayoutElementCount?: number; bytesRead: number };
 type ObservedIssue = { id: number; title: string; severity: "critical" | "high" | "medium" | "low" | "info" };
 type ComparisonResult = {
@@ -101,24 +103,22 @@ export function ApprovedToolWorkflow({
   onBack,
   startAt = "setup",
   startSource,
-  selectedSource,
-  onSourceChange,
   workspaceId,
   storeId,
+  storeName,
 }: {
   tool: ToolDefinition;
   onBack: () => void;
   startAt?: "setup" | "results" | "editor" | "finish";
   startSource?: string;
-  selectedSource?: string;
-  onSourceChange?: (source: ToolSource) => void;
   workspaceId?: number;
   storeId?: number;
+  storeName?: string;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
-  const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
+  const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(startSource, tool.sources));
   const source = resolveToolSource(internalSource, tool.sources);
-  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); onSourceChange?.(next); };
+  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setHandoffId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); };
   const urlInputRef = useRef<HTMLInputElement>(null);
   const readUrl = () => urlInputRef.current?.value.trim() ?? "";
   const [reportReady, setReportReady] = useState(false);
@@ -151,19 +151,21 @@ export function ApprovedToolWorkflow({
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingStage, setPendingStage] = useState<Stage | null>(null);
   const [runError, setRunError] = useState("");
+  const [handoffId, setHandoffId] = useState<number | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedPreviews, setSelectedPreviews] = useState<string[]>([]);
   const screenshotInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    const urls = selectedFiles.map(file => URL.createObjectURL(file));
+    const urls = selectedFiles.map(file => typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "");
     setSelectedPreviews(urls);
-    return () => urls.forEach(url => URL.revokeObjectURL(url));
+    return () => urls.filter(Boolean).forEach(url => { if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url); });
   }, [selectedFiles]);
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const uploadSourceMutation = trpc.workspace.stores.uploadSource.useMutation();
   const completeToolRunMutation = trpc.workspace.completeToolRun.useMutation();
   const addToolEvidenceMutation = trpc.workspace.addToolEvidence.useMutation();
   const createReportMutation = trpc.workspace.createReport.useMutation();
+  const createDeveloperHandoffMutation = trpc.workspace.createDeveloperHandoff.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
   const executeDraftVersionComparisonMutation = trpc.workspace.executeDraftVersionComparison.useMutation();
@@ -189,6 +191,7 @@ export function ApprovedToolWorkflow({
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
   const capability = getRunCapability(source, route);
+  const sourceAvailability = getSourceAvailability(source, tool.id);
   const routeUsesReview = route.workspace === "Release Review" || route.workspace === "Validation Workspace" || route.workspace === "Version & Comparison";
   const sourceDetail = sourceCopy[source] ?? sourceCopy["Public URL"];
   const stageIndex = stages.findIndex(item => item.id === stage);
@@ -296,14 +299,35 @@ export function ApprovedToolWorkflow({
     }
   };
 
-  const sendToAi = async (content: string) => {
-    if (!content.trim()) return;
+  const createDeveloperHandoff = async () => {
+    try {
+      if (!workspaceId || !toolRunId) throw new Error("Run this tool with a supported executor before creating a developer handoff.");
+      const handoff = await createDeveloperHandoffMutation.mutateAsync({
+        workspaceId,
+        toolRunId,
+        title: `${tool.name} implementation handoff`,
+        affectedLocation: `${source} · ${selectedElement}`,
+        currentBehavior: statusSummary,
+        expectedBehavior: `Review and address the recorded ${tool.name} finding without changing the live store automatically.`,
+        recommendedImplementation: tool.description,
+        priority: "medium",
+        acceptanceCriteria: [`The recorded ${tool.name} evidence remains attached to the handoff.`, "The implementation is reviewed before any live store change.", "Validation is rerun after implementation."],
+      });
+      setHandoffId(handoff.id);
+      setFinishNotice(`Developer handoff #${handoff.id} was saved to the workspace.`);
+    } catch (error) {
+      setFinishNotice(error instanceof Error ? error.message : "We couldn’t create the developer handoff. No artifact was saved.");
+    }
+  };
+
+  const sendToAi = async (content: string): Promise<boolean> => {
+    if (!content.trim()) return false;
     setMessages(previous => [...previous, { role: "user", content }]);
     setAiInput("");
-    if ((tool.id !== "ai-design-copilot" && tool.id !== "ai-store-redesign" && tool.id !== "visual-style-studio" && tool.id !== "responsive-studio" && tool.id !== "layout-composer" && tool.id !== "component-builder" && tool.id !== "content-editor" && tool.id !== "accessibility-fix-assistant" && tool.id !== "ai-content-improver" && tool.id !== "product-description-generator" && tool.id !== "cta-generator" && tool.id !== "seo-content-generator" && tool.id !== "meta-generator") || !workspaceId || !toolRunId) {
+    if (!liveAiToolIds.has(tool.id) || !workspaceId || !toolRunId) {
       setMessages(previous => [...previous, { role: "assistant", content: `**${tool.name}** does not yet have a dedicated server-side AI operation for this workflow. No AI proposal was generated. You can continue with the manual editor, choose a tool with a live AI operation, or return when this executor is released.` }]);
       setFinishNotice("This tool’s AI operation is not available yet. No simulated result was created.");
-      return;
+      return false;
     }
     try {
       const result = tool.id === "ai-store-redesign"
@@ -329,8 +353,10 @@ export function ApprovedToolWorkflow({
           : await designCopilotMutation.mutateAsync({ workspaceId, toolRunId, message: content, context: { tool: tool.name, page: "Product page", selectedElement, device, source } });
       setMessages(previous => [...previous, { role: "assistant", content: result.response }]);
       setProposalVisible(true);
+      return true;
     } catch (error) {
       setMessages(previous => [...previous, { role: "assistant", content: error instanceof Error ? error.message : "Design Copilot could not complete this request. Please try again." }]);
+      return false;
     }
   };
 
@@ -387,6 +413,7 @@ export function ApprovedToolWorkflow({
               <button
                 type="button"
                 className={source === item ? "active" : ""}
+                aria-pressed={source === item}
                 onClick={() => chooseSource(item)}
                 key={item}
               >
@@ -406,16 +433,17 @@ export function ApprovedToolWorkflow({
           {(source === "Public URL" || source === "Specific page URL") && (
             <label className="tool-workflow-input">
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
-              <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" defaultValue="" onInput={() => setRunError("")} /><button type="button" aria-label="Clear URL" onClick={() => { if (urlInputRef.current) urlInputRef.current.value = ""; setRunError(""); }} disabled={false}>×</button></div>
+              <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" defaultValue="" aria-label={source === "Specific page URL" ? "Page URL" : "Storefront URL"} onInput={() => setRunError("")} /><button type="button" aria-label="Clear URL" onClick={() => { if (urlInputRef.current) urlInputRef.current.value = ""; setRunError(""); }} disabled={false}>×</button></div>
             </label>
           )}
           {source === "Connected store" && (
             <div className="tool-workflow-connected-choice">
               <Store />
-              <div><b>Atelier Forma</b><small>Shopify · connected</small></div>
+              <div><b>{storeName ?? "Connected store"}</b><small>Live store context is available only when the provider connection is ready.</small></div>
               <Check />
             </div>
           )}
+          {!sourceAvailability.available && <p className="tool-workflow-inline-notice" role="status"><b>{sourceAvailability.label}</b> · {sourceAvailability.message}</p>}
           {source === "Screenshots" && (
             <div className="tool-workflow-upload-area"><input ref={screenshotInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={event => { setSelectedFiles(Array.from(event.target.files ?? [])); setRunError(""); }} /><button type="button" className="tool-workflow-dropzone" onClick={() => screenshotInputRef.current?.click()}><Upload /><span><b>{selectedFiles.length ? `${selectedFiles.length} screenshot${selectedFiles.length === 1 ? "" : "s"} selected` : "Upload screenshots"}</b><small>PNG, JPG, WEBP · up to 8 MB each</small></span><ImagePlus /></button>{selectedFiles.length > 0 && <div className="tool-workflow-preview-grid">{selectedFiles.map((file, index) => <figure key={`${file.name}-${file.lastModified}`}><img src={selectedPreviews[index]} alt={`Preview of ${file.name}`} /><figcaption><span>{file.name}</span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelectedFiles(current => current.filter(item => item !== file))}>×</button></figcaption></figure>)}</div>}</div>
           )}
@@ -438,7 +466,7 @@ export function ApprovedToolWorkflow({
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
-          <button type="button" className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
+          <button type="button" className="tool-workflow-primary" disabled={!sourceAvailability.available || queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
@@ -531,10 +559,10 @@ export function ApprovedToolWorkflow({
           <h2>Choose what happens to this result.</h2>
           <button className="active" onClick={openCorrectWorkspace}><Layers3 /><span><b>{route.primaryAction}</b><small>{route.primaryDescription}</small></span><ChevronRight /></button>
           <div className="tool-workflow-action-contract"><span>Available for this tool</span>{tool.nextActions.slice(0, 5).map(action => <b key={action}>{action}</b>)}</div>
-          {route.allowsAi && capability.actions.includes("ask_ai") && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
+          {route.allowsAi && liveAiToolIds.has(tool.id) && capability.actions.includes("ask_ai") && <button onClick={() => { setInspectorTab("ai"); openCorrectWorkspace(); }}><Sparkles /><span><b>Ask AI about this finding</b><small>Start with the selected page and issue already attached.</small></span><ChevronRight /></button>}
           {capability.actions.includes("export_report") && <button disabled={!reportId || reportDownloadMutation.isPending} onClick={() => { void downloadGeneratedReport(); }}><Download /><span><b>{reportId ? "Download report" : "Report artifact unavailable"}</b><small>{reportId ? "Keep the executor-generated evidence and inspection export." : "A report download appears only after an executor creates a stored artifact."}</small></span><ChevronRight /></button>}
           {capability.actions.includes("save_project") && <button onClick={() => { void saveVersion(); }}><Save /><span><b>Save project</b><small>Return later with the same tool context.</small></span><ChevronRight /></button>}
-          {capability.actions.includes("developer_handoff") && <button onClick={() => setFinishNotice("Your technical handoff package is ready to download.")}><FileDown /><span><b>Download developer handoff</b><small>Keep acceptance criteria and implementation context together.</small></span><ChevronRight /></button>}
+          {capability.actions.includes("developer_handoff") && <button disabled={!workspaceId || !toolRunId || createDeveloperHandoffMutation.isPending} onClick={() => { void createDeveloperHandoff(); }}><FileDown /><span><b>{handoffId ? `Handoff #${handoffId} saved` : workspaceId && toolRunId ? "Create developer handoff" : "Developer handoff unavailable"}</b><small>{workspaceId && toolRunId ? "Persist the recorded evidence, behavior, fix direction, and acceptance criteria." : "Run a supported executor before creating a persisted handoff artifact."}</small></span><ChevronRight /></button>}
           {!isConnected && route.supportsStoreRelease && <button onClick={() => setFinishNotice(capability.lockedMessage)}><Store /><span><b>Connect a store later</b><small>{capability.lockedMessage}</small></span><ChevronRight /></button>}
           {finishNotice && <p className="tool-workflow-inline-notice">{finishNotice}</p>}
         </article>
@@ -554,7 +582,7 @@ export function ApprovedToolWorkflow({
       </header>
       <div className="tool-workflow-editor-layout">
         <aside className="tool-workflow-editor-rail">
-          <div className="tool-workflow-rail-tabs"><button className="active">Pages</button><button>Layers</button><button>Add</button><button>Assets</button><button>History</button></div>
+          <div className="tool-workflow-rail-tabs"><button className="active">Pages</button><button disabled>Layers</button><button disabled>Add</button><button disabled>Assets</button><button disabled>History</button></div>
           <span>PRODUCT PAGE</span>
           {editorLayers.map((layer, index) => <button className={`${selectedElement === layer ? "active" : ""} ${index > 2 ? "indented" : ""}`} onClick={() => { setSelectedElement(layer); setEditorDirty(true); }} key={layer}><i /> {layer}</button>)}
         </aside>
@@ -575,13 +603,14 @@ export function ApprovedToolWorkflow({
         <aside className="tool-workflow-inspector">
           <div className="tool-workflow-inspector-tabs"><button className={inspectorTab === "edit" ? "active" : ""} onClick={() => setInspectorTab("edit")}>Edit</button><button className={inspectorTab === "ai" ? "active" : ""} onClick={() => setInspectorTab("ai")}>Ask AI</button><button className={inspectorTab === "history" ? "active" : ""} onClick={() => setInspectorTab("history")}>History</button></div>
           {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={() => { void saveVersion(); }} />}
-          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" disabled={!messages.some(message => message.role === "assistant" && message.content !== `I am looking at **${tool.name}** on Product page → ${selectedElement} → ${device}. Tell me what you would like to improve, or attach a visual reference.`)} onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI response"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
+          {inspectorTab === "ai" && liveAiToolIds.has(tool.id) && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" disabled={!messages.some(message => message.role === "assistant" && message.content !== `I am looking at **${tool.name}** on Product page → ${selectedElement} → ${device}. Tell me what you would like to improve, or attach a visual reference.`)} onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI response"}</button><button className="tool-workflow-reference" disabled><ImagePlus /> Reference upload unavailable</button></div>}
+          {inspectorTab === "ai" && !liveAiToolIds.has(tool.id) && <div className="tool-workflow-ai-unavailable"><Sparkles /><b>AI assistance unavailable for this tool</b><p>No dedicated server-side AI operation is configured for this workflow. No proposal was generated.</p></div>}
           {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], [savedVersionCount ? `Saved version ${savedVersionCount}` : "Current working version", proposalApplied ? "AI suggestion applied" : "Current element changes"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={() => { void saveVersion(); }} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={() => { void saveVersion(); }}><Save /> Save version</button></div>}
         </aside>
       </div>
       {finishNotice && <div className="tool-workflow-editor-notice">{finishNotice}{pendingStage && <span className="tool-workflow-editor-notice-actions"><button onClick={() => { void saveVersion().then(() => { const next = pendingStage; setPendingStage(null); if (next) move(next); }); }}>Save and continue</button><button onClick={() => { const next = pendingStage; setEditorDirty(false); setPendingStage(null); if (next) move(next); }}>Discard changes</button><button onClick={() => setPendingStage(null)}>Keep editing</button></span>}</div>}
     </section>
-  ) : <SpecialistWorkspace route={route} tool={tool} source={source} scope={scope} onBack={() => move("results")} onContinue={() => move("review")} onAskAi={() => setFinishNotice(`AI plan prepared for ${tool.name}.`)} />;
+  ) : <SpecialistWorkspace route={route} tool={tool} source={source} scope={scope} onBack={() => move("results")} onContinue={() => move("review")} aiAvailable={route.allowsAi && liveAiToolIds.has(tool.id)} onAskAi={async () => { const generated = await sendToAi(`Create a reviewable implementation plan from the recorded ${tool.name} evidence.`); setFinishNotice(generated ? `AI plan generated from the recorded ${tool.name} context.` : `No AI plan was generated for ${tool.name}.`); }} />;
 
   const reviewScreen = (
     <>
@@ -609,7 +638,7 @@ export function ApprovedToolWorkflow({
       <WorkflowHeader kicker={`${tool.name} · completion`} title="Finish this work the right way." copy="The final action is based on the source and store permission currently available." back={() => move("review")} />
       <section className="tool-workflow-finish-grid">
         {isConnected ? <article className="tool-workflow-card tool-workflow-release-card"><span className="tool-workflow-kicker">Connected store source selected</span><h2>Provider readiness still requires verification</h2><div className="tool-workflow-permission"><ShieldCheck /> Publish permission not verified</div><p>Your approved {tool.name} can be saved as a workspace draft. Provider-side draft creation and publishing remain gated until the configured adapter reports the required capability.</p><div className="tool-workflow-version-placeholder"><b>No provider-rendered draft snapshot</b><small>Only a configured adapter may create or publish a store-side draft.</small></div><div className="tool-workflow-release-checks"><span>✓ Workspace proposal remains reviewable</span><span>— Validation must be recorded</span><span>— Provider capability must be configured</span></div><button className="tool-workflow-primary" onClick={() => setFinishNotice("Provider publishing is not available for this deployment. Save or export the reviewed workspace state instead.")}>Provider publishing unavailable</button><button className="tool-workflow-secondary" onClick={() => { void saveVersion(); }}>Save workspace version</button></article> : <article className="tool-workflow-card tool-workflow-export-card"><span className="tool-workflow-kicker">No store connection? Still complete.</span><h2>Download your finished package</h2><p>Use the reviewed design in your own store system or share it with your developer.</p><div className="tool-workflow-package-list">{["Persisted tool evidence when an executor created it", "Workspace draft state and version metadata", "Reviewable proposal rationale and boundaries", "Developer handoff only after a real handoff artifact is generated"].map(item => <span key={item}>✓ {item}</span>)}</div><button className="tool-workflow-primary" onClick={() => setFinishNotice(reportId ? "Use the generated report download from the result screen." : "No design-package artifact has been generated for this run.")}><Download /> {reportId ? "Return to report download" : "Design package unavailable"}</button><button className="tool-workflow-secondary" onClick={() => setFinishNotice("A developer handoff download appears only after a handoff artifact is generated from recorded evidence.")}><FileDown /> Handoff artifact unavailable</button><div className="tool-workflow-scope"><Store /><p>Connect a supported store later to retain this project and unlock store-draft or publish actions where permissions allow.</p></div></article>}
-        <article className="tool-workflow-card tool-workflow-alternative-finish"><span className="tool-workflow-kicker">Other finish route</span><h2>{isConnected ? "Need an implementation package instead?" : "Want publishing later?"}</h2><p>{isConnected ? "Download the evidence and developer handoff alongside your store release." : "Connect a supported store later and keep this project and its recorded workspace state."}</p><button className="tool-workflow-secondary" onClick={() => setFinishNotice(isConnected ? "Design package is ready to download." : "Store connection options are available from the Stores workspace when a provider adapter is configured.")}>{isConnected ? "Download design package" : "Connect a store"}</button><button className="tool-workflow-secondary" onClick={() => setFinishNotice("You can return to the tool result at any time.")}>Back to result</button></article>
+        <article className="tool-workflow-card tool-workflow-alternative-finish"><span className="tool-workflow-kicker">Other finish route</span><h2>{isConnected ? "Need an implementation package instead?" : "Want publishing later?"}</h2><p>{isConnected ? "Download the evidence and developer handoff alongside your store release." : "Connect a supported store later and keep this project and its recorded workspace state."}</p><button className="tool-workflow-secondary" disabled={isConnected} onClick={() => setFinishNotice("Store connection options are available from the Stores workspace when a provider adapter is configured.")}>{isConnected ? "Design package unavailable" : "Connect a store"}</button><button className="tool-workflow-secondary" onClick={() => setFinishNotice("You can return to the tool result at any time.")}>Back to result</button></article>
       </section>
       {finishNotice && <div className="tool-workflow-finish-notice">{finishNotice}</div>}
     </>
@@ -634,14 +663,14 @@ function WorkflowProgress({ activeIndex }: { activeIndex: number }) {
   return <div className="tool-workflow-progress-nav">{stages.map((item, index) => <div className={index === activeIndex ? "active" : index < activeIndex ? "complete" : ""} key={item.id}><i>{index < activeIndex ? "✓" : ""}</i><span>{item.label}</span></div>)}</div>;
 }
 
-function SpecialistWorkspace({ route, tool, source, scope, onBack, onContinue, onAskAi }: { route: ToolRoute; tool: ToolDefinition; source: string; scope: string; onBack: () => void; onContinue: () => void; onAskAi: () => void }) {
+function SpecialistWorkspace({ route, tool, source, scope, onBack, onContinue, aiAvailable, onAskAi }: { route: ToolRoute; tool: ToolDefinition; source: string; scope: string; onBack: () => void; onContinue: () => void; aiAvailable: boolean; onAskAi: () => void | Promise<void> }) {
   const technical = route.workspace === "Developer Handoff" || route.workspace === "Optimization Workbench" || route.workspace === "Measurement Workspace";
   return <section className="tool-specialist-workspace">
     <header className="tool-specialist-header"><button onClick={onBack}><ArrowLeft /> Results</button><span>{route.workspace}</span><h1>{route.primaryAction}</h1><p>{route.primaryDescription}</p></header>
     <section className="tool-specialist-grid">
       <article className="tool-workflow-card tool-specialist-context"><span className="tool-workflow-kicker">Current context</span><h2>{tool.name}</h2><div><b>Input</b><span>{source}</span></div><div><b>Result</b><span>{tool.outcome}</span></div><div><b>Scope</b><span>{scope}</span></div></article>
       <article className="tool-workflow-card tool-specialist-evidence"><span className="tool-workflow-kicker">Evidence and recommendations</span><h2>{technical ? "What needs implementation" : "What this result tells you"}</h2><div className="tool-specialist-list"><span><i>1</i><b>{technical ? "Prioritized cause" : "Priority finding"}</b><small>{technical ? "Evidence points to a change that should be reviewed before implementation." : "The visible customer path has one clear decision to improve first."}</small></span><span><i>2</i><b>{technical ? "Expected impact" : "Recommended next step"}</b><small>{technical ? "The recommendation is recorded with scope and expected impact." : route.primaryDescription}</small></span><span><i>3</i><b>{technical ? "Delivery path" : "Safe continuation"}</b><small>{technical ? "Prepare an implementation package rather than altering a visual draft." : "Save, export, or enter the appropriate focused workspace."}</small></span></div></article>
-      <article className="tool-workflow-card tool-specialist-action"><span className="tool-workflow-kicker">Next action</span><h2>{route.workspace}</h2><p>{technical ? "This workspace keeps the technical brief, affected context, acceptance criteria, and delivery choices together." : "Review the evidence and keep a clear record of the next decision."}</p>{route.allowsAi ? <button className="tool-workflow-primary" onClick={onAskAi}><Sparkles /> Create AI plan</button> : <button className="tool-workflow-primary" disabled><FileDown /> No recommendation executor</button>}<button className="tool-workflow-secondary" onClick={onContinue}>{technical ? "Review handoff package" : "Continue to review"} <ArrowRight /></button><button className="tool-specialist-export" disabled><Download /> No report artifact</button></article>
+      <article className="tool-workflow-card tool-specialist-action"><span className="tool-workflow-kicker">Next action</span><h2>{route.workspace}</h2><p>{technical ? "This workspace keeps the technical brief, affected context, acceptance criteria, and delivery choices together." : "Review the evidence and keep a clear record of the next decision."}</p>{route.allowsAi && aiAvailable ? <button className="tool-workflow-primary" onClick={() => { void onAskAi(); }}><Sparkles /> Create AI plan</button> : <button className="tool-workflow-primary" disabled><FileDown /> AI plan unavailable</button>}<button className="tool-workflow-secondary" onClick={onContinue}>{technical ? "Review handoff package" : "Continue to review"} <ArrowRight /></button><button className="tool-specialist-export" disabled><Download /> No report artifact</button></article>
     </section>
   </section>;
 }
@@ -664,5 +693,5 @@ function EditorControls({ workspace, selectedElement, device, onOpenAi, onSave }
         : workspace === "Content Studio"
           ? [["Heading", "Clear product value"], ["Reassurance", "Shipping and returns"], ["Search intent", "Product benefit"], ["Tone", "Direct and warm"]]
           : [["Reference direction", "Current evidence"], ["Hierarchy", "Decision-first"], ["Spacing", "16 px"], ["Mobile position", "Above shipping details"]];
-  return <div className="tool-workflow-edit-controls"><span className="tool-workflow-kicker">{workspace} · {selectedElement}</span><h3>Make a focused change.</h3>{controls.map(([label, value]) => <label key={label}><span>{label}</span><button>{value}<ChevronRight /></button></label>)}<button className="tool-workflow-primary" onClick={onOpenAi}><Sparkles /> Ask AI to improve this</button><button className="tool-workflow-secondary" onClick={onSave}><Save /> Save version</button><button className="tool-workflow-more-controls"><Paintbrush /> More {workspace.toLowerCase()} controls</button></div>;
+  return <div className="tool-workflow-edit-controls"><span className="tool-workflow-kicker">{workspace} · {selectedElement}</span><h3>Make a focused change.</h3>{controls.map(([label, value]) => <label key={label}><span>{label}</span><button type="button" disabled aria-label={`${label}: detailed control unavailable`}>{value}<ChevronRight /></button></label>)}<button className="tool-workflow-primary" onClick={onOpenAi}><Sparkles /> Ask AI to improve this</button><button className="tool-workflow-secondary" onClick={onSave}><Save /> Save version</button><button className="tool-workflow-more-controls" disabled><Paintbrush /> More {workspace.toLowerCase()} controls unavailable</button></div>;
 }

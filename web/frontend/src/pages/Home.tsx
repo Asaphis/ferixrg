@@ -12,7 +12,7 @@ export default function Home() {
         <h1>Build a Better Store.<br /><span>Automatically.</span></h1>
         <p>FerixRG analyzes your storefront, uncovers hidden issues, and turns evidence into an improved experience—optimized, redesigned, and ready to publish.</p>
         <div className="hero-actions"><PrimaryButton onClick={() => navigate("/app")}>Analyze Your Store</PrimaryButton><button type="button" className="landing-secondary" onClick={() => navigate("/how-it-works")}>Explore How It Works</button></div>
-        <UrlCapture onAnalyze={() => navigate("/app")} />
+        <UrlCapture onAnalyze={url => navigate(url ? `/app/stores?url=${encodeURIComponent(url)}` : "/app/stores")} />
       </div>
       <HeroMontage />
     </section>

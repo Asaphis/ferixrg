@@ -19,6 +19,7 @@ import {
   createWorkspaceDraftAsset,
   createWorkspaceInvitation,
   createWorkspaceStore,
+  disconnectWorkspaceStore,
   createWorkspaceRequest,
   ensurePersonalWorkspace,
   getWorkspaceReport,
@@ -307,6 +308,16 @@ export const workspaceRouter = router({
         const connection = await beginStoreConnection({ storeId: input.storeId, provider: input.provider, scopes: input.scopes, authorizationState: authorization.state, authorizationStateExpiresAt: new Date(Date.now() + 10 * 60 * 1000) });
         await recordWorkspaceActivity({ workspaceId: input.workspaceId, actorUserId: ctx.user.id, eventType: "store.connection_requested", entityType: "store_connection", entityId: String(connection?.id ?? input.storeId), details: { storeId: input.storeId, provider: input.provider, configured: readiness.configured, requestedScopes: input.scopes ?? [] } });
         return { ...connection, readiness, authorization };
+      } catch (error) {
+        return toForbidden(error);
+      }
+    }),
+    disconnect: protectedProcedure.input(workspaceInput.extend({ storeId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      try {
+        await requireWorkspaceAccess(ctx.user.id, input.workspaceId, "editor");
+        const store = await disconnectWorkspaceStore({ workspaceId: input.workspaceId, storeId: input.storeId, actorUserId: ctx.user.id });
+        if (!store) throw new Error("workspace permission denied");
+        return store;
       } catch (error) {
         return toForbidden(error);
       }

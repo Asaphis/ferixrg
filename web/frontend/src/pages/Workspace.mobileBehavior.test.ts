@@ -22,6 +22,7 @@ const sessionMocks = vi.hoisted(() => ({
   activity: [{ id: 8, eventType: "workspace.created" }],
   stores: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91, url: "https://atelier.example", updatedAt: new Date() }],
   connections: [{ id: 30, storeId: 10, provider: "shopify", status: "connected", scopes: ["read_products"] }],
+  providerConfigured: false,
   dashboard: { stores: { total: 1, connected: 1, attention: 0, records: [{ id: 10, name: "Atelier Forma", platform: "shopify", status: "connected", healthScore: 91 }] }, health: { average: 91, measuredStoreCount: 1 }, issues: { total: 0, open: 0, inProgress: 0, resolved: 0, records: [] }, drafts: { total: 0, active: 0, records: [] }, runs: { total: 0, queued: 0, running: 0, completed: 0, records: [] }, reports: { total: 0, records: [] }, activity: [] },
   validationRuns: [],
   releases: [],
@@ -45,6 +46,7 @@ const sessionMocks = vi.hoisted(() => ({
   createPublicUrlSource: vi.fn().mockResolvedValue({ store: { id: 11, name: "yourstore.com" }, snapshot: { id: 12, sourceType: "url_scan" } }),
   createStore: vi.fn().mockResolvedValue({ id: 10, name: "Atelier Forma", platform: "shopify", status: "draft", url: "https://atelier.example" }),
   beginConnection: vi.fn().mockResolvedValue({ id: 31, status: "pending", readiness: { message: "Connection request recorded for review." } }),
+  disconnect: vi.fn().mockResolvedValue({ id: 10, status: "disconnected" }),
   createDraft: vi.fn().mockResolvedValue({ draft: { id: 21 }, version: { id: 31 } }),
   saveDraftVersion: vi.fn().mockResolvedValue({ id: 32, designState: "{}" }),
   restoreDraftVersion: vi.fn().mockResolvedValue({ id: 31, designState: "{}" }),
@@ -70,6 +72,12 @@ const sessionMocks = vi.hoisted(() => ({
   accessibilityFixAssistant: vi.fn().mockResolvedValue({ response: "Observed evidence: the control has no supplied accessible name. Proposal: add a visible label, then verify keyboard focus before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   generateProductDescription: vi.fn().mockResolvedValue({ response: "A versatile canvas tote for everyday essentials. Verify factual accuracy before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
   generateMarketingCopy: vi.fn().mockResolvedValue({ response: "CTA options: Shop the tote. Explore the collection. Review factual accuracy before applying.", model: "@cf/meta/llama-3.2-3b-instruct", neurons: 1 }),
+  uploadSource: vi.fn().mockResolvedValue({ snapshot: { id: 13, sourceType: "screenshot" }, storage: { key: "workspaces/1/stores/10/runs/71/screenshot.png", url: "https://storage.example/screenshot.png" } }),
+  completeToolRun: vi.fn().mockResolvedValue({ id: 71, status: "completed" }),
+  addToolEvidence: vi.fn().mockResolvedValue({ id: 14, kind: "screenshot" }),
+  createReport: vi.fn().mockResolvedValue({ id: 90, format: "json" }),
+  createDeveloperHandoff: vi.fn().mockResolvedValue({ id: 120, title: "Recorded handoff", status: "draft" }),
+  executeScreenshotToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, analysis: "Observed uploaded screenshot evidence.", provider: "forge", model: "vision", report: { id: 90 } }),
   executePublicUrlToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, inspection: { statusCode: 200 }, report: { id: 90 } }),
   executeDraftVersionComparison: vi.fn().mockResolvedValue({ run: { id: 141, status: "completed" }, comparison: { execution: "deterministic_persisted_draft_version_comparison", draftId: 14, serializedStateMatches: false, base: { versionId: 51, label: "Baseline", createdAt: new Date("2026-08-01T00:00:00.000Z"), createdByType: "user", designStateBytes: 19 }, comparison: { versionId: 52, label: "Revision", createdAt: new Date("2026-08-02T00:00:00.000Z"), createdByType: "ai", designStateBytes: 18 }, boundary: "Compares persisted version metadata and serialized state only. It does not render, score, assess visual quality, validate, publish, or change a store." }, report: { id: 90 } }),
   reportDownload: vi.fn().mockResolvedValue({ reportId: 90, format: "json", url: "/manus-storage/reports/inspection.json" }),
@@ -92,12 +100,14 @@ vi.mock("@/lib/trpc", () => ({
       removeMember: { useMutation: () => ({ mutateAsync: sessionMocks.removeMember }) },
       cancelInvitation: { useMutation: () => ({ mutateAsync: sessionMocks.cancelInvitation }) },
       stores: {
-        providerReadiness: { useQuery: () => ({ data: [{ provider: "shopify", configured: false, authorizationMode: "oauth_redirect", supportsPublish: false, supportsRollback: false, message: "Setup required" }], isLoading: false }) },
+        providerReadiness: { useQuery: () => ({ data: [{ provider: "shopify", configured: sessionMocks.providerConfigured, authorizationMode: "oauth_redirect", supportsPublish: false, supportsRollback: false, message: sessionMocks.providerConfigured ? "Configured" : "Setup required" }], isLoading: false }) },
         list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
         connections: { useQuery: () => ({ data: sessionMocks.connections, isLoading: false }) },
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
         create: { useMutation: () => ({ mutateAsync: sessionMocks.createStore }) },
         beginConnection: { useMutation: () => ({ mutateAsync: sessionMocks.beginConnection }) },
+        disconnect: { useMutation: () => ({ mutateAsync: sessionMocks.disconnect, isPending: false }) },
+        uploadSource: { useMutation: () => ({ mutateAsync: sessionMocks.uploadSource, isPending: false }) },
       },
       aiProviderReadiness: { useQuery: () => ({ data: [{ provider: "cloudflare_workers_ai", configured: false, model: "@cf/meta/llama-3.2-3b-instruct", message: "Setup required" }], isLoading: false }) },
       dashboard: { useQuery: () => ({ data: sessionMocks.dashboard, isLoading: false }) },
@@ -133,6 +143,12 @@ vi.mock("@/lib/trpc", () => ({
       accessibilityFixAssistant: { useMutation: () => ({ mutateAsync: sessionMocks.accessibilityFixAssistant }) },
       generateProductDescription: { useMutation: () => ({ mutateAsync: sessionMocks.generateProductDescription }) },
       generateMarketingCopy: { useMutation: () => ({ mutateAsync: sessionMocks.generateMarketingCopy }) },
+      uploadSource: { useMutation: () => ({ mutateAsync: sessionMocks.uploadSource, isPending: false }) },
+      completeToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.completeToolRun, isPending: false }) },
+      addToolEvidence: { useMutation: () => ({ mutateAsync: sessionMocks.addToolEvidence, isPending: false }) },
+      createReport: { useMutation: () => ({ mutateAsync: sessionMocks.createReport, isPending: false }) },
+      createDeveloperHandoff: { useMutation: () => ({ mutateAsync: sessionMocks.createDeveloperHandoff, isPending: false }) },
+      executeScreenshotToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.executeScreenshotToolRun, isPending: false }) },
       executePublicUrlToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.executePublicUrlToolRun, isPending: false }) },
       executeDraftVersionComparison: { useMutation: () => ({ mutateAsync: sessionMocks.executeDraftVersionComparison, isPending: false }) },
       reportDownload: { useMutation: () => ({ mutateAsync: sessionMocks.reportDownload }) },
@@ -152,7 +168,7 @@ vi.mock("@/lib/trpc", () => ({
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate }, requests: { invalidate: sessionMocks.invalidate } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate }, connections: { invalidate: sessionMocks.invalidate } }, dashboard: { invalidate: sessionMocks.invalidate }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate }, requests: { invalidate: sessionMocks.invalidate } } }),
   },
 }));
 
@@ -161,6 +177,7 @@ import Workspace from "./Workspace";
 const renderWorkspace = () => render(createElement(Workspace));
 
 beforeEach(() => {
+  sessionMocks.providerConfigured = false;
   Object.defineProperty(window, "scrollTo", { configurable: true, value: vi.fn() });
   window.history.replaceState({}, "", "/app");
 });
@@ -198,8 +215,25 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByRole("heading", { name: "Your Stores" })).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
     expect(view.getByRole("heading", { name: "Add a Store" })).toBeTruthy();
-    expect(view.getByRole("button", { name: /Shopify/i })).toBeTruthy();
+    const shopifyButton = view.getByRole("button", { name: /Shopify, adapter not configured/i }) as HTMLButtonElement;
+    expect(shopifyButton.disabled).toBe(true);
+    expect((view.getByRole("button", { name: /WooCommerce, adapter not configured/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((view.getByRole("button", { name: /PrestaShop, platform adapter not configured/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(view.getByRole("button", { name: /analyze by URL/i })).toBeTruthy();
+  });
+
+  it("preserves the StorePanel source choice when launching a tool", () => {
+    window.history.replaceState({}, "", "/app?store=10");
+    const view = renderWorkspace();
+    expect(view.getByRole("heading", { name: "Choose a tool for Atelier Forma." })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Public URL" }));
+    fireEvent.click(view.getByRole("button", { name: /Open Storefront Analyzer for Atelier Forma/i }));
+    expect(view.getByRole("heading", { name: "Choose a FerixRG tool." })).toBeTruthy();
+    const startButton = view.getByRole("button", { name: "Start Storefront Analyzer" }) as HTMLButtonElement;
+    expect(startButton.disabled).toBe(false);
+    fireEvent.click(startButton);
+    expect(view.getByRole("heading", { name: /Set up Storefront Analyzer/i })).toBeTruthy();
+    expect(view.getByText("Public URL")).toBeTruthy();
   });
 
   it("renders the direct Stores route in the approved shared dashboard shell", () => {
@@ -238,22 +272,25 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
     const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
     if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
-    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Public URL" }));
+    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: /^Public URL/ }));
     fireEvent.click(view.getByRole("button", { name: "Start Responsive Analyzer" }));
     expect(view.getByRole("heading", { name: /Set up Responsive Analyzer/i })).toBeTruthy();
+    fireEvent.change(view.getByRole("textbox", { name: "Storefront URL" }), { target: { value: "https://atelier-forma.example" } });
     fireEvent.click(view.getByRole("button", { name: /Run Responsive Analyzer/i }));
     await waitFor(() => expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "responsive-analyzer", sourceType: "public_url" })));
-    await waitFor(() => expect(view.getByRole("heading", { name: /Responsive Analyzer is checking your input/i })).toBeTruthy());
-    fireEvent.click(view.getByRole("button", { name: /See (run record|result)/i }));
-    expect(view.getByRole("heading", { name: /Responsive Analyzer found a clear next step/i })).toBeTruthy();
+    await waitFor(() => expect(view.getByRole("heading", { name: /Responsive Analyzer found a clear next step/i })).toBeTruthy());
     expect(view.getAllByRole("button", { name: /Download report/i }).length).toBeGreaterThan(0);
+    const handoffButton = view.getByRole("button", { name: /Create developer handoff/i }) as HTMLButtonElement;
+    expect(handoffButton.disabled).toBe(false);
+    fireEvent.click(handoffButton);
+    await waitFor(() => expect(sessionMocks.createDeveloperHandoff).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolRunId: 71, title: "Responsive Analyzer implementation handoff", affectedLocation: "Public URL · Buy button", priority: "medium" })));
+    expect(view.getByText(/Developer handoff #120 was saved/i)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: /Open Responsive Studio/i }));
     expect(view.getByText("Responsive Analyzer · Unsaved workspace draft")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Ask AI" }));
-    expect(view.getByText(/Context attached/i)).toBeTruthy();
-    fireEvent.click(view.getByRole("button", { name: "Make this less crowded" }));
-    expect(view.getByText(/does not yet have a dedicated server-side AI operation/i)).toBeTruthy();
-    expect(view.getByText(/No simulated result was created/i)).toBeTruthy();
+    expect(view.getByText(/AI assistance unavailable for this tool/i)).toBeTruthy();
+    expect(view.getByText(/No dedicated server-side AI operation is configured/i)).toBeTruthy();
+    expect(view.queryByRole("button", { name: "Make this less crowded" })).toBeNull();
     expect(view.queryByText("AI suggestion")).toBeNull();
   });
 
@@ -276,8 +313,7 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.change(view.getAllByRole("combobox")[2], { target: { value: "52" } });
     fireEvent.click(view.getByRole("button", { name: /Run Before\/After Comparator/i }));
     await waitFor(() => expect(sessionMocks.executeDraftVersionComparison).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71, baseVersionId: 51, comparisonVersionId: 52 }));
-    fireEvent.click(view.getByRole("button", { name: /See (run record|result)/i }));
-    expect(view.getByRole("heading", { name: "Saved versions compared" })).toBeTruthy();
+    await waitFor(() => expect(view.getByRole("heading", { name: "Saved versions compared" })).toBeTruthy());
     expect(view.getAllByText(/Compares persisted version metadata and serialized state only/i).length).toBeGreaterThan(0);
     expect(view.getByText(/Baseline: Baseline/i)).toBeTruthy();
   });
@@ -286,7 +322,8 @@ describe("Workspace mobile behaviour", () => {
     window.history.replaceState({}, "", "/app/tools?tool=performance-analyzer&stage=editor");
     const view = renderWorkspace();
     expect(view.getByRole("heading", { name: "Open Optimization Workbench" })).toBeTruthy();
-    expect(view.getByRole("button", { name: "Create AI plan" })).toBeTruthy();
+    const unavailableAi = view.getByRole("button", { name: "AI plan unavailable" }) as HTMLButtonElement;
+    expect(unavailableAi.disabled).toBe(true);
     expect(view.queryByAltText("Editable storefront preview")).toBeNull();
   });
 
@@ -434,6 +471,7 @@ describe("Workspace mobile behaviour", () => {
   });
 
   it("records Store connection requests through the backend readiness contract", async () => {
+    sessionMocks.providerConfigured = true;
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
     fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
@@ -442,6 +480,84 @@ describe("Workspace mobile behaviour", () => {
     await waitFor(() => expect(sessionMocks.beginConnection).toHaveBeenCalledWith({ workspaceId: 1, storeId: 10, provider: "shopify", scopes: ["read_products", "read_content", "read_themes"] }));
     await waitFor(() => expect(view.getByRole("heading", { name: "Atelier Forma" })).toBeTruthy());
     expect(toastMocks.success).toHaveBeenCalledWith("Connection request recorded", expect.any(Object));
+  });
+
+  it("switches sources after setup without remounting the workflow and keeps URL typing focused", () => {
+    window.history.replaceState({}, "", "/app/tools?tool=responsive-analyzer");
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
+    const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
+    if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
+    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: /^Public URL/ }));
+    fireEvent.click(view.getByRole("button", { name: "Start Responsive Analyzer" }));
+    const urlField = view.getByRole("textbox", { name: "Storefront URL" });
+    urlField.focus();
+    fireEvent.input(urlField, { target: { value: "https://atelier-forma.example" } });
+    expect(document.activeElement).toBe(urlField);
+    fireEvent.input(urlField, { target: { value: "" } });
+    expect(document.activeElement).toBe(urlField);
+    fireEvent.click(view.getByRole("button", { name: /^Screenshots/ }));
+    expect(view.getByRole("button", { name: /^Screenshots/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(view.getByText(/Only Screenshot Analyzer currently has a screenshot executor/i)).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: /^Public URL/ }));
+    expect(view.getByRole("button", { name: /^Public URL/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(view.getByRole("textbox", { name: "Storefront URL" })).toBeTruthy();
+  });
+
+  it("previews selected screenshots and sends the uploaded evidence through the real screenshot executor", async () => {
+    const previousCreate = URL.createObjectURL;
+    const previousRevoke = URL.revokeObjectURL;
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, writable: true, value: vi.fn(() => "blob:workspace-screenshot") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, writable: true, value: vi.fn() });
+    try {
+      window.history.replaceState({}, "", "/app/tools?tool=screenshot-analyzer");
+      const view = renderWorkspace();
+      fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
+      const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
+      if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
+      fireEvent.click(within(toolDetailPanel).getByRole("button", { name: /^Screenshots/ }));
+      fireEvent.click(view.getByRole("button", { name: "Start Screenshot Analyzer" }));
+      const file = new File(["valid image bytes"], "homepage.png", { type: "image/png" });
+      const fileInput = view.container.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!fileInput) throw new Error("Expected screenshot file input");
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      await waitFor(() => expect(view.getByAltText("Preview of homepage.png")).toBeTruthy());
+      expect(view.getByText("homepage.png")).toBeTruthy();
+      fireEvent.click(view.getByRole("button", { name: /Run Screenshot Analyzer/i }));
+      await waitFor(() => expect(sessionMocks.uploadSource).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, storeId: 10, fileName: "homepage.png", mimeType: "image/png", sourceType: "screenshot" })));
+      await waitFor(() => expect(sessionMocks.executeScreenshotToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71, storageKeys: ["workspaces/1/stores/10/runs/71/screenshot.png"] }));
+      expect(view.getByRole("heading", { name: /Screenshot Analyzer found a clear next step/i })).toBeTruthy();
+      expect(view.getByText(/Screenshot analysis complete/i)).toBeTruthy();
+    } finally {
+      if (previousCreate) Object.defineProperty(URL, "createObjectURL", { configurable: true, writable: true, value: previousCreate }); else delete (URL as typeof URL & { createObjectURL?: unknown }).createObjectURL;
+      if (previousRevoke) Object.defineProperty(URL, "revokeObjectURL", { configurable: true, writable: true, value: previousRevoke }); else delete (URL as typeof URL & { revokeObjectURL?: unknown }).revokeObjectURL;
+    }
+  });
+
+  it("disables unsupported source execution before a run can be queued", () => {
+    window.history.replaceState({}, "", "/app/tools?tool=responsive-analyzer");
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
+    const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
+    if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
+    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: /^Public URL/ }));
+    fireEvent.click(view.getByRole("button", { name: "Start Responsive Analyzer" }));
+    fireEvent.click(view.getByRole("button", { name: /^Screenshots/ }));
+    expect(view.getByText(/Only Screenshot Analyzer currently has a screenshot executor/i)).toBeTruthy();
+    expect((view.getByRole("button", { name: /Run Responsive Analyzer/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(sessionMocks.queueToolRun).not.toHaveBeenCalled();
+  });
+
+  it("disconnects the selected store through the protected mutation and returns to the live Stores list", async () => {
+    const view = renderWorkspace();
+    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
+    fireEvent.click(view.getByRole("button", { name: "Connection" }));
+    fireEvent.click(view.getByRole("button", { name: "Disconnect Store" }));
+    fireEvent.click(view.getByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(sessionMocks.disconnect).toHaveBeenCalledWith({ workspaceId: 1, storeId: 10 }));
+    await waitFor(() => expect(view.getByRole("heading", { name: "Your Stores" })).toBeTruthy());
+    expect(sessionMocks.invalidate).toHaveBeenCalled();
+    expect(toastMocks.success).toHaveBeenCalledWith("Store disconnected", expect.objectContaining({ description: expect.stringMatching(/connection was revoked/i) }));
   });
 
   it("gives URL-analysis validation errors, then runs a real public URL inspection and opens its result", async () => {
@@ -455,6 +571,8 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
     expect(view.getByRole("alert").textContent).toMatch(/can’t be analyzed yet/i);
     expect(toastMocks.error).toHaveBeenCalledWith("Enter a valid storefront URL", expect.any(Object));
+    expect(sessionMocks.createPublicUrlSource).not.toHaveBeenCalled();
+    expect(sessionMocks.queueToolRun).not.toHaveBeenCalled();
     fireEvent.change(view.getByRole("textbox", { name: "Storefront URL" }), { target: { value: "https://atelier-forma.example" } });
     fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });

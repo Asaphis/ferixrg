@@ -61,6 +61,16 @@ describe("Home hero montage motion", () => {
     expect(window.location.pathname).toBe("/auth/register");
   });
 
+  it("preserves the submitted storefront URL for the authenticated analysis flow", () => {
+    setViewport(1440, false);
+    window.history.replaceState({}, "", "/");
+    const view = render(createElement(Home));
+    fireEvent.change(view.getByRole("textbox", { name: "Store URL" }), { target: { value: "https://shop.example.com/catalog" } });
+    fireEvent.click(view.getByRole("button", { name: "Analyze Store" }));
+    expect(window.location.pathname).toBe("/app/stores");
+    expect(new URLSearchParams(window.location.search).get("url")).toBe("https://shop.example.com/catalog");
+  });
+
   it("routes a public AI prompt through registration with its exact tool return link", () => {
     setViewport(1440, false);
     window.history.replaceState({}, "", "/solutions");

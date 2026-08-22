@@ -436,6 +436,21 @@ export async function listStoreConnections(storeId: number) {
   return db.select().from(storeConnections).where(eq(storeConnections.storeId, storeId)).orderBy(desc(storeConnections.updatedAt));
 }
 
+export async function disconnectWorkspaceStore(input: { workspaceId: number; storeId: number; actorUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const storesForWorkspace = await tx.select().from(stores).where(and(eq(stores.id, input.storeId), eq(stores.workspaceId, input.workspaceId))).limit(1);
+    const store = storesForWorkspace[0];
+    if (!store) return undefined;
+    await tx.update(storeConnections).set({ status: "revoked", authorizationState: null, authorizationStateExpiresAt: null, lastError: "Disconnected by workspace user", lastCheckedAt: new Date() }).where(eq(storeConnections.storeId, input.storeId));
+    await tx.update(stores).set({ status: "disconnected" }).where(and(eq(stores.id, input.storeId), eq(stores.workspaceId, input.workspaceId)));
+    await tx.insert(activityEvents).values({ workspaceId: input.workspaceId, actorUserId: input.actorUserId, eventType: "store.disconnected", entityType: "store", entityId: String(input.storeId), details: { storeId: input.storeId } });
+    const updated = await tx.select().from(stores).where(eq(stores.id, input.storeId)).limit(1);
+    return updated[0];
+  });
+}
+
 export async function getStoreConnectionByAuthorizationState(provider: "shopify" | "woocommerce" | "magento" | "custom", authorizationState: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

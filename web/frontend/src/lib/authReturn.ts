@@ -1,4 +1,16 @@
-const allowedWorkspacePaths = new Set(["/app", "/app/tools", "/app/stores", "/app/more"]);
+const allowedWorkspacePaths = new Set([
+  "/app",
+  "/app/tools",
+  "/app/stores",
+  "/app/more",
+  "/app/analysis",
+  "/app/issues",
+  "/app/reports",
+  "/app/redesign",
+  "/app/editor",
+  "/app/preview-and-validate",
+  "/app/versions",
+]);
 
 export function getSafeReturnPath(search: string, origin = window.location.origin) {
   const rawReturn = new URLSearchParams(search).get("returnTo");
