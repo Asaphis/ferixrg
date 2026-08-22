@@ -37,3 +37,12 @@ html,body,#root{max-width:100%;overflow-x:hidden}
   .home-page .hero-montage-frame .montage-impact,.home-page .hero-montage-frame .montage-badge{right:0}
   .home-page .hero-montage-frame .montage-connector{right:27%}
 }
+
+/* Optical balance: match the montage's left and right breathing room to the centered metrics card. */
+@media(max-width:600px){
+  .home-page .hero-montage-frame .montage-workspace{left:8%;}
+  .home-page .hero-montage-frame .montage-phone{left:9%;}
+  .home-page .hero-montage-frame .montage-insight{right:8%;}
+  .home-page .hero-montage-frame .montage-impact,.home-page .hero-montage-frame .montage-badge{right:8%;}
+  .home-page .hero-montage-frame .montage-connector{right:31%;}
+}
