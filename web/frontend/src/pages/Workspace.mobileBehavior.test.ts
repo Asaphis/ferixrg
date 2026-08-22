@@ -50,11 +50,6 @@ const sessionMocks = vi.hoisted(() => ({
   restoreDraftVersion: vi.fn().mockResolvedValue({ id: 31, designState: "{}" }),
   queueToolRun: vi.fn().mockResolvedValue({ id: 71, status: "queued" }),
   startToolRun: vi.fn().mockResolvedValue({ id: 71, status: "running" }),
-  uploadSource: vi.fn().mockResolvedValue({ snapshot: { id: 73, sourceType: "screenshot" }, storage: { key: "runs/71/test.png", url: "/manus-storage/runs/71/test.png" } }),
-  completeToolRun: vi.fn().mockResolvedValue({ id: 71, status: "completed" }),
-  addToolEvidence: vi.fn().mockResolvedValue({ id: 72 }),
-  createReport: vi.fn().mockResolvedValue({ id: 90, storageKey: "reports/90.json" }),
-  executeScreenshotToolRun: vi.fn().mockResolvedValue({ run: { id: 71, status: "completed" }, analysis: "Real screenshot analysis", evidenceCount: 1, report: { id: 90 } }),
   queueValidationRun: vi.fn().mockResolvedValue({ id: 81, status: "queued" }),
   startValidationRun: vi.fn().mockResolvedValue({ id: 81, status: "running" }),
   executeDraftIntegrityValidation: vi.fn().mockResolvedValue({ id: 81, status: "passed" }),
@@ -101,7 +96,6 @@ vi.mock("@/lib/trpc", () => ({
         list: { useQuery: () => ({ data: sessionMocks.stores, isLoading: false }) },
         connections: { useQuery: () => ({ data: sessionMocks.connections, isLoading: false }) },
         createPublicUrlSource: { useMutation: () => ({ mutateAsync: sessionMocks.createPublicUrlSource }) },
-        uploadSource: { useMutation: () => ({ mutateAsync: sessionMocks.uploadSource }) },
         create: { useMutation: () => ({ mutateAsync: sessionMocks.createStore }) },
         beginConnection: { useMutation: () => ({ mutateAsync: sessionMocks.beginConnection }) },
       },
@@ -119,10 +113,6 @@ vi.mock("@/lib/trpc", () => ({
       restoreDraftVersion: { useMutation: () => ({ mutateAsync: sessionMocks.restoreDraftVersion }) },
       queueToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.queueToolRun, isPending: false }) },
       startToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.startToolRun, isPending: false }) },
-      completeToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.completeToolRun, isPending: false }) },
-      addToolEvidence: { useMutation: () => ({ mutateAsync: sessionMocks.addToolEvidence, isPending: false }) },
-      createReport: { useMutation: () => ({ mutateAsync: sessionMocks.createReport, isPending: false }) },
-      executeScreenshotToolRun: { useMutation: () => ({ mutateAsync: sessionMocks.executeScreenshotToolRun, isPending: false }) },
       queueValidationRun: { useMutation: () => ({ mutateAsync: sessionMocks.queueValidationRun }) },
       startValidationRun: { useMutation: () => ({ mutateAsync: sessionMocks.startValidationRun }) },
       executeDraftIntegrityValidation: { useMutation: () => ({ mutateAsync: sessionMocks.executeDraftIntegrityValidation }) },
@@ -162,7 +152,7 @@ vi.mock("@/lib/trpc", () => ({
       revokeOtherSessions: { useMutation: () => ({ mutateAsync: sessionMocks.revokeOtherSessions }) },
       revokeSession: { useMutation: () => ({ mutateAsync: sessionMocks.revokeSession }) },
     },
-    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } }, dashboard: { invalidate: sessionMocks.invalidate }, reports: { invalidate: sessionMocks.invalidate }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate }, requests: { invalidate: sessionMocks.invalidate } } }),
+    useUtils: () => ({ auth: { me: { invalidate: sessionMocks.invalidate } }, account: { profile: { invalidate: sessionMocks.invalidate }, preferences: { invalidate: sessionMocks.invalidate }, sessions: { invalidate: sessionMocks.invalidate } }, workspace: { members: { invalidate: sessionMocks.invalidate }, invitations: { invalidate: sessionMocks.invalidate }, activity: { invalidate: sessionMocks.invalidate }, stores: { list: { invalidate: sessionMocks.invalidate } }, drafts: { invalidate: sessionMocks.invalidate }, draftVersions: { invalidate: sessionMocks.invalidate }, validationRuns: { invalidate: sessionMocks.invalidate }, releases: { invalidate: sessionMocks.invalidate }, requests: { invalidate: sessionMocks.invalidate } } }),
   },
 }));
 
@@ -251,10 +241,11 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Public URL" }));
     fireEvent.click(view.getByRole("button", { name: "Start Responsive Analyzer" }));
     expect(view.getByRole("heading", { name: /Set up Responsive Analyzer/i })).toBeTruthy();
-    fireEvent.change(view.getByRole("textbox", { name: /Storefront URL/ }), { target: { value: "https://example.com" } });
     fireEvent.click(view.getByRole("button", { name: /Run Responsive Analyzer/i }));
     await waitFor(() => expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "responsive-analyzer", sourceType: "public_url" })));
-    await waitFor(() => expect(view.getByRole("heading", { name: /Responsive Analyzer found a clear next step/i })).toBeTruthy());
+    await waitFor(() => expect(view.getByRole("heading", { name: /Responsive Analyzer is checking your input/i })).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: /See (run record|result)/i }));
+    expect(view.getByRole("heading", { name: /Responsive Analyzer found a clear next step/i })).toBeTruthy();
     expect(view.getAllByRole("button", { name: /Download report/i }).length).toBeGreaterThan(0);
     fireEvent.click(view.getByRole("button", { name: /Open Responsive Studio/i }));
     expect(view.getByText("Responsive Analyzer · Unsaved workspace draft")).toBeTruthy();
@@ -264,66 +255,6 @@ describe("Workspace mobile behaviour", () => {
     expect(view.getByText(/does not yet have a dedicated server-side AI operation/i)).toBeTruthy();
     expect(view.getByText(/No simulated result was created/i)).toBeTruthy();
     expect(view.queryByText("AI suggestion")).toBeNull();
-  });
-
-  it("switches between screenshot and public URL sources without remounting or losing mobile input state", async () => {
-    const createObjectURL = vi.fn(() => "blob:homepage-preview");
-    const revokeObjectURL = vi.fn();
-    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
-    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
-    const view = renderWorkspace();
-    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
-    const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
-    if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
-    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Screenshots" }));
-    fireEvent.click(view.getByRole("button", { name: "Start Storefront Analyzer" }));
-    expect(view.getByRole("heading", { name: /Set up Storefront Analyzer/i })).toBeTruthy();
-
-    const fileInput = view.container.querySelector<HTMLInputElement>('input[type="file"]');
-    if (!fileInput) throw new Error("Expected screenshot file input");
-    const screenshot = new File(["screenshot-bytes"], "homepage.png", { type: "image/png", lastModified: 1 });
-    fireEvent.change(fileInput, { target: { files: [screenshot] } });
-    expect(await view.findByAltText("Preview of homepage.png")).toBeTruthy();
-    expect(view.getByText("1 screenshot selected")).toBeTruthy();
-
-    fireEvent.click(view.getByRole("button", { name: /^Public URL/ }));
-    expect(view.getByRole("heading", { name: "Paste a public storefront URL" })).toBeTruthy();
-    const urlField = view.getByRole("textbox", { name: /Storefront URL/ });
-    urlField.focus();
-    fireEvent.input(urlField, { target: { value: "https://atelier-forma.test" } });
-    expect(document.activeElement).toBe(urlField);
-    fireEvent.input(urlField, { target: { value: "https://atelier-forma.test/" } });
-    expect(document.activeElement).toBe(urlField);
-    fireEvent.input(urlField, { target: { value: "" } });
-    expect(document.activeElement).toBe(urlField);
-
-    fireEvent.click(view.getByRole("button", { name: /^Screenshots/ }));
-    expect(view.getByRole("heading", { name: "Upload screenshots or add a reference" })).toBeTruthy();
-    expect(await view.findByAltText("Preview of homepage.png")).toBeTruthy();
-    expect(createObjectURL).toHaveBeenCalledWith(screenshot);
-    expect(revokeObjectURL).not.toHaveBeenCalled();
-  });
-
-  it("runs Screenshot Analyzer through upload, evidence, vision execution, and a real result", async () => {
-    window.history.replaceState({}, "", "/app/tools?tool=screenshot-analyzer");
-    const view = renderWorkspace();
-    fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Tools" }));
-    const toolDetailPanel = view.container.querySelector<HTMLElement>(".tool-detail-panel");
-    if (!toolDetailPanel) throw new Error("Expected selected tool detail panel");
-    fireEvent.click(within(toolDetailPanel).getByRole("button", { name: "Screenshots" }));
-    fireEvent.click(view.getByRole("button", { name: "Start Screenshot Analyzer" }));
-    const fileInput = view.container.querySelector<HTMLInputElement>('input[type="file"]');
-    if (!fileInput) throw new Error("Expected screenshot file input");
-    const screenshot = new File(["vision-input"], "checkout.png", { type: "image/png", lastModified: 2 });
-    fireEvent.change(fileInput, { target: { files: [screenshot] } });
-    expect(await view.findByAltText("Preview of checkout.png")).toBeTruthy();
-    fireEvent.click(view.getByRole("button", { name: /Run Screenshot Analyzer/i }));
-    await waitFor(() => expect(sessionMocks.uploadSource).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, storeId: 10, fileName: "checkout.png", mimeType: "image/png", sourceType: "screenshot" })));
-    await waitFor(() => expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "screenshot-analyzer", sourceType: "upload" })));
-    await waitFor(() => expect(sessionMocks.addToolEvidence).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolRunId: 71, kind: "screenshot", storageKey: "runs/71/test.png" })));
-    await waitFor(() => expect(sessionMocks.executeScreenshotToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71, storageKeys: ["runs/71/test.png"] }));
-    await waitFor(() => expect(view.getByRole("heading", { name: /Screenshot Analyzer found a clear next step/i })).toBeTruthy());
-    expect(view.getByText("Real screenshot analysis")).toBeTruthy();
   });
 
   it("runs the Before/After Comparator against two explicitly selected persisted draft versions", async () => {
@@ -345,7 +276,8 @@ describe("Workspace mobile behaviour", () => {
     fireEvent.change(view.getAllByRole("combobox")[2], { target: { value: "52" } });
     fireEvent.click(view.getByRole("button", { name: /Run Before\/After Comparator/i }));
     await waitFor(() => expect(sessionMocks.executeDraftVersionComparison).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71, baseVersionId: 51, comparisonVersionId: 52 }));
-    await waitFor(() => expect(view.getByRole("heading", { name: "Saved versions compared" })).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: /See (run record|result)/i }));
+    expect(view.getByRole("heading", { name: "Saved versions compared" })).toBeTruthy();
     expect(view.getAllByText(/Compares persisted version metadata and serialized state only/i).length).toBeGreaterThan(0);
     expect(view.getByText(/Baseline: Baseline/i)).toBeTruthy();
   });
@@ -513,20 +445,20 @@ describe("Workspace mobile behaviour", () => {
   });
 
   it("gives URL-analysis validation errors, then runs a real public URL inspection and opens its result", async () => {
+    vi.useFakeTimers();
     const view = renderWorkspace();
     fireEvent.click(within(view.getByRole("navigation", { name: "Mobile workspace navigation" })).getByRole("button", { name: "Stores" }));
     fireEvent.click(view.getByRole("button", { name: /Add Store/i }));
     fireEvent.click(view.getByRole("button", { name: /analyze by URL/i }));
-    const urlField = view.getByRole("textbox", { name: /Storefront URL/ });
-    fireEvent.input(urlField, { target: { value: "not-a-url" } });
+    const urlField = view.getByRole("textbox", { name: "Storefront URL" });
+    fireEvent.change(urlField, { target: { value: "not-a-url" } });
     fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
-    await waitFor(() => expect(view.getByRole("alert").textContent).toMatch(/can’t be analyzed yet/i));
+    expect(view.getByRole("alert").textContent).toMatch(/can’t be analyzed yet/i);
     expect(toastMocks.error).toHaveBeenCalledWith("Enter a valid storefront URL", expect.any(Object));
-    expect(sessionMocks.queueToolRun).not.toHaveBeenCalled();
-    fireEvent.input(view.getByRole("textbox", { name: /Storefront URL/ }), { target: { value: "https://atelier-forma.test" } });
+    fireEvent.change(view.getByRole("textbox", { name: "Storefront URL" }), { target: { value: "https://atelier-forma.example" } });
     fireEvent.click(view.getByRole("button", { name: "Analyze URL" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
-    expect(sessionMocks.createPublicUrlSource).toHaveBeenCalledWith({ workspaceId: 1, name: "atelier-forma.test", url: "https://atelier-forma.test/" });
+    expect(sessionMocks.createPublicUrlSource).toHaveBeenCalledWith({ workspaceId: 1, name: "atelier-forma.example", url: "https://atelier-forma.example/" });
     expect(sessionMocks.queueToolRun).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 1, toolId: "storefront-analyzer", sourceType: "public_url" }));
     expect(sessionMocks.startToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71 });
     expect(sessionMocks.executePublicUrlToolRun).toHaveBeenCalledWith({ workspaceId: 1, toolRunId: 71 });

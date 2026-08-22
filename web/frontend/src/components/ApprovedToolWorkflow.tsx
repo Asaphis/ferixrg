@@ -58,20 +58,6 @@ const stages: Array<{ id: Stage; label: string }> = [
 
 const publicUrlExecutorToolIds = new Set(["storefront-analyzer", "page-analyzer", "site-structure-analyzer", "visual-design-analyzer", "layout-analyzer", "visual-hierarchy-analyzer", "typography-analyzer", "color-contrast-analyzer", "ux-analyzer", "conversion-analyzer", "cta-analyzer", "trust-credibility-analyzer", "customer-journey-analyzer", "responsive-analyzer", "mobile-ux-analyzer", "breakpoint-analyzer", "product-page-analyzer", "product-presentation-analyzer", "product-content-analyzer", "navigation-analyzer", "collection-analyzer", "cart-analyzer", "checkout-ux-analyzer", "content-quality-analyzer", "seo-analyzer", "heading-structure-analyzer", "image-seo-analyzer", "performance-analyzer", "image-optimization-analyzer", "asset-analyzer", "accessibility-analyzer"]);
 
-type SourceAvailability = { available: boolean; label: string; detail: string };
-const getSourceAvailability = (toolId: string, source: ToolSource): SourceAvailability => {
-  if (source === "Public URL" || source === "Specific page URL") return publicUrlExecutorToolIds.has(toolId)
-    ? { available: true, label: "Ready", detail: "A bounded public-page inspection will run on the server." }
-    : { available: false, label: "Not yet available", detail: "This tool has no dedicated public-URL executor yet. No run will be queued." };
-  if (source === "Screenshots") return toolId === "screenshot-analyzer"
-    ? { available: true, label: "Ready", detail: "The selected images will be stored as evidence and sent to the configured vision provider." }
-    : { available: false, label: "Not yet available", detail: "Only Screenshot Analyzer currently has a screenshot vision executor. No run will be queued." };
-  if (source === "Saved draft") return toolId === "before-after-comparator"
-    ? { available: true, label: "Ready", detail: "Two persisted versions will be compared deterministically." }
-    : { available: false, label: "Not yet available", detail: "Only Before/After Comparator currently has a saved-draft executor. No run will be queued." };
-  if (source === "Connected store") return { available: false, label: "Provider setup required", detail: "Store execution remains unavailable until a provider adapter and approved connection are configured." };
-  return { available: false, label: "Context required", detail: "This source is displayed for planning, but no executor is connected for this workflow yet." };
-};
 const resolveToolSource = (value: string | undefined, sources: ToolSource[]): ToolSource => {
   const aliases: Record<string, ToolSource> = {
     url: "Public URL",
@@ -115,6 +101,8 @@ export function ApprovedToolWorkflow({
   onBack,
   startAt = "setup",
   startSource,
+  selectedSource,
+  onSourceChange,
   workspaceId,
   storeId,
 }: {
@@ -122,13 +110,15 @@ export function ApprovedToolWorkflow({
   onBack: () => void;
   startAt?: "setup" | "results" | "editor" | "finish";
   startSource?: string;
+  selectedSource?: string;
+  onSourceChange?: (source: ToolSource) => void;
   workspaceId?: number;
   storeId?: number;
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
-  const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(startSource, tool.sources));
+  const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
   const source = resolveToolSource(internalSource, tool.sources);
-  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); };
+  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); onSourceChange?.(next); };
   const urlInputRef = useRef<HTMLInputElement>(null);
   const readUrl = () => urlInputRef.current?.value.trim() ?? "";
   const [reportReady, setReportReady] = useState(false);
@@ -201,7 +191,6 @@ export function ApprovedToolWorkflow({
   const capability = getRunCapability(source, route);
   const routeUsesReview = route.workspace === "Release Review" || route.workspace === "Validation Workspace" || route.workspace === "Version & Comparison";
   const sourceDetail = sourceCopy[source] ?? sourceCopy["Public URL"];
-  const sourceAvailability = getSourceAvailability(tool.id, source);
   const stageIndex = stages.findIndex(item => item.id === stage);
   const scope = capability.scope;
   const editorDraftLabel = draftId ? (savedVersionCount ? `Saved version ${savedVersionCount}` : "Saved workspace draft") : "Unsaved workspace draft";
@@ -406,7 +395,6 @@ export function ApprovedToolWorkflow({
                   <b>{item}</b>
                   <small>{sourceCopy[item]?.detail}</small>
                 </span>
-                <small className={`tool-workflow-source-status ${getSourceAvailability(tool.id, item).available ? "ready" : "unavailable"}`}>{getSourceAvailability(tool.id, item).label}</small>
                 {source === item ? <Check /> : <ChevronRight />}
               </button>
             ))}
@@ -449,9 +437,8 @@ export function ApprovedToolWorkflow({
             <button className="tool-workflow-dropzone"><Upload /><span><b>Choose theme files</b><small>Use verified file context only</small></span><FileDown /></button>
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
-          <p className={`tool-workflow-source-availability ${sourceAvailability.available ? "ready" : "unavailable"}`} role="status"><b>{sourceAvailability.label}</b><span>{sourceAvailability.detail}</span></p>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
-          <button type="button" className="tool-workflow-primary" disabled={!sourceAvailability.available || queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {sourceAvailability.available ? (queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending ? "Preparing result…" : `Run ${tool.name}`) : "Not available"}</button>
+          <button type="button" className="tool-workflow-primary" disabled={queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending} onClick={beginLiveToolRun}><Play /> {queueToolRunMutation.isPending || uploadSourceMutation.isPending || completeToolRunMutation.isPending || addToolEvidenceMutation.isPending || createReportMutation.isPending || startToolRunMutation.isPending || executePublicUrlToolRunMutation.isPending || executeDraftVersionComparisonMutation.isPending || executeScreenshotToolRunMutation.isPending ? "Preparing result…" : `Run ${tool.name}`}</button>
         </article>
       </section>
     </>
@@ -588,7 +575,7 @@ export function ApprovedToolWorkflow({
         <aside className="tool-workflow-inspector">
           <div className="tool-workflow-inspector-tabs"><button className={inspectorTab === "edit" ? "active" : ""} onClick={() => setInspectorTab("edit")}>Edit</button><button className={inspectorTab === "ai" ? "active" : ""} onClick={() => setInspectorTab("ai")}>Ask AI</button><button className={inspectorTab === "history" ? "active" : ""} onClick={() => setInspectorTab("history")}>History</button></div>
           {inspectorTab === "edit" && <EditorControls workspace={route.workspace} selectedElement={selectedElement} device={device} onOpenAi={() => setInspectorTab("ai")} onSave={() => { void saveVersion(); }} />}
-          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-ai-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-ai-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" disabled={!messages.some(message => message.role === "assistant" && message.content !== `I am looking at **${tool.name}** on Product page → ${selectedElement} → ${device}. Tell me what you would like to improve, or attach a visual reference.`)} onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI response"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
+          {inspectorTab === "ai" && <div className="tool-workflow-ai-panel"><div className="tool-workflow-ai-context"><Sparkles /><span><b>Context attached</b><small>{tool.name} · Product page · {selectedElement} · {device} · {editorDraftLabel}</small></span></div><div className="tool-workflow-sim-chat">{messages.map((message, index) => <div className={message.role} key={`${message.role}-${index}`}><b>{message.role === "assistant" ? "Ferix AI" : "You"}</b><p>{message.content}</p></div>)}<div className="tool-workflow-suggestions"><button onClick={() => sendToAi("Make this less crowded")}>Make this less crowded</button><button onClick={() => sendToAi("Use a more premium hierarchy")}>Use a more premium hierarchy</button></div><div className="tool-workflow-ai-input"><input value={aiInput} onChange={event => setAiInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter") sendToAi(aiInput); }} placeholder="Ask AI to improve this selected item…" /><button onClick={() => sendToAi(aiInput)} aria-label="Send AI request"><Send /></button></div></div><button className="tool-workflow-primary" disabled={!messages.some(message => message.role === "assistant" && message.content !== `I am looking at **${tool.name}** on Product page → ${selectedElement} → ${device}. Tell me what you would like to improve, or attach a visual reference.`)} onClick={() => setProposalVisible(true)}><Wand2 /> {proposalApplied ? "Preview next suggestion" : "Preview AI response"}</button><button className="tool-workflow-reference"><ImagePlus /> Add screenshot or reference</button></div>}
           {inspectorTab === "history" && <div className="tool-workflow-history"><h3>Draft history</h3>{[["Original", "Starting point"], ["AI redesign V1", "Alternative saved"], ["Manual changes V2", "Current element changes"], [savedVersionCount ? `Saved version ${savedVersionCount}` : "Current working version", proposalApplied ? "AI suggestion applied" : "Current element changes"]].map(([name, note], index) => <button className={index === 3 ? "active" : ""} onClick={() => { void saveVersion(); }} key={name}><History /><span><b>{name}</b><small>{note}</small></span>{index === 3 && <Check />}</button>)}<button className="tool-workflow-secondary" onClick={() => { void saveVersion(); }}><Save /> Save version</button></div>}
         </aside>
       </div>
