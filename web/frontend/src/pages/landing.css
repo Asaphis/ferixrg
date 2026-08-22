@@ -46,3 +46,10 @@ html,body,#root{max-width:100%;overflow-x:hidden}
   .home-page .hero-montage-frame .montage-impact,.home-page .hero-montage-frame .montage-badge{right:8%;}
   .home-page .hero-montage-frame .montage-connector{right:31%;}
 }
+
+/* Final mobile overflow guard for the Home hero copy. The montage eyebrow keeps its icon layout; this text-only label must wrap normally. */
+@media(max-width:600px){
+  .home-page .hero-copy-rich{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+  .home-page .hero-copy-rich>.landing-eyebrow{display:block;width:100%;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.35}
+  .home-page .hero-copy-rich>h1,.home-page .hero-copy-rich>p{min-width:0;max-width:100%;overflow-wrap:break-word}
+}
