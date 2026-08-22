@@ -117,7 +117,7 @@ export function ApprovedToolWorkflow({
 }) {
   const [stage, setStage] = useState<Stage>(startAt);
   const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
-  const source = resolveToolSource(selectedSource ?? internalSource, tool.sources);
+  const source = resolveToolSource(internalSource, tool.sources);
   const chooseSource = (next: ToolSource) => { setInternalSource(next); onSourceChange?.(next); };
   const [url, setUrl] = useState("https://atelierforma.com");
   const [reportReady, setReportReady] = useState(false);
