@@ -46,8 +46,6 @@ type ComparisonResult = {
   serializedStateMatches: boolean;
 };
 
-const evidenceAsset = "/landing/portfolio/portfolio-before-after-skincare.png";
-const redesignAsset = "/landing/portfolio/shopify-store-redesign.jpg";
 
 const stages: Array<{ id: Stage; label: string }> = [
   { id: "setup", label: "Set up" },
@@ -120,7 +118,7 @@ export function ApprovedToolWorkflow({
   const [stage, setStage] = useState<Stage>(startAt);
   const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(selectedSource ?? startSource, tool.sources));
   const source = resolveToolSource(internalSource, tool.sources);
-  const chooseSource = (next: ToolSource) => { setInternalSource(next); onSourceChange?.(next); };
+  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); onSourceChange?.(next); };
   const urlInputRef = useRef<HTMLInputElement>(null);
   const readUrl = () => urlInputRef.current?.value.trim() ?? "";
   const [reportReady, setReportReady] = useState(false);
@@ -238,6 +236,8 @@ export function ApprovedToolWorkflow({
       if (sourceType === "public_url" && !publicUrlExecutorToolIds.has(tool.id)) throw new Error(`${tool.name} does not have a dedicated public-URL executor yet. No run was queued.`);
       if (source === "Screenshots" && tool.id !== "screenshot-analyzer") throw new Error(`${tool.name} does not have a screenshot-analysis executor yet. Choose Screenshot Analyzer; no run was queued.`);
       if (source === "Saved draft" && tool.id !== "before-after-comparator") throw new Error(`${tool.name} does not have a saved-draft executor yet. No run was queued.`);
+      const hasLiveExecutor = (sourceType === "public_url" && publicUrlExecutorToolIds.has(tool.id)) || (source === "Screenshots" && tool.id === "screenshot-analyzer") || (sourceType === "saved_draft" && tool.id === "before-after-comparator");
+      if (!hasLiveExecutor) throw new Error(`${tool.name} is not connected to a live executor for ${source}. No run was queued and no simulated result was created.`);
       let uploadedSources: Array<{ fileName: string; storageKey: string; url: string }> = [];
       if (source === "Screenshots") {
         if (!storeId) throw new Error("Open or add a store before uploading screenshots.");
@@ -455,15 +455,7 @@ export function ApprovedToolWorkflow({
       <section className="tool-workflow-processing-grid">
         <article className="tool-workflow-card tool-workflow-progress-card">
           <div className="tool-workflow-progress-ring"><b>{toolRunId ? "RUN" : "—"}</b><span>{toolRunId ? "record created" : "not started"}</span></div>
-          <div className="tool-workflow-processing-stages">
-            {[
-              [`Preparing ${source.toLowerCase()} context`, "Complete"],
-              [`Reviewing ${tool.analysisFocus[0]?.toLowerCase() ?? "the selected evidence"}`, "Complete"],
-              [`Finding ${tool.analysisFocus[1]?.toLowerCase() ?? "issues and opportunities"}`, "Working"],
-              [`Preparing ${tool.name} results`, "Next"],
-              ["Creating the report", "Next"],
-            ].map(([label, state], index) => <div className={state === "Working" ? "active" : state === "Complete" ? "complete" : ""} key={label}><i>{state === "Complete" ? "✓" : state === "Working" ? "●" : "○"}</i><span>{label}</span><small>{state}</small>{index < 4 && <em />}</div>)}
-          </div>
+          <div className="tool-workflow-processing-stages"><div className={toolRunId ? "complete" : ""}><i>{toolRunId ? "✓" : "○"}</i><span>Backend run record</span><small>{toolRunId ? "Recorded" : "Waiting"}</small></div></div>
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           <button className="tool-workflow-secondary" onClick={() => move("setup")}>Cancel and change source</button>
           <button className="tool-workflow-primary" disabled={!toolRunId} onClick={() => move("results")}>{toolRunId ? "See run record" : "No run record"}</button>
