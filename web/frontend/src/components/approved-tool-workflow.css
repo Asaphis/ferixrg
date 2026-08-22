@@ -10,3 +10,11 @@
 .tool-workflow-selected-files{display:flex;flex-wrap:wrap;gap:6px}
 .tool-workflow-selected-files>span{display:flex;align-items:center;gap:6px;max-width:100%;padding:6px 8px;border:1px solid rgba(143,178,255,.28);border-radius:7px;background:rgba(21,94,239,.08);color:#c9d9f6;font-size:10px}
 .tool-workflow-selected-files>span>button{border:0;background:transparent;color:#9dbdff;font-size:16px;line-height:1;padding:0}
+
+.tool-workflow-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:9px;margin-top:10px}
+.tool-workflow-preview-grid figure{min-width:0;margin:0;border:1px solid #31528a;border-radius:9px;background:#0c1522;overflow:hidden}
+.tool-workflow-preview-grid img{display:block;width:100%;aspect-ratio:1.2;object-fit:cover}
+.tool-workflow-preview-grid figcaption{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:6px 7px;color:#c9d9f6;font-size:9px}
+.tool-workflow-preview-grid figcaption span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool-workflow-preview-grid figcaption button{border:0;background:transparent;color:#9dbdff;font-size:16px;line-height:1;cursor:pointer}
+@media(max-width:820px){.tool-workflow-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
