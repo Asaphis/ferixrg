@@ -24,3 +24,16 @@ html,body,#root{max-width:100%;overflow-x:hidden}
   .home-page .montage-impact,.home-page .montage-badge{right:0;}
   .home-page .montage-connector{right:27%;}
 }
+
+/* The montage frame, not the full hero column, owns the artwork coordinates. */
+.hero-montage-frame{position:relative;width:100%;height:100%;margin:0 auto}
+@media(max-width:600px){
+  .home-page .hero-montage{display:flex;justify-content:center;align-items:stretch;width:100%;max-width:none;padding:0;overflow:hidden}
+  .home-page .hero-montage-frame{width:min(100%,360px);height:330px;flex:0 1 360px;margin:0 auto;overflow:hidden}
+  .home-page .hero-montage-frame .montage-workspace{left:0;width:70%}
+  .home-page .hero-montage-frame .montage-browser{left:16%;width:70%}
+  .home-page .hero-montage-frame .montage-phone{left:7%}
+  .home-page .hero-montage-frame .montage-insight{right:0}
+  .home-page .hero-montage-frame .montage-impact,.home-page .hero-montage-frame .montage-badge{right:0}
+  .home-page .hero-montage-frame .montage-connector{right:27%}
+}
