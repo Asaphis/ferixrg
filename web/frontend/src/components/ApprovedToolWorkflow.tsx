@@ -188,10 +188,14 @@ export function ApprovedToolWorkflow({
   const draftVersionsQuery = trpc.workspace.draftVersions.useQuery({ workspaceId: workspaceId ?? 1, draftId: selectedComparisonDraftId ?? 1 }, { enabled: Boolean(workspaceId && selectedComparisonDraftId) });
   const validationRunsQuery = trpc.workspace.validationRuns.useQuery({ workspaceId: workspaceId ?? 1, limit: 20 }, { enabled: Boolean(workspaceId) });
 
+  // Check AI provider readiness
+  const aiProviderReadinessQuery = trpc.workspace.aiProviderReadiness.useQuery(undefined, { enabled: Boolean(workspaceId), retry: false, refetchOnWindowFocus: false });
+  const isAiConfigured = aiProviderReadinessQuery.data?.some(provider => provider.configured) ?? false;
+
   const isConnected = source === "Connected store";
   const route = getToolRoute(tool.id);
   const capability = getRunCapability(source, route);
-  const sourceAvailability = getSourceAvailability(source, tool.id);
+  const sourceAvailability = getSourceAvailability(source, tool.id, isAiConfigured);
   const routeUsesReview = route.workspace === "Release Review" || route.workspace === "Validation Workspace" || route.workspace === "Version & Comparison";
   const sourceDetail = sourceCopy[source] ?? sourceCopy["Public URL"];
   const stageIndex = stages.findIndex(item => item.id === stage);
@@ -410,7 +414,7 @@ export function ApprovedToolWorkflow({
           <h2>Choose a source for this tool.</h2>
           <div className="tool-workflow-sources">
             {tool.sources.map(item => {
-              const availability = getSourceAvailability(item, tool.id);
+              const availability = getSourceAvailability(item, tool.id, isAiConfigured);
               return <button
                 type="button"
                 className={source === item ? "active" : ""}
@@ -432,12 +436,11 @@ export function ApprovedToolWorkflow({
         <article className="tool-workflow-card tool-workflow-source-detail">
           <span className="tool-workflow-kicker">{source} selected</span>
           <h2>{sourceDetail.support}</h2>
-          {(source === "Public URL" || source === "Specific page URL") && (
-            <label className="tool-workflow-input">
+          {/* URL input always rendered, shown/hidden via CSS */}
+            <label className={`tool-workflow-input ${(source === "Public URL" || source === "Specific page URL") ? "" : "hidden"}`}>
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
               <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" defaultValue="" aria-label={source === "Specific page URL" ? "Page URL" : "Storefront URL"} onInput={() => setRunError("")} /><button type="button" aria-label="Clear URL" onClick={() => { if (urlInputRef.current) urlInputRef.current.value = ""; setRunError(""); }} disabled={false}>×</button></div>
             </label>
-          )}
           {source === "Connected store" && (
             <div className="tool-workflow-connected-choice">
               <Store />
@@ -445,7 +448,6 @@ export function ApprovedToolWorkflow({
               <Check />
             </div>
           )}
-          {!sourceAvailability.available && <p className="tool-workflow-inline-notice" role="status"><b>{sourceAvailability.label}</b> · {sourceAvailability.message}</p>}
           {source === "Screenshots" && (
             <div className="tool-workflow-upload-area"><input ref={screenshotInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={event => { setSelectedFiles(Array.from(event.target.files ?? [])); setRunError(""); }} /><button type="button" className="tool-workflow-dropzone" onClick={() => screenshotInputRef.current?.click()}><Upload /><span><b>{selectedFiles.length ? `${selectedFiles.length} screenshot${selectedFiles.length === 1 ? "" : "s"} selected` : "Upload screenshots"}</b><small>PNG, JPG, WEBP · up to 8 MB each</small></span><ImagePlus /></button>{selectedFiles.length > 0 && <div className="tool-workflow-preview-grid">{selectedFiles.map((file, index) => <figure key={`${file.name}-${file.lastModified}`}><img src={selectedPreviews[index]} alt={`Preview of ${file.name}`} /><figcaption><span>{file.name}</span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelectedFiles(current => current.filter(item => item !== file))}>×</button></figcaption></figure>)}</div>}</div>
           )}

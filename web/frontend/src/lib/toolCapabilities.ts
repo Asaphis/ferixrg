@@ -22,7 +22,7 @@ const publicUrlExecutorToolIds = new Set([
   "storefront-analyzer", "page-analyzer", "site-structure-analyzer", "visual-design-analyzer", "layout-analyzer", "visual-hierarchy-analyzer", "typography-analyzer", "color-contrast-analyzer", "ux-analyzer", "conversion-analyzer", "cta-analyzer", "trust-credibility-analyzer", "customer-journey-analyzer", "responsive-analyzer", "mobile-ux-analyzer", "breakpoint-analyzer", "product-page-analyzer", "product-presentation-analyzer", "product-content-analyzer", "navigation-analyzer", "collection-analyzer", "cart-analyzer", "checkout-ux-analyzer", "content-quality-analyzer", "seo-analyzer", "heading-structure-analyzer", "image-seo-analyzer", "performance-analyzer", "image-optimization-analyzer", "asset-analyzer", "accessibility-analyzer",
 ]);
 
-export function getSourceAvailability(source: ToolSource, toolId: string): SourceAvailability {
+export function getSourceAvailability(source: ToolSource, toolId: string, isAiConfigured: boolean = false): SourceAvailability {
   if (source === "Public URL" || source === "Specific page URL") {
     return publicUrlExecutorToolIds.has(toolId)
       ? { available: true, label: "Ready", message: "This tool has a bounded public-URL executor." }
@@ -39,6 +39,11 @@ export function getSourceAvailability(source: ToolSource, toolId: string): Sourc
       : { available: false, label: "Not yet available", message: "Saved-draft execution is currently limited to Before/After Comparator." };
   }
   if (source === "Connected store") return { available: false, label: "Provider required", message: "Connected-store execution is unavailable until a provider API and OAuth executor are configured." };
+  // Check for AI tools that require Cloudflare configuration
+  const aiToolIds = new Set(["ai-design-copilot", "ai-store-redesign", "visual-style-studio", "responsive-studio", "layout-composer", "component-builder", "content-editor", "accessibility-fix-assistant", "ai-content-improver", "product-description-generator", "cta-generator", "seo-content-generator", "meta-generator"]);
+  if (aiToolIds.has(toolId) && !isAiConfigured) {
+    return { available: false, label: "AI not configured", message: "This tool requires Cloudflare Workers AI credentials (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN) to be configured on the server." };
+  }
   return { available: false, label: "Not yet available", message: "This input is selectable for planning, but its live executor has not been implemented yet." };
 }
 
