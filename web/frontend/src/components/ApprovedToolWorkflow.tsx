@@ -421,6 +421,8 @@ export function ApprovedToolWorkflow({
                 aria-pressed={source === item}
                 onClick={() => chooseSource(item)}
                 key={item}
+                disabled={!availability.available}
+                title={availability.available ? undefined : availability.label + ": " + availability.message}
               >
                 <SourceIcon source={item} />
                 <span>
@@ -436,6 +438,11 @@ export function ApprovedToolWorkflow({
         <article className="tool-workflow-card tool-workflow-source-detail">
           <span className="tool-workflow-kicker">{source} selected</span>
           <h2>{sourceDetail.support}</h2>
+          {!sourceAvailability.available && (
+            <p className="tool-workflow-inline-notice" role="status">
+              <b>{sourceAvailability.label}</b> · {sourceAvailability.message}
+            </p>
+          )}
           {/* URL input always rendered, shown/hidden via CSS */}
             <label className={`tool-workflow-input ${(source === "Public URL" || source === "Specific page URL") ? "" : "hidden"}`}>
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
@@ -449,7 +456,7 @@ export function ApprovedToolWorkflow({
             </div>
           )}
           {source === "Screenshots" && (
-            <div className="tool-workflow-upload-area"><input ref={screenshotInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={event => { setSelectedFiles(Array.from(event.target.files ?? [])); setRunError(""); }} /><button type="button" className="tool-workflow-dropzone" onClick={() => screenshotInputRef.current?.click()}><Upload /><span><b>{selectedFiles.length ? `${selectedFiles.length} screenshot${selectedFiles.length === 1 ? "" : "s"} selected` : "Upload screenshots"}</b><small>PNG, JPG, WEBP · up to 8 MB each</small></span><ImagePlus /></button>{selectedFiles.length > 0 && <div className="tool-workflow-preview-grid">{selectedFiles.map((file, index) => <figure key={`${file.name}-${file.lastModified}`}><img src={selectedPreviews[index]} alt={`Preview of ${file.name}`} /><figcaption><span>{file.name}</span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelectedFiles(current => current.filter(item => item !== file))}>×</button></figcaption></figure>)}</div>}</div>
+            <div className="tool-workflow-upload-area"><input ref={screenshotInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={event => { setSelectedFiles(Array.from(event.target.files ?? [])); setRunError(""); }} /><button type="button" className="tool-workflow-dropzone" onClick={() => screenshotInputRef.current?.click()} disabled={!sourceAvailability.available} title={sourceAvailability.available ? undefined : sourceAvailability.label + ": " + sourceAvailability.message}><Upload /><span><b>{selectedFiles.length ? `${selectedFiles.length} screenshot${selectedFiles.length === 1 ? "" : "s"} selected` : "Upload screenshots"}</b><small>PNG, JPG, WEBP · up to 8 MB each</small></span><ImagePlus /></button>{selectedFiles.length > 0 && <div className="tool-workflow-preview-grid">{selectedFiles.map((file, index) => <figure key={`${file.name}-${file.lastModified}`}><img src={selectedPreviews[index]} alt={`Preview of ${file.name}`} /><figcaption><span>{file.name}</span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelectedFiles(current => current.filter(item => item !== file))}>×</button></figcaption></figure>)}</div>}</div>
           )}
           {source === "Saved draft" && tool.id === "before-after-comparator" && (
             <div className="tool-workflow-result-metrics">
@@ -464,9 +471,9 @@ export function ApprovedToolWorkflow({
           {source === "Selected page" && <div className="tool-workflow-connected-choice"><Layers3 /><div><b>Product page</b><small>Selected from the current project</small></div><ChevronRight /></div>}
           {source === "Analysis result" && <div className="tool-workflow-connected-choice"><ShieldCheck /><div><b>Latest saved analysis</b><small>Storefront Analyzer · evidence ready</small></div><ChevronRight /></div>}
           {source === "Selected text" && <label className="tool-workflow-input"><span>Selected content</span><div><FileDown /><input defaultValue="Improve the selected product content." /></div></label>}
-          {source === "Reference design" && <button className="tool-workflow-dropzone"><Upload /><span><b>Upload reference design</b><small>PNG, JPG, WEBP</small></span><ImagePlus /></button>}
+          {source === "Reference design" && <button className="tool-workflow-dropzone" disabled={!sourceAvailability.available} title={sourceAvailability.available ? undefined : sourceAvailability.label + ": " + sourceAvailability.message}><Upload /><span><b>Upload reference design</b><small>PNG, JPG, WEBP</small></span><ImagePlus /></button>}
           {source === "Theme files" && (
-            <button className="tool-workflow-dropzone"><Upload /><span><b>Choose theme files</b><small>Use verified file context only</small></span><FileDown /></button>
+            <button className="tool-workflow-dropzone" disabled={!sourceAvailability.available} title={sourceAvailability.available ? undefined : sourceAvailability.label + ": " + sourceAvailability.message}><Upload /><span><b>Choose theme files</b><small>Use verified file context only</small></span><FileDown /></button>
           )}
           <div className="tool-workflow-scope"><ShieldCheck /><p>{scope}</p></div>
           {runError && <p className="tool-workflow-inline-notice" role="alert">{runError}</p>}
