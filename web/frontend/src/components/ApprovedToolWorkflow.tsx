@@ -446,11 +446,13 @@ export function ApprovedToolWorkflow({
               <b>{sourceAvailability.label}</b> · {sourceAvailability.message}
             </p>
           )}
-          {/* URL input always rendered, shown/hidden via CSS */}
-            <label className={`tool-workflow-input ${(source === "Public URL" || source === "Specific page URL") ? "" : "hidden"}`}>
+          {/* URL input conditionally rendered to prevent focus loss on mobile */}
+          {(source === "Public URL" || source === "Specific page URL") && (
+            <label className="tool-workflow-input">
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
               <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" value={urlValue} onChange={e => { setUrlValue(e.target.value); setRunError(""); }} aria-label={source === "Specific page URL" ? "Page URL" : "Storefront URL"} /><button type="button" aria-label="Clear URL" onClick={() => { setUrlValue(""); setRunError(""); }} disabled={false}>×</button></div>
             </label>
+          )}
           {source === "Connected store" && (
             <div className="tool-workflow-connected-choice">
               <Store />
