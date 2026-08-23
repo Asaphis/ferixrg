@@ -71,7 +71,9 @@ const resolveToolSource = (value: string | undefined, sources: ToolSource[]): To
     connected_store: "Connected store",
   };
   const normalized = value ? aliases[value.trim().toLowerCase()] ?? value : undefined;
-  return normalized && sources.includes(normalized as ToolSource) ? normalized as ToolSource : sources[0] ?? "Public URL";
+  if (normalized && sources.includes(normalized as ToolSource)) return normalized as ToolSource;
+  if (value && sources.includes(value as ToolSource)) return value as ToolSource;
+  return sources[0] ?? "Public URL";
 };
 
 const sourceCopy: Record<string, { detail: string; support: string }> = {
@@ -118,9 +120,10 @@ export function ApprovedToolWorkflow({
   const [stage, setStage] = useState<Stage>(startAt);
   const [internalSource, setInternalSource] = useState<ToolSource>(() => resolveToolSource(startSource, tool.sources));
   const source = resolveToolSource(internalSource, tool.sources);
-  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setHandoffId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); };
+  const [urlValue, setUrlValue] = useState("");
+  const chooseSource = (next: ToolSource) => { setInternalSource(next); setToolRunId(null); setReportId(null); setHandoffId(null); setInspection(null); setObservedIssues([]); setComparisonResult(null); setScreenshotEvidenceCount(0); setScreenshotAnalysis(""); setRunError(""); setUrlValue(""); setSelectedFiles([]); setSelectedPreviews([]); };
   const urlInputRef = useRef<HTMLInputElement>(null);
-  const readUrl = () => urlInputRef.current?.value.trim() ?? "";
+  const readUrl = () => urlValue.trim();
   const [reportReady, setReportReady] = useState(false);
   const [selectedElement, setSelectedElement] = useState("Buy button");
   const [device, setDevice] = useState("Mobile");
@@ -446,7 +449,7 @@ export function ApprovedToolWorkflow({
           {/* URL input always rendered, shown/hidden via CSS */}
             <label className={`tool-workflow-input ${(source === "Public URL" || source === "Specific page URL") ? "" : "hidden"}`}>
               <span>{source === "Specific page URL" ? "Page URL" : "Storefront URL"}</span>
-              <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" defaultValue="" aria-label={source === "Specific page URL" ? "Page URL" : "Storefront URL"} onInput={() => setRunError("")} /><button type="button" aria-label="Clear URL" onClick={() => { if (urlInputRef.current) urlInputRef.current.value = ""; setRunError(""); }} disabled={false}>×</button></div>
+              <div><Link2 /><input ref={urlInputRef} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://yourstore.com" value={urlValue} onChange={e => { setUrlValue(e.target.value); setRunError(""); }} aria-label={source === "Specific page URL" ? "Page URL" : "Storefront URL"} /><button type="button" aria-label="Clear URL" onClick={() => { setUrlValue(""); setRunError(""); }} disabled={false}>×</button></div>
             </label>
           {source === "Connected store" && (
             <div className="tool-workflow-connected-choice">
