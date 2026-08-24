@@ -26,7 +26,7 @@ const cloudflareAdapter: CentralAiAdapter = {
     provider: "cloudflare_workers_ai",
     configured: Boolean(ENV.cloudflareAccountId && ENV.cloudflareApiToken),
     model: ENV.cloudflareAiModel || "@cf/meta/llama-3.2-3b-instruct",
-    message: ENV.cloudflareAccountId && ENV.cloudflareApiToken ? "Cloudflare Workers AI is available for the Design Copilot route." : "Cloudflare Workers AI is not configured for this deployment yet.",
+    message: ENV.cloudflareAccountId && ENV.cloudflareApiToken ? "Cloudflare Workers AI is available for the Design Copilot route." : "Cloudflare Workers AI is not configured for this deployment yet. Set CF_ACCOUNT_ID and CF_API_TOKEN environment variables.",
   }),
   runDesignCopilot: input => runCloudflareDesignCopilot(input),
   runAccessibilityFixAssistant: input => runCloudflareAccessibilityFixAssistant(input),

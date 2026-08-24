@@ -40,14 +40,21 @@ async function startServer() {
   app.use((req, res, next) => {
     const requestOrigin = req.get("origin");
     res.vary("Origin");
-    if (requestOrigin && requestOrigin === allowedAppOrigin) {
+    
+    // In development, allow all origins for easier local development
+    // In production, only allow the configured app origin
+    const isDevelopment = process.env.NODE_ENV !== "production";
+    const isAllowedOrigin = isDevelopment || (requestOrigin && requestOrigin === allowedAppOrigin);
+    
+    if (isAllowedOrigin && requestOrigin) {
       res.setHeader("Access-Control-Allow-Origin", requestOrigin);
       res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     }
+    
     if (req.method === "OPTIONS") {
-      res.sendStatus(requestOrigin === allowedAppOrigin ? 204 : 403);
+      res.sendStatus(isAllowedOrigin ? 204 : 403);
       return;
     }
     next();

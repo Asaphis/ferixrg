@@ -60,10 +60,14 @@ export async function getDb() {
       _pool = new Pool({ connectionString });
       _db = drizzle({ client: _pool });
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _pool = null;
       _db = null;
+      throw new Error("Database connection failed. Check DATABASE_URL environment variable.");
     }
+  }
+  if (!_db) {
+    throw new Error("Database is not available. Set DATABASE_URL environment variable.");
   }
   return _db;
 }
