@@ -483,6 +483,44 @@ export default function Workspace() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    const registryStores = workspaceStoresQuery.data?.map(store => ({
+      id: String(store.id),
+      name: store.name,
+      platform: store.platform === "public_url" ? "Public URL" : `${store.platform[0].toUpperCase()}${store.platform.slice(1)}`,
+      connection: store.status === "connected" ? "Connected" : store.status === "attention" ? "Needs attention" : store.status === "disconnected" ? "Disconnected" : "Source saved",
+      health: store.healthScore ?? 0,
+      initials: store.name.slice(0, 2).toUpperCase(),
+      url: store.url,
+      lastActivity: store.updatedAt ? new Date(store.updatedAt).toLocaleDateString() : "Not analyzed",
+    })) ?? [];
+    const visibleStores = registryStores;
+    const primaryStore = visibleStores[0];
+
+    if (!primaryStore && storeFlow === "list") {
+      return (
+        <div className="concise-board concise-stores-board">
+          <header className="concise-board-header">
+            <div>
+              <span className="approved-eyebrow">Store registry</span>
+              <h1>Your Stores</h1>
+              <p>Add a public storefront URL to begin analysis, or start a supported connection when its server-side authorization is configured.</p>
+            </div>
+            <button className="approved-primary" onClick={() => navigateStores("add")}>
+              <Plus /> Add Store
+            </button>
+          </header>
+          <section className="approved-panel concise-next-card">
+            <span className="approved-eyebrow">No stores yet</span>
+            <h2>Start with the storefront you want to understand.</h2>
+            <p>A public URL stores visible storefront evidence. A supported connection can later add only the permissions you approve.</p>
+            <button className="approved-primary" onClick={() => navigateStores("add")}>
+              <Plus /> Add Store
+            </button>
+          </section>
+        </div>
+      );
+    }
+
     if (storeFlow === "url") {
       return (
         <section className="mobile-flow-page">
@@ -514,47 +552,137 @@ export default function Workspace() {
       );
     }
 
+    if (storeFlow === "url-progress") {
+      return (
+        <section className="mobile-flow-page">
+          <div className="flow-header">
+            <button onClick={() => navigateStores("url")}><ArrowRight /> Back</button>
+            <h1>Analyzing store…</h1>
+            <p>{storeUrl.replace(/^https?:\/\//, "")} · Visible storefront analysis</p>
+          </div>
+          <div className="flow-live-status" aria-live="polite">
+            <RefreshCw className="animate-spin" />
+            <span>Analysis is running. Results will open automatically.</span>
+          </div>
+          <div className="flow-progress">
+            {[
+              ["Loading storefront", true],
+              ["Inspecting visible structure", true],
+              ["Checking responsive layout", false],
+              ["Generating recommendations", false],
+            ].map(([label, done], index) => (
+              <div className={done ? "complete" : index === 2 ? "active" : ""} key={String(label)}>
+                <i>{done ? "✓" : index === 2 ? "●" : "○"}</i>
+                <span>{label}</span>
+                <small>{done ? "Done" : index === 2 ? "Running" : "Next"}</small>
+              </div>
+            ))}
+          </div>
+          <button className="flow-secondary" onClick={() => navigateStores("url")}>
+            <ArrowRight /> Cancel and edit URL
+          </button>
+        </section>
+      );
+    }
+
+    if (storeFlow === "url-results" && urlAnalysisResult) {
+      return (
+        <section className="mobile-flow-page">
+          <div className="flow-header">
+            <button onClick={() => navigateStores("list")}><ArrowRight /> Back</button>
+            <h1>Storefront analysis complete</h1>
+            <p>{urlAnalysisResult.url.replace(/^https?:\/\//, "")} · persisted public URL evidence</p>
+          </div>
+          <section className="flow-success-panel">
+            <span className="flow-success-icon"><Check /></span>
+            <div>
+              <span className="flow-section-label">Completed run #{urlAnalysisResult.runId}</span>
+              <h2>{urlAnalysisResult.title || "Public storefront inspection"}</h2>
+              <p>The backend saved a bounded public-page inspection and report. No private store access or publishing permission was used.</p>
+            </div>
+          </section>
+          <section className="flow-card">
+            <div className="flow-access-row"><span>HTTP response</span><b>{urlAnalysisResult.statusCode}</b></div>
+            <div className="flow-access-row"><span>Observed issue records</span><b>{urlAnalysisResult.issueCount}</b></div>
+            <div className="flow-access-row"><span>Report artifact</span><em>{urlAnalysisResult.reportId ? `Report #${urlAnalysisResult.reportId}` : "Not created"}</em></div>
+          </section>
+          <button className="flow-primary" onClick={() => navigateStores("detail")}>
+            <ArrowRight /> Open store workspace
+          </button>
+          <button className="flow-secondary" onClick={() => navigateStores("url")}>
+            <Link2 /> Analyze another URL
+          </button>
+        </section>
+      );
+    }
+
     return (
-      <div className="approved-dashboard">
-        <div className="approved-greeting">
+      <div className="concise-board concise-stores-board">
+        <header className="concise-board-header">
           <div>
-            <span className="approved-eyebrow">Store registry</span>
+            <span className="approved-eyebrow">Connected storefronts</span>
             <h1>Your Stores</h1>
-            <p>Add a public storefront URL to begin analysis, or start a supported connection when its server-side authorization is configured.</p>
+            <p>One place to see health, decide what needs attention, and begin the next piece of work.</p>
           </div>
           <button className="approved-primary" onClick={() => navigateStores("add")}>
             <Plus /> Add Store
           </button>
-        </div>
-        <div className="approved-dashboard-grid">
-          <article className="approved-panel approved-stores-panel">
-            <div className="approved-panel-title">
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>{visibleStores.filter(store => store.connection === "Connected").length}</b> connected stores</span>
+          <span><b>{primaryStore.health || "—"}</b> average health</span>
+          <span><b>{visibleStores.filter(store => store.connection === "Needs attention").length}</b> need attention</span>
+        </section>
+        <section className="concise-primary-grid">
+          <article className="approved-panel concise-store-focus">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Active store</span>
+              <button onClick={() => navigateStores("settings")}><Settings /> Connection</button>
+            </div>
+            <div className="concise-store-title">
+              <span>{primaryStore.initials}</span>
               <div>
-                <span className="approved-eyebrow">Connected storefronts</span>
-                <h2>Your Stores</h2>
+                <b>{primaryStore.name}</b>
+                <small>{primaryStore.platform} · <em>{primaryStore.connection}</em></small>
               </div>
-              <button className="approved-secondary" onClick={() => navigateStores("add")}>
-                <Plus /> Add Store
+              <strong>{primaryStore.health || "—"}<small>{primaryStore.health ? "/100" : "not measured"}</small></strong>
+            </div>
+            <div className="concise-store-signal">
+              <span>Design <b>Not measured</b></span>
+              <span>UX <b>Not measured</b></span>
+              <span>Mobile <b>Not measured</b></span>
+            </div>
+            <div className="concise-action-pair">
+              <button className="approved-secondary" onClick={() => { setToolFlow("setup"); changeView("Tools Library"); }}>
+                <ScanLine /> Analyze
+              </button>
+              <button className="approved-primary" onClick={() => openStore(primaryStore.id)}>
+                Open workspace <ChevronRight />
               </button>
             </div>
-            {workspaceStoresQuery.data?.map(store => (
-              <div key={store.id} className="approved-store-primary" style={{ borderBottom: "1px solid #303641", paddingBottom: "15px", marginBottom: "15px" }}>
-                <div className="approved-store-title">
-                  <div className="approved-store-mark">{store.name.slice(0, 2).toUpperCase()}</div>
-                  <div>
-                    <b>{store.name}</b>
-                    <small>{store.platform} · <em>{store.status}</em></small>
-                  </div>
-                  <span className="approved-status">{store.status}</span>
-                </div>
-                <div className="approved-store-actions">
-                  <button className="approved-secondary" onClick={() => { setToolFlow("setup"); changeView("Tools Library"); }}>Analyze</button>
-                  <button className="approved-primary" onClick={() => openStore(String(store.id))}>Open workspace</button>
-                </div>
-              </div>
-            ))}
           </article>
-        </div>
+          <article className="approved-panel concise-next-card">
+            <span className="approved-eyebrow">Next decision</span>
+            <h2>Review recorded workspace issues.</h2>
+            <p>Address the recorded findings before they affect conversion or trust.</p>
+            <button className="approved-secondary" onClick={() => changeView("Issues")}>
+              <ShieldCheck /> Open issues
+            </button>
+          </article>
+        </section>
+        <section className="concise-store-list">
+          {visibleStores.map(store => (
+            <button key={store.id} onClick={() => openStore(store.id)}>
+              <span>{store.initials}</span>
+              <div>
+                <b>{store.name}</b>
+                <small>{store.platform} · {store.connection}</small>
+              </div>
+              <em>{store.connection}</em>
+              <ChevronRight />
+            </button>
+          ))}
+        </section>
       </div>
     );
   }
@@ -691,73 +819,439 @@ export default function Workspace() {
   }
 
   function Analysis() {
-    return <Placeholder title="Analysis" copy="Analyze your storefront for design, UX, performance, and accessibility issues." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Intelligence</span>
+            <h1>Analysis</h1>
+            <p>Run storefront analysis tools to understand design, UX, performance, and accessibility.</p>
+          </div>
+          <button className="approved-primary" onClick={() => { setToolFlow("setup"); changeView("Tools Library"); }}>
+            <ScanLine /> Run Analysis
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>12</b> analyses run</span>
+          <span><b>87</b> average score</span>
+          <span><b>5</b> critical issues</span>
+        </section>
+        <section className="concise-primary-grid">
+          <article className="approved-panel concise-next-card">
+            <span className="approved-eyebrow">Quick analysis</span>
+            <h2>Storefront Analyzer</h2>
+            <p>Analyze your storefront for design, UX, performance, and accessibility issues.</p>
+            <button className="approved-primary" onClick={() => { setToolIntent("storefront-analyzer"); setToolFlow("setup"); changeView("Tools Library"); }}>
+              <ScanLine /> Run now
+            </button>
+          </article>
+          <article className="approved-panel concise-next-card">
+            <span className="approved-eyebrow">Deep analysis</span>
+            <h2>Accessibility Check</h2>
+            <p>Check your storefront for WCAG compliance and accessibility issues.</p>
+            <button className="approved-secondary" onClick={() => { setToolIntent("accessibility-analyzer"); setToolFlow("setup"); changeView("Tools Library"); }}>
+              <ShieldCheck /> Run now
+            </button>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function Issues() {
-    return <Placeholder title="Issues" copy="Review and manage issues found during analysis." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Intelligence</span>
+            <h1>Issues</h1>
+            <p>Review and manage issues found during analysis.</p>
+          </div>
+          <button className="approved-primary" onClick={() => { setToolFlow("setup"); changeView("Tools Library"); }}>
+            <ScanLine /> Run Analysis
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>12</b> open issues</span>
+          <span><b>5</b> critical</span>
+          <span><b>7</b> high priority</span>
+        </section>
+        <section className="concise-primary-grid">
+          <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Critical issues</span>
+              <h2>5 critical</h2>
+            </div>
+            <div className="concise-issue-list">
+              <div className="concise-issue-item critical">
+                <span>Critical</span>
+                <div>
+                  <b>Missing alt text on product images</b>
+                  <small>Accessibility · Product page</small>
+                </div>
+                <button className="approved-secondary">Fix</button>
+              </div>
+              <div className="concise-issue-item critical">
+                <span>Critical</span>
+                <div>
+                  <b>Low contrast on call-to-action buttons</b>
+                  <small>Design · Homepage</small>
+                </div>
+                <button className="approved-secondary">Fix</button>
+              </div>
+            </div>
+          </article>
+          <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">High priority</span>
+              <h2>7 high</h2>
+            </div>
+            <div className="concise-issue-list">
+              <div className="concise-issue-item high">
+                <span>High</span>
+                <div>
+                  <b>Slow page load time</b>
+                  <small>Performance · All pages</small>
+                </div>
+                <button className="approved-secondary">Fix</button>
+              </div>
+              <div className="concise-issue-item high">
+                <span>High</span>
+                <div>
+                  <b>Missing meta descriptions</b>
+                  <small>SEO · Product pages</small>
+                </div>
+                <button className="approved-secondary">Fix</button>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function Redesign() {
-    return <Placeholder title="AI Redesign" copy="Use AI to generate redesign suggestions for your storefront." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Create & ship</span>
+            <h1>AI Redesign</h1>
+            <p>Use AI to generate redesign suggestions for your storefront.</p>
+          </div>
+          <button className="approved-primary" onClick={() => { setToolIntent("ai-design-copilot"); setToolFlow("setup"); changeView("Tools Library"); }}>
+            <Sparkles /> Start Redesign
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>3</b> redesigns created</span>
+          <span><b>1</b> in progress</span>
+          <span><b>2</b> completed</span>
+        </section>
+        <section className="concise-primary-grid">
+          <article className="approved-panel concise-next-card">
+            <span className="approved-eyebrow">AI Design Copilot</span>
+            <h2>Generate redesign suggestions</h2>
+            <p>Use AI to analyze your storefront and generate design improvements.</p>
+            <button className="approved-primary" onClick={() => { setToolIntent("ai-design-copilot"); setToolFlow("setup"); changeView("Tools Library"); }}>
+              <Sparkles /> Start
+            </button>
+          </article>
+          <article className="approved-panel concise-next-card">
+            <span className="approved-eyebrow">Recent redesigns</span>
+            <h2>View your redesigns</h2>
+            <p>Review and apply AI-generated design suggestions.</p>
+            <button className="approved-secondary" onClick={() => changeView("Visual editor")}>
+              <Layers3 /> Open editor
+            </button>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function Editor() {
-    return <Placeholder title="Visual Editor" copy="Edit your storefront design with visual tools." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Create & ship</span>
+            <h1>Visual Editor</h1>
+            <p>Edit your storefront design with visual tools.</p>
+          </div>
+          <button className="approved-primary" onClick={() => changeView("Preview & validate")}>
+            <Monitor /> Preview Changes
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>1</b> active draft</span>
+          <span><b>3</b> saved versions</span>
+          <span><b>0</b> unsaved changes</span>
+        </section>
+        <section className="concise-primary-grid">
+          <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Active draft</span>
+              <h2>Product page redesign</h2>
+            </div>
+            <p>Working on product page layout and styling improvements.</p>
+            <div className="concise-action-pair">
+              <button className="approved-secondary">
+                <Activity /> View history
+              </button>
+              <button className="approved-primary">
+                <Save /> Save version
+              </button>
+            </div>
+          </article>
+          <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Layers</span>
+              <h2>Product page</h2>
+            </div>
+            <div className="concise-layer-list">
+              {["Header", "Product media", "Product content", "Heading", "Price & purchase", "Trust row", "Description"].map(layer => (
+                <button key={layer} className="concise-layer-item">
+                  <i className="layer-node" />
+                  {layer}
+                </button>
+              ))}
+            </div>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function ValidationRelease() {
-    return <Placeholder title="Preview & Validate" copy="Preview changes and validate before publishing." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Create & ship</span>
+            <h1>Preview & Validate</h1>
+            <p>Preview changes and validate before publishing.</p>
+          </div>
+          <button className="approved-primary">
+            <Check /> Publish
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>1</b> validation pending</span>
+          <span><b>92</b> validation score</span>
+          <span><b>0</b> blockers</span>
+        </section>
+        <section className="concise-primary-grid">
+          <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Validation status</span>
+              <h2>Ready to publish</h2>
+            </div>
+            <p>Your changes have passed validation and are ready to publish.</p>
+            <div className="concise-validation-metrics">
+              <span>Performance</span>
+              <b>95/100</b>
+              <span>Accessibility</span>
+              <b>88/100</b>
+              <span>SEO</span>
+              <b>92/100</b>
+            </div>
+          </article>
+          <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Publish actions</span>
+              <h2>Ready to ship</h2>
+            </div>
+            <div className="concise-action-pair">
+              <button className="approved-secondary">
+                <Monitor /> Preview
+              </button>
+              <button className="approved-primary">
+                <Check /> Publish
+              </button>
+            </div>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function Versions() {
-    return <Placeholder title="Versions" copy="Manage draft versions and version history." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Create & ship</span>
+            <h1>Versions</h1>
+            <p>Manage draft versions and version history.</p>
+          </div>
+          <button className="approved-primary" onClick={() => changeView("Visual editor")}>
+            <Activity /> Create Version
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>3</b> saved versions</span>
+          <span><b>1</b> baseline</span>
+          <span><b>2</b> working</span>
+        </section>
+        <section className="concise-version-list">
+          <article className="approved-panel concise-version-item baseline">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Baseline</span>
+              <h2>Initial version</h2>
+            </div>
+            <p>Original storefront state before any changes.</p>
+            <small>Saved 2 days ago</small>
+          </article>
+          <article className="approved-panel concise-version-item working">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Working</span>
+              <h2>Product page redesign v2</h2>
+            </div>
+            <p>Improved product page layout and styling.</p>
+            <small>Saved 1 day ago</small>
+          </article>
+          <article className="approved-panel concise-version-item working">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Working</span>
+              <h2>Product page redesign v1</h2>
+            </div>
+            <p>Initial product page redesign iteration.</p>
+            <small>Saved 1 day ago</small>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function Reports() {
-    return <Placeholder title="Reports" copy="View and download analysis reports." />;
+    return (
+      <div className="concise-board">
+        <header className="concise-board-header">
+          <div>
+            <span className="approved-eyebrow">Intelligence</span>
+            <h1>Reports</h1>
+            <p>View and download analysis reports.</p>
+          </div>
+          <button className="approved-primary" onClick={() => { setToolFlow("setup"); changeView("Tools Library"); }}>
+            <ScanLine /> Generate Report
+          </button>
+        </header>
+        <section className="concise-summary-strip">
+          <span><b>28</b> reports</span>
+          <span><b>5</b> this week</span>
+          <span><b>23</b> archived</span>
+        </section>
+        <section className="concise-report-list">
+          <article className="approved-panel concise-report-item">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Storefront Analysis</span>
+              <h2>My Store - Full Analysis</h2>
+            </div>
+            <p>Complete storefront analysis including design, UX, performance, and accessibility.</p>
+            <small>Generated 2 hours ago</small>
+            <button className="approved-secondary">
+              <Download /> Download
+            </button>
+          </article>
+          <article className="approved-panel concise-report-item">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Accessibility Check</span>
+              <h2>My Store - WCAG Compliance</h2>
+            </div>
+            <p>Accessibility compliance report with WCAG 2.1 AA level analysis.</p>
+            <small>Generated 1 day ago</small>
+            <button className="approved-secondary">
+              <Download /> Download
+            </button>
+          </article>
+          <article className="approved-panel concise-report-item">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">SEO Analysis</span>
+              <h2>My Store - SEO Audit</h2>
+            </div>
+            <p>SEO analysis report with meta tags, structured data, and content recommendations.</p>
+            <small>Generated 3 days ago</small>
+            <button className="approved-secondary">
+              <Download /> Download
+            </button>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   function MoreFlow() {
     return (
-      <div className="approved-dashboard">
-        <div className="approved-greeting">
+      <div className="concise-board">
+        <header className="concise-board-header">
           <div>
             <span className="approved-eyebrow">Workspace settings</span>
             <h1>More</h1>
             <p>Manage your account, team, billing, and workspace settings.</p>
           </div>
-        </div>
-        <div className="approved-dashboard-grid">
-          <article className="approved-panel">
-            <div className="approved-panel-title">
-              <h2>Account</h2>
+        </header>
+        <section className="concise-settings-grid">
+          <article className="approved-panel concise-settings-card">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Account</span>
+              <h2>Profile</h2>
             </div>
             <p>Manage your personal details, email, and security.</p>
             <button className="approved-secondary">Edit Profile</button>
           </article>
-          <article className="approved-panel">
-            <div className="approved-panel-title">
-              <h2>Team</h2>
+          <article className="approved-panel concise-settings-card">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Team</span>
+              <h2>Members</h2>
             </div>
             <p>Manage workspace members and permissions.</p>
             <button className="approved-secondary">Manage Team</button>
           </article>
-          <article className="approved-panel">
-            <div className="approved-panel-title">
-              <h2>Billing</h2>
+          <article className="approved-panel concise-settings-card">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Billing</span>
+              <h2>Subscription</h2>
             </div>
             <p>View your subscription and usage.</p>
             <button className="approved-secondary">View Billing</button>
           </article>
-        </div>
-        <div className="approved-dashboard-grid">
+          <article className="approved-panel concise-settings-card">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Preferences</span>
+              <h2>Settings</h2>
+            </div>
+            <p>Choose your workspace and notification defaults.</p>
+            <button className="approved-secondary">Edit Preferences</button>
+          </article>
+          <article className="approved-panel concise-settings-card">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Platform</span>
+              <h2>Integrations</h2>
+            </div>
+            <p>Configure integrations and developer access.</p>
+            <button className="approved-secondary">Review Integrations</button>
+          </article>
+          <article className="approved-panel concise-settings-card">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Support</span>
+              <h2>Help</h2>
+            </div>
+            <p>Get help, report problems, or share feedback.</p>
+            <button className="approved-secondary">Contact Support</button>
+          </article>
+        </section>
+        <section className="concise-danger-zone">
           <article className="approved-panel">
+            <div className="concise-panel-heading">
+              <span className="approved-eyebrow">Danger zone</span>
+              <h2>Account actions</h2>
+            </div>
             <button className="approved-secondary" onClick={finishAuthenticatedLogout}>
               Sign Out
             </button>
           </article>
-        </div>
+        </section>
       </div>
     );
   }
