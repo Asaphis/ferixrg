@@ -672,6 +672,40 @@ h2 { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
   }
 }
 
+/* Final polish: compact hero rhythm and restrained dock styling. */
+.title-stage { min-height: 190px; padding: 12px 0 18px; align-items: center; }
+.title-stage .header-actions { align-self: center; margin-top: 34px; }
+.title-stage-copy p { margin-bottom: 0; }
+.mobile-nav {
+  background: rgba(255, 250, 241, .94) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 12px 34px rgba(95,67,44,.16) !important;
+  backdrop-filter: blur(18px);
+}
+.mobile-nav button { color: var(--text-dim) !important; border-radius: 11px !important; }
+.mobile-nav button.active {
+  color: var(--text) !important;
+  background: var(--orange-soft) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.mobile-nav button:nth-child(3),
+.mobile-nav button:nth-child(3).active {
+  color: var(--orange) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.mobile-nav button:nth-child(3) svg { width: 21px; height: 21px; }
+
+@media (max-width: 760px) {
+  .title-stage { min-height: 214px; padding: 0; }
+  .title-stage .header-actions { width: 100%; margin-top: 13px; align-self: stretch; }
+  .title-stage .header-actions .btn { flex: 1; }
+}
+
 /* Simple home: one focus, three choices, no information wall. */
 .compact-header { margin-bottom: 34px; }
 .compact-header h1 { max-width: 650px; }
