@@ -98,7 +98,7 @@ function ViewContent({ view, setView, tool, stage, source, setSource, input, set
   </>;
   const labels: Record<Exclude<View, "Overview" | "Tools">, [string, string, string]> = { Stores: ["Stores", "Connected storefronts.", "Add store"], Analysis: ["Analysis", "Review findings.", "Start"], Issues: ["Issues", "Prioritized fixes.", "Review"], Reports: ["Reports", "Shareable outputs.", "Create"], Redesign: ["Redesign", "AI concepts.", "Create"], Studio: ["Studio", "Edit your storefront.", "Open"], Validate: ["Validate", "Check before release.", "Run"], Versions: ["Versions", "Saved directions.", "Compare"], Settings: ["Settings", "Workspace controls.", "Manage"] };
   const [title, description, action] = labels[view];
-  return <><div className="page-intro"><div><span className="eyebrow">Workspace / {view}</span><h1>{title}</h1></div><button className="primary">{action} <ArrowUpRight size={16} /></button></div><section className="panel concise-page-panel"><p>{description}</p><button className="secondary">Open workspace</button></section></>;
+  return <><div className="page-intro"><div><span className="eyebrow">Workspace / {view}</span><h1>{title}</h1></div><button className="primary">{action} <ArrowUpRight size={16} /></button></div><section className="panel concise-page-panel"><p>{description}</p></section></>;
 }
 
 export default function Workspace() {
