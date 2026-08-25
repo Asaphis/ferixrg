@@ -1,9 +1,10 @@
-import { Activity, ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleHelp, FileBarChart, LayoutDashboard, Layers3, Link2, Monitor, MoreHorizontal, Play, Plus, ScanLine, Search, Settings, ShieldCheck, Sparkles, Store, Wand2 } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, Bell, Check, ChevronRight, CircleHelp, Download, FileBarChart, LayoutDashboard, Layers3, Link2, Monitor, MoreHorizontal, Play, Plus, RefreshCw, Save, ScanLine, Search, Settings, ShieldCheck, Sparkles, Store, Wand2 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { ApprovedToolWorkflow } from "@/components/ApprovedToolWorkflow";
+import { MoreActionPanel } from "@/components/MoreActionPanel";
 import { filterTools, toolCatalog, toolCategories, type ToolCategory, type ToolDefinition, type ToolSource } from "@/lib/toolCatalog";
 import { getSourceAvailability } from "@/lib/toolCapabilities";
 import "@/approvedDashboard.css";
@@ -26,6 +27,12 @@ type TeamRole = "Owner" | "Admin" | "Editor" | "Viewer" | "Billing";
 type TeamMember = { id: string; name: string; email: string; role: TeamRole; status: "Active" | "Pending" };
 type UrlAnalysisResult = { storeId: string; runId: number; reportId: number | null; url: string; statusCode: number; title: string | null; issueCount: number };
 
+function formatRecordDate(value: Date | string | number | null | undefined) {
+  if (!value) return "No date recorded";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "No date recorded" : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 function Brand() {
   return (
     <a className="brand" href="/">
@@ -43,13 +50,38 @@ export default function Workspace() {
   const workspaceStoresQuery = trpc.workspace.stores.list.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceDashboardQuery = trpc.workspace.dashboard.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   const workspaceActivityQuery = trpc.workspace.activity.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 12 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceToolRunsQuery = trpc.workspace.toolRuns.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 100 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceIssuesQuery = trpc.workspace.issues.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceReportsQuery = trpc.workspace.reports.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceDraftsQuery = trpc.workspace.drafts.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceValidationRunsQuery = trpc.workspace.validationRuns.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 100 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceReleasesQuery = trpc.workspace.releases.useQuery({ workspaceId: activeWorkspaceId ?? 0, limit: 100 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const accountPreferencesQuery = trpc.account.preferences.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const accountSessionsQuery = trpc.account.sessions.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const workspaceUsageSummaryQuery = trpc.workspace.usageSummary.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const storeProviderReadinessQuery = trpc.workspace.stores.providerReadiness.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const aiProviderReadinessQuery = trpc.workspace.aiProviderReadiness.useQuery(undefined, { enabled: Boolean(authQuery.data), retry: false, refetchOnWindowFocus: false });
+  const workspaceMembersQuery = trpc.workspace.members.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
+  const workspaceInvitationsQuery = trpc.workspace.invitations.useQuery({ workspaceId: activeWorkspaceId ?? 0 }, { enabled: Boolean(activeWorkspaceId), retry: false, refetchOnWindowFocus: false });
   
   const authUtils = trpc.useUtils();
   const logoutMutation = trpc.auth.logout.useMutation();
   const createPublicUrlSourceMutation = trpc.workspace.stores.createPublicUrlSource.useMutation();
+  const createStoreMutation = trpc.workspace.stores.create.useMutation();
+  const beginConnectionMutation = trpc.workspace.stores.beginConnection.useMutation();
   const queueToolRunMutation = trpc.workspace.queueToolRun.useMutation();
   const startToolRunMutation = trpc.workspace.startToolRun.useMutation();
   const executePublicUrlToolRunMutation = trpc.workspace.executePublicUrlToolRun.useMutation();
+  const reportDownloadMutation = trpc.workspace.reportDownload.useMutation();
+  const updateProfileMutation = trpc.account.updateProfile.useMutation();
+  const updatePreferencesMutation = trpc.account.updatePreferences.useMutation();
+  const requestEmailChangeMutation = trpc.account.requestEmailChange.useMutation();
+  const requestPasswordResetMutation = trpc.account.requestPasswordReset.useMutation();
+  const revokeSessionMutation = trpc.account.revokeSession.useMutation();
+  const revokeOtherSessionsMutation = trpc.account.revokeOtherSessions.useMutation();
+  const submitWorkspaceRequestMutation = trpc.workspace.submitRequest.useMutation();
+  const acknowledgeResourceMutation = trpc.workspace.acknowledgeResource.useMutation();
+  const workspaceInviteMutation = trpc.workspace.invite.useMutation();
   
   useEffect(() => {
     if (authQuery.isLoading || authQuery.isError || authQuery.data) return;
@@ -84,6 +116,10 @@ export default function Workspace() {
   const [urlAnalysisResult, setUrlAnalysisResult] = useState<UrlAnalysisResult | null>(null);
   const initialStoreUrl = useMemo(() => new URLSearchParams(window.location.search).get("url")?.trim() ?? "", [location]);
   const [storeUrl, setStoreUrl] = useState(initialStoreUrl);
+  const [connectionUrl, setConnectionUrl] = useState("");
+  const [connectionFeedback, setConnectionFeedback] = useState("");
+  const [moreDetail, setMoreDetail] = useState<{ section: string; action: string } | null>(null);
+  const [teamInviteEmail, setTeamInviteEmail] = useState("");
 
   const sidebarStore = useMemo(() => {
     const stores = workspaceStoresQuery.data ?? [];
@@ -101,6 +137,58 @@ export default function Workspace() {
   })), [workspaceActivityQuery.data]);
 
   const notificationItems = liveActivity.slice(0, 8);
+  const liveToolRuns = workspaceToolRunsQuery.data ?? [];
+  const liveIssues = workspaceIssuesQuery.data ?? [];
+  const liveReports = workspaceReportsQuery.data ?? [];
+  const liveDrafts = workspaceDraftsQuery.data ?? [];
+  const liveValidationRuns = workspaceValidationRunsQuery.data ?? [];
+  const liveReleases = workspaceReleasesQuery.data ?? [];
+  const openIssues = liveIssues.filter(issue => issue.status === "open" || issue.status === "in_progress");
+  const criticalIssues = openIssues.filter(issue => issue.severity === "critical");
+  const highIssues = openIssues.filter(issue => issue.severity === "high");
+  const completedToolRuns = liveToolRuns.filter(run => run.status === "completed");
+  const activeRedesigns = liveToolRuns.filter(run => (run.toolId === "ai-design-copilot" || run.toolId === "ai-store-redesign") && (run.status === "queued" || run.status === "running"));
+  const completedRedesigns = liveToolRuns.filter(run => (run.toolId === "ai-design-copilot" || run.toolId === "ai-store-redesign") && run.status === "completed");
+  const pendingValidations = liveValidationRuns.filter(run => run.status === "queued" || run.status === "running");
+  const completedValidations = liveValidationRuns.filter(run => run.status === "completed");
+  const latestDraft = liveDrafts[0] ?? null;
+
+  const downloadReport = async (reportId: number) => {
+    if (!activeWorkspaceId) return;
+    try {
+      const result = await reportDownloadMutation.mutateAsync({ workspaceId: activeWorkspaceId, reportId });
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error("Report download is unavailable", { description: error instanceof Error ? error.message : "The report file could not be opened." });
+    }
+  };
+
+  const saveProfile = async (input: { name?: string }) => {
+    await updateProfileMutation.mutateAsync(input);
+    await authUtils.account.profile.invalidate();
+  };
+
+  const savePreferences = async (input: Parameters<typeof updatePreferencesMutation.mutateAsync>[0]) => {
+    await updatePreferencesMutation.mutateAsync(input);
+    await authUtils.account.preferences.invalidate();
+  };
+
+  const inviteTeamMember = async () => {
+    if (!activeWorkspaceId) return;
+    const email = teamInviteEmail.trim();
+    if (!email) {
+      toast.error("Enter an email address before sending an invitation.");
+      return;
+    }
+    try {
+      await workspaceInviteMutation.mutateAsync({ workspaceId: activeWorkspaceId, email, role: "viewer" });
+      setTeamInviteEmail("");
+      await authUtils.workspace.invitations.invalidate();
+      toast.success("Invitation created", { description: "The workspace invitation was recorded by the server." });
+    } catch (error) {
+      toast.error("Invitation could not be created", { description: error instanceof Error ? error.message : "No invitation was sent." });
+    }
+  };
 
   const changeView = (next: string) => {
     setView(next);
@@ -153,6 +241,28 @@ export default function Workspace() {
     }
     changeView("Stores");
     toast.success("URL inspection completed", { description: "The public-URL executor saved the storefront evidence and report record in the Stores workspace." });
+  };
+
+  const beginShopifyConnection = async () => {
+    if (!activeWorkspaceId) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(connectionUrl.trim());
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error("Unsupported URL protocol");
+    } catch {
+      setConnectionFeedback("Enter a valid Shopify store URL beginning with http:// or https://.");
+      return;
+    }
+    setConnectionFeedback("");
+    try {
+      const name = parsed.hostname.replace(/^www\./, "") || "Shopify storefront";
+      const store = await createStoreMutation.mutateAsync({ workspaceId: activeWorkspaceId, name, platform: "shopify", url: parsed.toString() });
+      const connection = await beginConnectionMutation.mutateAsync({ workspaceId: activeWorkspaceId, storeId: store.id, provider: "shopify", scopes: ["read_products"] });
+      if (connection.authorization.status !== "authorization_required") throw new Error(connection.authorization.message);
+      window.location.assign(connection.authorization.authorizationUrl);
+    } catch (error) {
+      setConnectionFeedback(error instanceof Error ? error.message : "The connection could not be started. No authorization redirect was opened.");
+    }
   };
 
   const finishAuthenticatedLogout = async () => {
@@ -449,25 +559,25 @@ export default function Workspace() {
               <div className="approved-health-ring">
                 <b>{dashboardData?.stores.averageHealth ?? "—"}</b>
                 <span>Score</span>
-                <small>+5%</small>
+                <small>Live workspace data</small>
               </div>
               <div className="approved-health-metrics">
                 <span>Metrics</span>
                 <div>
                   <span>Performance</span>
-                  <b>92</b>
+                  <b>Run analysis</b>
                 </div>
                 <div>
                   <span>Accessibility</span>
-                  <b>85</b>
+                  <b>Run analysis</b>
                 </div>
                 <div>
                   <span>SEO</span>
-                  <b>88</b>
+                  <b>Run analysis</b>
                 </div>
                 <div>
                   <span>Conversion</span>
-                  <b>82</b>
+                  <b>Run analysis</b>
                 </div>
               </div>
             </div>
@@ -519,6 +629,11 @@ export default function Workspace() {
           </section>
         </div>
       );
+    }
+
+    if (storeFlow === "add") {
+      const shopifyReadiness = (storeProviderReadinessQuery.data ?? []).find(provider => provider.provider === "shopify");
+      return <div className="concise-board concise-stores-board"><header className="concise-board-header"><div><span className="approved-eyebrow">Store registry</span><h1>Add Store</h1><p>Choose public analysis for visible evidence, or authorize a configured Shopify connection for approved private store context.</p></div><button className="approved-secondary" onClick={() => navigateStores("list")}>Back to stores</button></header><section className="concise-primary-grid"><article className="approved-panel concise-next-card"><span className="approved-eyebrow">No connection required</span><h2>Analyze by URL</h2><p>Analyze visible storefront structure and save evidence without accessing private store data.</p><button className="approved-primary" onClick={() => navigateStores("url")}><ScanLine /> Analyze by URL</button></article><article className="approved-panel concise-settings-card"><span className="approved-eyebrow">Authorized store context</span><h2>Connect Store</h2><p>{shopifyReadiness?.configured ? "Authorize only the approved Shopify scopes from your configured server integration." : shopifyReadiness?.message || "Shopify connection readiness is not available from the server."}</p><label className="flow-input-label">Shopify store URL<div className="flow-input"><Link2 /><input aria-label="Shopify store URL" type="url" value={connectionUrl} onChange={event => setConnectionUrl(event.target.value)} placeholder="https://your-store.myshopify.com" /></div></label>{connectionFeedback && <p className="flow-inline-error" role="alert">{connectionFeedback}</p>}<button className="approved-secondary" disabled={!shopifyReadiness?.configured || createStoreMutation.isPending || beginConnectionMutation.isPending} onClick={() => void beginShopifyConnection()}><Store /> {createStoreMutation.isPending || beginConnectionMutation.isPending ? "Preparing authorization…" : "Connect Store"}</button></article></section></div>;
     }
 
     if (storeFlow === "url") {
@@ -832,9 +947,9 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>12</b> analyses run</span>
-          <span><b>87</b> average score</span>
-          <span><b>5</b> critical issues</span>
+          <span><b>{completedToolRuns.length}</b> completed analyses</span>
+          <span><b>{liveToolRuns.filter(run => run.status === "queued" || run.status === "running").length}</b> analyses in progress</span>
+          <span><b>{criticalIssues.length}</b> critical open issues</span>
         </section>
         <section className="concise-primary-grid">
           <article className="approved-panel concise-next-card">
@@ -872,57 +987,27 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>12</b> open issues</span>
-          <span><b>5</b> critical</span>
-          <span><b>7</b> high priority</span>
+          <span><b>{openIssues.length}</b> open issues</span>
+          <span><b>{criticalIssues.length}</b> critical</span>
+          <span><b>{highIssues.length}</b> high priority</span>
         </section>
         <section className="concise-primary-grid">
           <article className="approved-panel">
             <div className="concise-panel-heading">
               <span className="approved-eyebrow">Critical issues</span>
-              <h2>5 critical</h2>
+              <h2>{criticalIssues.length} critical</h2>
             </div>
             <div className="concise-issue-list">
-              <div className="concise-issue-item critical">
-                <span>Critical</span>
-                <div>
-                  <b>Missing alt text on product images</b>
-                  <small>Accessibility · Product page</small>
-                </div>
-                <button className="approved-secondary">Fix</button>
-              </div>
-              <div className="concise-issue-item critical">
-                <span>Critical</span>
-                <div>
-                  <b>Low contrast on call-to-action buttons</b>
-                  <small>Design · Homepage</small>
-                </div>
-                <button className="approved-secondary">Fix</button>
-              </div>
+              {criticalIssues.length ? criticalIssues.slice(0, 4).map(issue => <div className="concise-issue-item critical" key={issue.id}><span>Critical</span><div><b>{issue.title}</b><small>{issue.location || "No affected location recorded"}</small></div><button className="approved-secondary" onClick={() => { setToolIntent("accessibility-fix-assistant"); setToolFlow("setup"); changeView("Tools Library"); }}>Fix</button></div>) : <p>No critical issues have been recorded.</p>}
             </div>
           </article>
           <article className="approved-panel">
             <div className="concise-panel-heading">
               <span className="approved-eyebrow">High priority</span>
-              <h2>7 high</h2>
+              <h2>{highIssues.length} high</h2>
             </div>
             <div className="concise-issue-list">
-              <div className="concise-issue-item high">
-                <span>High</span>
-                <div>
-                  <b>Slow page load time</b>
-                  <small>Performance · All pages</small>
-                </div>
-                <button className="approved-secondary">Fix</button>
-              </div>
-              <div className="concise-issue-item high">
-                <span>High</span>
-                <div>
-                  <b>Missing meta descriptions</b>
-                  <small>SEO · Product pages</small>
-                </div>
-                <button className="approved-secondary">Fix</button>
-              </div>
+              {highIssues.length ? highIssues.slice(0, 4).map(issue => <div className="concise-issue-item high" key={issue.id}><span>High</span><div><b>{issue.title}</b><small>{issue.location || "No affected location recorded"}</small></div><button className="approved-secondary" onClick={() => { setToolIntent("technical-analyzer"); setToolFlow("setup"); changeView("Tools Library"); }}>Review</button></div>) : <p>No high-priority issues have been recorded.</p>}
             </div>
           </article>
         </section>
@@ -944,9 +1029,9 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>3</b> redesigns created</span>
-          <span><b>1</b> in progress</span>
-          <span><b>2</b> completed</span>
+          <span><b>{activeRedesigns.length + completedRedesigns.length}</b> redesign runs</span>
+          <span><b>{activeRedesigns.length}</b> in progress</span>
+          <span><b>{completedRedesigns.length}</b> completed</span>
         </section>
         <section className="concise-primary-grid">
           <article className="approved-panel concise-next-card">
@@ -984,38 +1069,33 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>1</b> active draft</span>
-          <span><b>3</b> saved versions</span>
-          <span><b>0</b> unsaved changes</span>
+          <span><b>{liveDrafts.length}</b> saved drafts</span>
+          <span><b>{latestDraft ? 1 : 0}</b> active draft</span>
+          <span><b>{liveReleases.length}</b> release records</span>
         </section>
         <section className="concise-primary-grid">
           <article className="approved-panel">
             <div className="concise-panel-heading">
               <span className="approved-eyebrow">Active draft</span>
-              <h2>Product page redesign</h2>
+              <h2>{latestDraft?.title ?? "No active draft"}</h2>
             </div>
-            <p>Working on product page layout and styling improvements.</p>
+            <p>{latestDraft ? `Last updated ${formatRecordDate(latestDraft.updatedAt)}. Open Versions to review its saved history.` : "Create a draft from a tool result before opening the editor."}</p>
             <div className="concise-action-pair">
-              <button className="approved-secondary">
+              <button className="approved-secondary" onClick={() => changeView("Versions")}>
                 <Activity /> View history
               </button>
-              <button className="approved-primary">
-                <Save /> Save version
+              <button className="approved-primary" onClick={() => { setToolIntent("layout-composer"); setToolFlow("setup"); changeView("Tools Library"); }}>
+                <Save /> Create draft
               </button>
             </div>
           </article>
           <article className="approved-panel">
             <div className="concise-panel-heading">
               <span className="approved-eyebrow">Layers</span>
-              <h2>Product page</h2>
+              <h2>{latestDraft ? latestDraft.source : "No draft"}</h2>
             </div>
             <div className="concise-layer-list">
-              {["Header", "Product media", "Product content", "Heading", "Price & purchase", "Trust row", "Description"].map(layer => (
-                <button key={layer} className="concise-layer-item">
-                  <i className="layer-node" />
-                  {layer}
-                </button>
-              ))}
+              {latestDraft ? <p>Layer data is stored in the draft version. Open the layout tool to inspect and edit it.</p> : <p>No draft layers are available yet.</p>}
             </div>
           </article>
         </section>
@@ -1037,37 +1117,35 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>1</b> validation pending</span>
-          <span><b>92</b> validation score</span>
-          <span><b>0</b> blockers</span>
+          <span><b>{pendingValidations.length}</b> validation runs pending</span>
+          <span><b>{completedValidations.length}</b> validation runs completed</span>
+          <span><b>{criticalIssues.length}</b> critical blockers</span>
         </section>
         <section className="concise-primary-grid">
           <article className="approved-panel">
             <div className="concise-panel-heading">
               <span className="approved-eyebrow">Validation status</span>
-              <h2>Ready to publish</h2>
+              <h2>{criticalIssues.length ? "Resolve critical issues" : pendingValidations.length ? "Validation in progress" : "No validation result yet"}</h2>
             </div>
-            <p>Your changes have passed validation and are ready to publish.</p>
+            <p>{criticalIssues.length ? "Publishing readiness cannot be confirmed while critical issues remain open." : pendingValidations.length ? "A validation run is still processing. Review the saved result before publishing." : "Run validation for a saved draft before publishing."}</p>
             <div className="concise-validation-metrics">
-              <span>Performance</span>
-              <b>95/100</b>
-              <span>Accessibility</span>
-              <b>88/100</b>
-              <span>SEO</span>
-              <b>92/100</b>
+              <span>Pending</span><b>{pendingValidations.length}</b>
+              <span>Completed</span><b>{completedValidations.length}</b>
+              <span>Critical blockers</span><b>{criticalIssues.length}</b>
             </div>
           </article>
           <article className="approved-panel">
             <div className="concise-panel-heading">
               <span className="approved-eyebrow">Publish actions</span>
-              <h2>Ready to ship</h2>
+              <h2>Release is controlled</h2>
             </div>
+            <p>Publishing is available only after a backend release-readiness check and explicit approval.</p>
             <div className="concise-action-pair">
-              <button className="approved-secondary">
-                <Monitor /> Preview
+              <button className="approved-secondary" onClick={() => changeView("Versions")}>
+                <Monitor /> Review versions
               </button>
-              <button className="approved-primary">
-                <Check /> Publish
+              <button className="approved-primary" onClick={() => toast.info("Select a saved version to begin release review.")}>
+                <Check /> Begin review
               </button>
             </div>
           </article>
@@ -1090,35 +1168,12 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>3</b> saved versions</span>
-          <span><b>1</b> baseline</span>
-          <span><b>2</b> working</span>
+          <span><b>{liveDrafts.length}</b> saved drafts</span>
+          <span><b>{liveDrafts.filter(draft => draft.source === "import").length}</b> imported</span>
+          <span><b>{liveDrafts.filter(draft => draft.source !== "import").length}</b> working drafts</span>
         </section>
         <section className="concise-version-list">
-          <article className="approved-panel concise-version-item baseline">
-            <div className="concise-panel-heading">
-              <span className="approved-eyebrow">Baseline</span>
-              <h2>Initial version</h2>
-            </div>
-            <p>Original storefront state before any changes.</p>
-            <small>Saved 2 days ago</small>
-          </article>
-          <article className="approved-panel concise-version-item working">
-            <div className="concise-panel-heading">
-              <span className="approved-eyebrow">Working</span>
-              <h2>Product page redesign v2</h2>
-            </div>
-            <p>Improved product page layout and styling.</p>
-            <small>Saved 1 day ago</small>
-          </article>
-          <article className="approved-panel concise-version-item working">
-            <div className="concise-panel-heading">
-              <span className="approved-eyebrow">Working</span>
-              <h2>Product page redesign v1</h2>
-            </div>
-            <p>Initial product page redesign iteration.</p>
-            <small>Saved 1 day ago</small>
-          </article>
+          {liveDrafts.length ? liveDrafts.map(draft => <article className={`approved-panel concise-version-item ${draft.source === "import" ? "baseline" : "working"}`} key={draft.id}><div className="concise-panel-heading"><span className="approved-eyebrow">{draft.source}</span><h2>{draft.title}</h2></div><p>{draft.currentVersionId ? "A current saved version is available for this draft." : "No current version has been selected for this draft."}</p><small>Updated {formatRecordDate(draft.updatedAt)}</small></article>) : <article className="approved-panel concise-version-item"><p>No draft versions have been saved in this workspace.</p></article>}
         </section>
       </div>
     );
@@ -1138,50 +1193,26 @@ export default function Workspace() {
           </button>
         </header>
         <section className="concise-summary-strip">
-          <span><b>28</b> reports</span>
-          <span><b>5</b> this week</span>
-          <span><b>23</b> archived</span>
+          <span><b>{liveReports.length}</b> reports</span>
+          <span><b>{liveReports.filter(report => new Date(report.createdAt).getTime() >= Date.now() - 7 * 24 * 60 * 60 * 1000).length}</b> created this week</span>
+          <span><b>{liveReports.filter(report => Boolean(report.storageKey)).length}</b> downloadable</span>
         </section>
         <section className="concise-report-list">
-          <article className="approved-panel concise-report-item">
-            <div className="concise-panel-heading">
-              <span className="approved-eyebrow">Storefront Analysis</span>
-              <h2>My Store - Full Analysis</h2>
-            </div>
-            <p>Complete storefront analysis including design, UX, performance, and accessibility.</p>
-            <small>Generated 2 hours ago</small>
-            <button className="approved-secondary">
-              <Download /> Download
-            </button>
-          </article>
-          <article className="approved-panel concise-report-item">
-            <div className="concise-panel-heading">
-              <span className="approved-eyebrow">Accessibility Check</span>
-              <h2>My Store - WCAG Compliance</h2>
-            </div>
-            <p>Accessibility compliance report with WCAG 2.1 AA level analysis.</p>
-            <small>Generated 1 day ago</small>
-            <button className="approved-secondary">
-              <Download /> Download
-            </button>
-          </article>
-          <article className="approved-panel concise-report-item">
-            <div className="concise-panel-heading">
-              <span className="approved-eyebrow">SEO Analysis</span>
-              <h2>My Store - SEO Audit</h2>
-            </div>
-            <p>SEO analysis report with meta tags, structured data, and content recommendations.</p>
-            <small>Generated 3 days ago</small>
-            <button className="approved-secondary">
-              <Download /> Download
-            </button>
-          </article>
+          {liveReports.length ? liveReports.map(report => <article className="approved-panel concise-report-item" key={report.id}><div className="concise-panel-heading"><span className="approved-eyebrow">{report.format}</span><h2>{report.title}</h2></div><p>{report.summary || "No report summary was recorded."}</p><small>Generated {formatRecordDate(report.createdAt)}</small><button className="approved-secondary" disabled={!report.storageKey || reportDownloadMutation.isPending} onClick={() => void downloadReport(report.id)}><Download /> {report.storageKey ? "Download" : "No file available"}</button></article>) : <article className="approved-panel concise-report-item"><p>No reports have been generated in this workspace.</p></article>}
         </section>
       </div>
     );
   }
 
   function MoreFlow() {
+    if (moreDetail?.section === "team") {
+      const members = workspaceMembersQuery.data ?? [];
+      const invitations = workspaceInvitationsQuery.data ?? [];
+      return <div className="concise-board"><header className="concise-board-header"><div><span className="approved-eyebrow">Workspace access</span><h1>Team</h1><p>Members and invitations below come directly from this workspace’s access records.</p></div><button className="approved-secondary" onClick={() => setMoreDetail(null)}>Back to settings</button></header><section className="approved-panel concise-settings-card"><div className="concise-panel-heading"><div><span className="approved-eyebrow">Invite member</span><h2>Workspace invitation</h2></div></div><div className="more-action-form"><label>Email address<input aria-label="Invite team member email" type="email" value={teamInviteEmail} onChange={event => setTeamInviteEmail(event.target.value)} placeholder="name@example.com" /></label><button className="approved-primary" disabled={workspaceInviteMutation.isPending} onClick={() => void inviteTeamMember()}>{workspaceInviteMutation.isPending ? "Creating invitation…" : "Invite viewer"}</button></div></section><section className="concise-primary-grid"><article className="approved-panel concise-settings-card"><div className="concise-panel-heading"><div><span className="approved-eyebrow">Members</span><h2>{members.length} active member{members.length === 1 ? "" : "s"}</h2></div></div><div className="concise-layer-list">{members.length ? members.map(entry => <div className="concise-layer-item" key={entry.member.id}><i className="layer-node" />{entry.user.name || entry.user.email} · {entry.member.role}</div>) : <p>No workspace members were returned by the server.</p>}</div></article><article className="approved-panel concise-settings-card"><div className="concise-panel-heading"><div><span className="approved-eyebrow">Invitations</span><h2>{invitations.length} pending</h2></div></div><div className="concise-layer-list">{invitations.length ? invitations.map(invitation => <div className="concise-layer-item" key={invitation.id}><i className="layer-node" />{invitation.email} · {invitation.role} · {invitation.status}</div>) : <p>No pending invitations were returned by the server.</p>}</div></article></section></div>;
+    }
+    if (moreDetail) {
+      return <MoreActionPanel section={moreDetail.section} action={moreDetail.action} onBack={() => setMoreDetail(null)} profile={accountProfileQuery.data ?? undefined} preferences={accountPreferencesQuery.data ?? undefined} sessions={accountSessionsQuery.data ?? undefined} billing={workspaceUsageSummaryQuery.data ?? undefined} storeProviderReadiness={storeProviderReadinessQuery.data ?? undefined} aiProviderReadiness={aiProviderReadinessQuery.data ?? undefined} onSaveProfile={saveProfile} onSavePreferences={savePreferences} onRequestEmailChange={input => requestEmailChangeMutation.mutateAsync(input)} onRequestPasswordReset={() => requestPasswordResetMutation.mutateAsync()} onRevokeSession={async sessionId => { await revokeSessionMutation.mutateAsync({ sessionId }); await authUtils.account.sessions.invalidate(); }} onRevokeOtherSessions={async () => { const result = await revokeOtherSessionsMutation.mutateAsync(); await authUtils.account.sessions.invalidate(); return result; }} onSubmitWorkspaceRequest={async input => { if (!activeWorkspaceId) throw new Error("Workspace is not ready"); await submitWorkspaceRequestMutation.mutateAsync({ workspaceId: activeWorkspaceId, ...input }); }} onAcknowledgeResource={async resourceKey => { await acknowledgeResourceMutation.mutateAsync({ resourceKey }); }} />;
+    }
     return (
       <div className="concise-board">
         <header className="concise-board-header">
@@ -1198,7 +1229,7 @@ export default function Workspace() {
               <h2>Profile</h2>
             </div>
             <p>Manage your personal details, email, and security.</p>
-            <button className="approved-secondary">Edit Profile</button>
+            <button className="approved-secondary" onClick={() => setMoreDetail({ section: "profile", action: "Personal details" })}>Profile</button>
           </article>
           <article className="approved-panel concise-settings-card">
             <div className="concise-panel-heading">
@@ -1206,7 +1237,7 @@ export default function Workspace() {
               <h2>Members</h2>
             </div>
             <p>Manage workspace members and permissions.</p>
-            <button className="approved-secondary">Manage Team</button>
+            <button className="approved-secondary" onClick={() => setMoreDetail({ section: "team", action: "Members" })}>Team</button>
           </article>
           <article className="approved-panel concise-settings-card">
             <div className="concise-panel-heading">
@@ -1214,7 +1245,7 @@ export default function Workspace() {
               <h2>Subscription</h2>
             </div>
             <p>View your subscription and usage.</p>
-            <button className="approved-secondary">View Billing</button>
+            <button className="approved-secondary" onClick={() => setMoreDetail({ section: "billing", action: "Usage limits" })}>Usage</button>
           </article>
           <article className="approved-panel concise-settings-card">
             <div className="concise-panel-heading">
@@ -1222,7 +1253,7 @@ export default function Workspace() {
               <h2>Settings</h2>
             </div>
             <p>Choose your workspace and notification defaults.</p>
-            <button className="approved-secondary">Edit Preferences</button>
+            <button className="approved-secondary" onClick={() => setMoreDetail({ section: "preferences", action: "Workspace defaults" })}>Preferences</button>
           </article>
           <article className="approved-panel concise-settings-card">
             <div className="concise-panel-heading">
@@ -1230,7 +1261,7 @@ export default function Workspace() {
               <h2>Integrations</h2>
             </div>
             <p>Configure integrations and developer access.</p>
-            <button className="approved-secondary">Review Integrations</button>
+            <button className="approved-secondary" onClick={() => setMoreDetail({ section: "platform", action: "Integrations" })}>Integrations</button>
           </article>
           <article className="approved-panel concise-settings-card">
             <div className="concise-panel-heading">
@@ -1238,7 +1269,7 @@ export default function Workspace() {
               <h2>Help</h2>
             </div>
             <p>Get help, report problems, or share feedback.</p>
-            <button className="approved-secondary">Contact Support</button>
+            <button className="approved-secondary" onClick={() => setMoreDetail({ section: "support", action: "Contact support" })}>Contact Support</button>
           </article>
         </section>
         <section className="concise-danger-zone">
