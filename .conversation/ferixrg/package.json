@@ -1,0 +1,30 @@
+{
+  "name": "ferixrg",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "frontend:install": "pnpm --dir web/frontend install",
+    "frontend:dev": "pnpm --dir web/frontend dev",
+    "frontend:build": "pnpm --dir web/frontend build",
+    "frontend:test": "pnpm --dir web/frontend test",
+    "frontend:check": "pnpm --dir web/frontend check",
+    "backend:install": "pnpm --dir backend install",
+    "backend:dev": "pnpm --dir backend dev",
+    "backend:build": "pnpm --dir backend build",
+    "backend:test": "pnpm --dir backend test",
+    "backend:check": "pnpm --dir backend check",
+    "backend:start": "pnpm --dir backend start",
+    "db:generate": "pnpm --dir backend db:generate",
+    "db:migrate": "pnpm --dir backend db:migrate",
+    "admin:install": "pnpm --dir web/admin-panel install",
+    "admin:dev": "pnpm --dir web/admin-panel dev",
+    "admin:build": "pnpm --dir web/admin-panel build",
+    "admin:start": "pnpm --dir web/admin-panel start",
+    "check": "pnpm frontend:check && pnpm backend:check",
+    "test": "pnpm frontend:test && pnpm backend:test",
+    "build": "pnpm frontend:build && pnpm backend:build"
+  },
+  "packageManager": "pnpm@10.4.1"
+}

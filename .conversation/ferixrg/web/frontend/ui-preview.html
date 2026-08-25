@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FerixRG Dashboard UI Preview</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #11141b;
+      color: #edf2f8;
+      min-height: 100vh;
+    }
+
+    /* Dashboard Layout */
+    .workspace {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .approved-sidebar {
+      width: 240px;
+      background: #191d25;
+      border-right: 1px solid #2c313d;
+      padding: 25px 15px 17px;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px;
+      margin-bottom: 5px;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .brand img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .brand span {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand b {
+      font-weight: 900;
+    }
+
+    .sidebar-tagline {
+      display: block;
+      padding: 5px 9px 28px;
+      color: #8994a7;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .approved-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .desktop-nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .desktop-nav-group > span {
+      display: block;
+      color: #6b7689;
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 12px 12px 6px;
+    }
+
+    .approved-nav button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 12px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: #aab6c3;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+
+    .approved-nav button:hover {
+      background: #232833;
+      color: #d4dbe6;
+    }
+
+    .approved-nav button.active {
+      background: #24335b;
+      color: #8fb2ff;
+      box-shadow: inset 3px 0 0 #155eef;
+    }
+
+    .approved-nav button.active svg {
+      color: #79a3ff;
+    }
+
+    .approved-nav svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .store-mini {
+      margin-top: auto;
+      padding: 12px;
+      border: 1px solid #354052;
+      background: #202630;
+      border-radius: 10px;
+    }
+
+    .store-mini-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .store-orb {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #65b75d;
+      color: white;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .store-mini-top div {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .store-mini-top strong {
+      display: block;
+      font-size: 12px;
+      color: #eef3fa;
+    }
+
+    .store-mini-top span {
+      display: block;
+      font-size: 9px;
+      color: #9eaaba;
+    }
+
+    .store-mini button {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #3b5fae;
+      background: #155eef;
+      color: white;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Main Content */
+    .app-main {
+      flex: 1;
+      margin-left: 240px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .approved-topbar {
+      height: 70px;
+      padding: 0 clamp(24px, 3vw, 46px);
+      background: #181b22;
+      border-bottom: 1px solid #303541;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .approved-search {
+      max-width: 650px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid #3a69c9;
+      background: #1b2230;
+      border-radius: 9px;
+      padding: 10px 13px;
+      color: #82a8fc;
+    }
+
+    .approved-search svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .approved-search input {
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #eaf0fb;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .approved-search input::placeholder {
+      color: #aab6cb;
+    }
+
+    .approved-search kbd {
+      color: #9cabbe;
+      border: 1px solid #3d4658;
+      padding: 3px 5px;
+      font-size: 8px;
+      border-radius: 4px;
+    }
+
+    .approved-top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .approved-top-actions button {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      background: #232833;
+      color: #d4dbe6;
+      cursor: pointer;
+    }
+
+    .approved-top-actions button:hover {
+      background: #2d3440;
+    }
+
+    .approved-top-actions svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .approved-bell {
+      position: relative;
+    }
+
+    .approved-bell i {
+      position: absolute;
+      top: 6px;
+      right: 7px;
+      width: 6px;
+      height: 6px;
+      background: #ff7667;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px #232833;
+    }
+
+    .approved-avatar {
+      font-size: 9px;
+      font-weight: 900;
+      color: #17202f;
+      background: linear-gradient(135deg, #f2cfab, #b27b5a);
+      border: 2px solid #6891eb;
+    }
+
+    /* Dashboard Content */
+    .approved-dashboard {
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 34px clamp(22px, 3vw, 46px) 64px;
+    }
+
+    .approved-greeting {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .approved-eyebrow {
+      display: block;
+      color: #8fb2ff;
+      font-size: 8px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      margin-bottom: 8px;
+    }
+
+    .approved-greeting h1 {
+      margin: 0;
+      font-size: 31px;
+      letter-spacing: -0.055em;
+      font-weight: 500;
+      color: #edf2f8;
+    }
+
+    .approved-greeting h1 b {
+      font-weight: 850;
+    }
+
+    .approved-greeting p {
+      max-width: 520px;
+      margin: 8px 0 0;
+      color: #aab4c3;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    /* Summary Grid */
+    .approved-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 11px;
+      margin-bottom: 12px;
+    }
+
+    .approved-summary {
+      min-height: 87px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 16px;
+      border: 1px solid #303644;
+      background: #1b2029;
+      border-radius: 11px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .approved-summary::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: #5883ef;
+    }
+
+    .approved-summary.green::after {
+      background: #35c98d;
+    }
+
+    .approved-summary.coral::after {
+      background: #ff7667;
+    }
+
+    .approved-summary.violet::after {
+      background: #9d7bf8;
+    }
+
+    .approved-summary b {
+      font-size: 27px;
+      line-height: 1;
+      letter-spacing: -0.06em;
+      color: #edf2f8;
+    }
+
+    .approved-summary span {
+      margin-top: 7px;
+      color: #aab5c6;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* Primary Action Card */
+    .approved-primary-action {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.95fr);
+      gap: 20px;
+      padding: 20px;
+      border: 1px solid #3b5fae;
+      background: linear-gradient(110deg, #1d336b, #1b2029 58%);
+      border-radius: 13px;
+      margin-bottom: 28px;
+    }
+
+    .approved-primary-action h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.05em;
+      color: #edf2f8;
+    }
+
+    .approved-primary-action p {
+      max-width: 520px;
+      margin: 8px 0 16px;
+      color: #bcc8db;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .approved-quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-content: center;
+    }
+
+    .approved-quick-actions button {
+      display: grid;
+      grid-template-columns: 27px minmax(0, 1fr) 13px;
+      gap: 8px;
+      align-items: center;
+      text-align: left;
+      border: 1px solid #3b4251;
+      background: #20252e;
+      color: #e9eef7;
+      padding: 9px 10px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .approved-quick-actions button:hover {
+      background: #2a303b;
+    }
+
+    .approved-quick-actions button > span {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: #203763;
+      color: #85abff;
+    }
+
+    .approved-quick-actions button.green > span {
+      background: #17392e;
+      color: #67d8a2;
+    }
+
+    .approved-quick-actions button.violet > span {
+      background: #342b54;
+      color: #b8a5ff;
+    }
+
+    .approved-quick-actions button.slate > span {
+      background: #2b333f;
+      color: #b3c1d5;
+    }
+
+    /* Buttons */
+    .approved-primary {
+      min-height: 38px;
+      border-radius: 8px;
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 10px;
+      font-weight: 850;
+      white-space: nowrap;
+      border: 1px solid #155eef;
+      background: #155eef;
+      color: #fff;
+      box-shadow: 0 8px 21px rgba(21, 94, 239, 0.22);
+      cursor: pointer;
+    }
+
+    .approved-primary:hover {
+      background: #1a6bff;
+    }
+
+    .approved-secondary {
+      min-height: 38px;
+      border-radius: 8px;
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 10px;
+      font-weight: 850;
+      white-space: nowrap;
+      border: 1px solid #546078;
+      background: #202630;
+      color: #dce5f4;
+      cursor: pointer;
+    }
+
+    .approved-secondary:hover {
+      background: #2a3140;
+    }
+
+    /* Section Heading */
+    .approved-section-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: end;
+      margin: 0 0 12px;
+    }
+
+    .approved-section-heading h2 {
+      font-size: 21px;
+      letter-spacing: -0.05em;
+      margin: 0;
+      color: #edf2f8;
+    }
+
+    /* Dashboard Grid */
+    .approved-dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .approved-panel {
+      border: 1px solid #303541;
+      background: #1a1f28;
+      border-radius: 12px;
+      padding: 17px;
+      min-width: 0;
+    }
+
+    .approved-panel-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 15px;
+    }
+
+    .approved-panel-title h2 {
+      font-size: 17px;
+      letter-spacing: -0.045em;
+      margin: 0;
+      color: #edf2f8;
+    }
+
+    .approved-stores-panel {
+      grid-column: span 7;
+    }
+
+    .approved-health-panel {
+      grid-column: span 5;
+    }
+
+    /* Store Panel */
+    .approved-store-primary {
+      padding-bottom: 15px;
+    }
+
+    .approved-store-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .approved-store-mark {
+      flex: 0 0 auto;
+      width: 31px;
+      height: 31px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #65b75d;
+      color: white;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .approved-store-title b {
+      font-size: 14px;
+      color: #eef3fa;
+    }
+
+    .approved-store-title small {
+      font-size: 9px;
+      color: #9eaaba;
+    }
+
+    .approved-store-title em {
+      font-style: normal;
+      color: #6bd9a3;
+    }
+
+    .approved-status {
+      margin-left: auto;
+      border-radius: 99px;
+      background: #253d7b;
+      color: #a9c7ff;
+      padding: 6px 8px;
+      font-size: 8px;
+      font-weight: 850;
+    }
+
+    .approved-store-score {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      margin-top: 14px;
+    }
+
+    .approved-store-score span {
+      font-size: 9px;
+      color: #9faabb;
+    }
+
+    .approved-store-score b {
+      font-size: 27px;
+      letter-spacing: -0.06em;
+      color: #edf2f8;
+    }
+
+    .approved-store-score small {
+      font-size: 11px;
+      color: #a7b2c2;
+    }
+
+    .approved-store-primary > p {
+      margin: 9px 0 14px;
+      color: #aab4c3;
+      font-size: 10px;
+    }
+
+    .approved-store-actions {
+      display: flex;
+      gap: 9px;
+    }
+
+    .approved-store-actions button {
+      flex: 1;
+      padding: 0 7px;
+    }
+
+    /* Health Ring */
+    .approved-health-content {
+      display: grid;
+      grid-template-columns: 122px minmax(0, 1fr);
+      gap: 20px;
+      align-items: center;
+    }
+
+    .approved-health-ring {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 9px solid #30545c;
+      border-top-color: #35c98d;
+      border-right-color: #35c98d;
+      display: grid;
+      place-content: center;
+      text-align: center;
+    }
+
+    .approved-health-ring b {
+      font-size: 32px;
+      line-height: 0.9;
+      color: #edf2f8;
+    }
+
+    .approved-health-ring > span {
+      font-size: 10px;
+      color: #d7e0ec;
+    }
+
+    .approved-health-ring small {
+      margin-top: 5px;
+      font-size: 10px;
+      color: #35c98d;
+    }
+
+    .approved-health-metrics > span {
+      display: block;
+      color: #a3b0c5;
+      font-size: 8px;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    .approved-health-metrics > div {
+      display: grid;
+      grid-template-columns: 1fr 24px;
+      column-gap: 8px;
+      align-items: center;
+      position: relative;
+      padding: 6px 0 9px;
+      border-bottom: 1px solid #303641;
+      color: #b6c1d1;
+      font-size: 10px;
+    }
+
+    /* Mobile Navigation */
+    .mobile-app-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #191d25;
+      border-top: 1px solid #2c313d;
+      padding: 8px 16px 20px;
+      justify-content: space-around;
+      z-index: 1000;
+    }
+
+    .mobile-app-nav button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      border: 0;
+      background: transparent;
+      color: #6b7689;
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .mobile-app-nav button.active {
+      color: #8fb2ff;
+    }
+
+    .mobile-app-nav svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .approved-sidebar {
+        display: none;
+      }
+
+      .app-main {
+        margin-left: 0;
+      }
+
+      .mobile-app-nav {
+        display: flex;
+      }
+
+      .approved-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .approved-primary-action {
+        grid-template-columns: 1fr;
+      }
+
+      .approved-dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .approved-stores-panel,
+      .approved-health-panel {
+        grid-column: span 1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .approved-topbar {
+        padding: 0 16px;
+      }
+
+      .approved-search {
+        max-width: 200px;
+      }
+
+      .approved-dashboard {
+        padding: 20px 16px;
+      }
+
+      .approved-greeting {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .approved-greeting h1 {
+        font-size: 24px;
+      }
+
+      .approved-summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="workspace">
+    <!-- Sidebar -->
+    <aside class="approved-sidebar">
+      <a class="brand" href="#">
+        <span>FERIX<b>RG</b></span>
+      </a>
+      <span class="sidebar-tagline">AI storefront intelligence</span>
+      
+      <nav class="approved-nav">
+        <section class="desktop-nav-group">
+          <span>Workspace</span>
+          <button class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Dashboard
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h18v18H3z"></path>
+              <path d="M3 9h18"></path>
+              <path d="M9 21V9"></path>
+            </svg>
+            Stores
+          </button>
+        </section>
+        
+        <section class="desktop-nav-group">
+          <span>Intelligence</span>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+            </svg>
+            Analyze
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            Issues
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            Reports
+          </button>
+        </section>
+        
+        <section class="desktop-nav-group">
+          <span>Create & ship</span>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+            </svg>
+            Tools
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            AI Redesign
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            Design Studio
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            Validate
+          </button>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            Versions
+          </button>
+        </section>
+        
+        <section class="desktop-nav-group">
+          <span>Workspace settings</span>
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="19" cy="12" r="1"></circle>
+              <circle cx="5" cy="12" r="1"></circle>
+            </svg>
+            More
+          </button>
+        </section>
+      </nav>
+      
+      <div class="store-mini">
+        <div class="store-mini-top">
+          <div class="store-orb">MY</div>
+          <div>
+            <strong>My Store</strong>
+            <span>Shopify · Connected</span>
+          </div>
+        </div>
+        <button>Open store</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <header class="approved-topbar">
+        <label class="approved-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input placeholder="Search stores, projects, reports, or tools…" />
+          <kbd>⌘ K</kbd>
+        </label>
+        <div class="approved-top-actions">
+          <button aria-label="Open help">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </button>
+          <button class="approved-bell" aria-label="Open notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <i></i>
+          </button>
+          <button class="approved-avatar" aria-label="Open profile">JD</button>
+        </div>
+      </header>
+
+      <div class="approved-dashboard">
+        <div class="approved-greeting">
+          <div>
+            <span class="approved-eyebrow">Dashboard</span>
+            <h1>Welcome back, <b>John</b></h1>
+            <p>Your workspace is ready. Run analysis, review issues, or start a new tool.</p>
+          </div>
+          <button class="approved-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            Run Analysis
+          </button>
+        </div>
+
+        <!-- Summary Grid -->
+        <div class="approved-summary-grid">
+          <div class="approved-summary">
+            <b>3</b>
+            <span>Connected stores</span>
+          </div>
+          <div class="approved-summary green">
+            <b>87</b>
+            <span>Average health</span>
+          </div>
+          <div class="approved-summary coral">
+            <b>12</b>
+            <span>Open issues</span>
+          </div>
+          <div class="approved-summary violet">
+            <b>28</b>
+            <span>Reports</span>
+          </div>
+        </div>
+
+        <!-- Primary Action -->
+        <div class="approved-primary-action">
+          <div>
+            <h2>Start a new analysis</h2>
+            <p>Choose a tool and provide your storefront URL or connect your store to begin.</p>
+            <div class="approved-quick-actions">
+              <button>
+                <span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                  </svg>
+                </span>
+                Storefront Analyzer
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              <button class="green">
+                <span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>
+                </span>
+                Accessibility Check
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              <button class="violet">
+                <span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                </span>
+                AI Redesign
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              <button class="slate">
+                <span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  </svg>
+                </span>
+                SEO Analyzer
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div>
+            <h2>Quick actions</h2>
+            <p>Access your most common workflows and recent work.</p>
+            <div class="approved-quick-actions">
+              <button>
+                <span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  </svg>
+                </span>
+                View Reports
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              <button>
+                <span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </span>
+                Team Settings
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="approved-dashboard-grid">
+          <!-- Stores Panel -->
+          <article class="approved-panel approved-stores-panel">
+            <div class="approved-panel-title">
+              <div>
+                <span class="approved-eyebrow">Active store</span>
+                <h2>Your Stores</h2>
+              </div>
+              <button class="approved-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add Store
+              </button>
+            </div>
+            <div class="approved-store-primary">
+              <div class="approved-store-title">
+                <div class="approved-store-mark">MY</div>
+                <div>
+                  <b>My Store</b>
+                  <small>Shopify · <em>Connected</em></small>
+                </div>
+                <span class="approved-status">Active</span>
+              </div>
+              <div class="approved-store-score">
+                <span>Design</span>
+                <b>92</b>
+                <small>/100</small>
+                <span>UX</span>
+                <b>88</b>
+                <small>/100</small>
+                <span>Mobile</span>
+                <b>95</b>
+                <small>/100</small>
+              </div>
+              <p><b>Last analyzed:</b> 2 hours ago · <b>5 issues</b> found</p>
+              <div class="approved-store-actions">
+                <button class="approved-secondary">Analyze</button>
+                <button class="approved-primary">Open workspace</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Health Panel -->
+          <article class="approved-panel approved-health-panel">
+            <div class="approved-panel-title">
+              <div>
+                <span class="approved-eyebrow">Store health</span>
+                <h2>Overall Score</h2>
+              </div>
+            </div>
+            <div class="approved-health-content">
+              <div class="approved-health-ring">
+                <b>87</b>
+                <span>Score</span>
+                <small>+5%</small>
+              </div>
+              <div class="approved-health-metrics">
+                <span>Metrics</span>
+                <div>
+                  <span>Performance</span>
+                  <b>92</b>
+                </div>
+                <div>
+                  <span>Accessibility</span>
+                  <b>85</b>
+                </div>
+                <div>
+                  <span>SEO</span>
+                  <b>88</b>
+                </div>
+                <div>
+                  <span>Conversion</span>
+                  <b>82</b>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </main>
+
+    <!-- Mobile Navigation -->
+    <nav class="mobile-app-nav">
+      <button class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>Home</span>
+      </button>
+      <button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 3h18v18H3z"></path>
+          <path d="M3 9h18"></path>
+          <path d="M9 21V9"></path>
+        </svg>
+        <span>Stores</span>
+      </button>
+      <button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+        </svg>
+        <span>Tools</span>
+      </button>
+      <button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="1"></circle>
+          <circle cx="19" cy="12" r="1"></circle>
+          <circle cx="5" cy="12" r="1"></circle>
+        </svg>
+        <span>More</span>
+      </button>
+    </nav>
+  </div>
+</body>
+</html>

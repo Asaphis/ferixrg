@@ -1,0 +1,22 @@
+# Application dependencies and generated output
+node_modules/
+web/frontend/node_modules/
+web/frontend/dist/
+backend/node_modules/
+backend/dist/
+web/admin-panel/node_modules/
+web/admin-panel/dist/
+
+# Independent application environments
+.env
+.env.*
+!web/frontend/.env.example
+!web/frontend/.env.production.example
+!backend/.env.example
+!backend/.env.production.example
+!web/admin-panel/.env.example
+
+# Logs and caches
+*.log
+coverage/
+*.tsbuildinfo

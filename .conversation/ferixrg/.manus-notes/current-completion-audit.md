@@ -1,0 +1,9 @@
+# Current completion audit
+
+The latest pushed checkpoint is `6d5b9d6`, which completes the bounded Accessibility Fix Assistant Cloudflare proposal workflow across provider adapter, provider-neutral gateway, protected workspace router, approved frontend workflow, tests, TypeScript, and production build.
+
+The canonical registry contains 57 tool IDs. The repository currently has a bounded public-URL inspection engine covering storefront, heading, image SEO, SEO, accessibility, site structure, navigation, performance, CTA, content quality, product, image, asset, responsive, mobile UX, trust, UX, color, typography, conversion, breakpoint, collection, product presentation, product content, cart, checkout, customer journey, layout, visual design, and visual hierarchy analyzer families. Before/After Comparator and draft integrity validation are also implemented.
+
+The exact remaining implementation boundary is primarily deployment-gated provider work rather than redesigning the frontend: real Shopify/WooCommerce/Magento/custom authorization adapters, provider-side publish and rollback execution, and a server-side payment adapter. The release eligibility, approval, cancellation, validation, subscription, entitlement, usage, and read-only billing records already exist. The checklist also retains a broad item for connecting any remaining simulated connected-platform and per-store states to live contracts.
+
+The next safe code batch should inventory unsupported canonical tools and add the remaining bounded deterministic executor paths where a supported source and observable evidence exist, without claiming visual inspection, scoring, compliance, performance, or provider access. Provider adapters should remain fail-closed and configuration-gated until deployment credentials and platform setup are supplied during server setup.

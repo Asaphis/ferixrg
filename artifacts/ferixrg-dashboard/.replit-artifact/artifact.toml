@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "FerixRG Dashboard"
+description = "An interactive dashboard demo for FerixRG's protected storefront intelligence workspace, with store health, analysis tools, issue review, AI redesign, visual editing, validation, reports, versions, and settings."
+version = "1.0.0"
+id = "artifacts/ferixrg-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25948
+
+[services.development]
+run = "pnpm --filter @workspace/ferixrg-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ferixrg-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ferixrg-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25948"
+BASE_PATH = "/"
