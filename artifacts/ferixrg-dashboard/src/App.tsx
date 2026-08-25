@@ -107,7 +107,7 @@ const navGroups: Array<{ label: string; items: Array<[string, PageKey, LucideIco
 ] as const;
 const editorLayers = ["Header", "Product media", "Product details", "Title", "Price", "Buy button", "Shipping details"];
 const deviceOptions: Array<[string, LucideIcon]> = [["Desktop", Monitor], ["Tablet", Tablet], ["Mobile", Smartphone]];
-const mobileNavItems: Array<[string, PageKey, LucideIcon]> = [["Overview", "overview", LayoutDashboard], ["Stores", "stores", Store], ["Tools", "tools", Wand2], ["More", "more", MoreHorizontal]];
+const mobileNavItems: Array<[string, PageKey, LucideIcon]> = [["Home", "overview", LayoutDashboard], ["Stores", "stores", Store], ["Analyze", "analysis", BarChart3], ["Studio", "editor", Layers3], ["More", "more", MoreHorizontal]];
 
 function pageFromPath(pathname: string): PageKey {
   const segment = pathname.split("/").filter(Boolean)[1] as PageKey | undefined;
