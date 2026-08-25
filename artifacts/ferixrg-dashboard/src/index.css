@@ -738,6 +738,17 @@ h2 { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
 }
 .mobile-nav button.active { background: rgba(238,116,76,.1) !important; }
 .page-header p, .panel-heading p { max-width: 440px; }
+.page-header p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+.panel-heading p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 @media (max-width: 760px) {
   .two-col { gap: 14px; }
