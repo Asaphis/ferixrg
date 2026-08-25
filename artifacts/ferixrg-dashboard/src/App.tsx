@@ -274,27 +274,28 @@ function DashboardApp() {
     const openIssues = issues.filter((issue) => issue.status !== "Resolved").length;
     const average = stores.length ? Math.round(stores.reduce((sum, store) => sum + store.health, 0) / stores.length) : 0;
     return <div className="page">
-      <div className="page-header compact-header"><div><span className="eyebrow">Good morning</span><h1>Let’s make your store better.</h1><p>Everything important, in one calm place.</p></div><div className="header-actions"><button className="btn primary" onClick={() => navigate("analysis")}><Play size={15} /> Check my store</button></div></div>
-      <div className="home-layout">
-        <section className="hero-card">
-          <div className="hero-card-copy"><span className="eyebrow">Your main store</span><h2>{activeStore?.name ?? "Your storefront"} is looking good.</h2><p>Health is up this week. There’s one thing worth checking next.</p><button className="btn light" onClick={() => navigate("issues")}>See what needs attention <ArrowRight size={14} /></button></div>
-          <div className="hero-score"><span>{average}</span><small>health</small><i /></div>
-        </section>
-        <div className="mini-stats">
-          <div className="mini-stat"><span>Stores</span><strong>{stores.length}</strong><small>connected</small></div>
-          <div className="mini-stat"><span>To do</span><strong>{openIssues}</strong><small>open items</small></div>
-          <div className="mini-stat"><span>Reports</span><strong>{reports.length}</strong><small>ready to read</small></div>
-        </div>
+      <div className="page-header"><div><span className="eyebrow">Today · 18 June</span><h1>Make the next move.</h1><p>See your store at a glance.</p></div><div className="header-actions"><button className="btn" onClick={() => navigate("stores")}><Plus size={15} /> Add store</button><button className="btn primary" onClick={() => navigate("analysis")}><Play size={15} /> Analyze</button></div></div>
+      <div className="grid metric-grid">
+        <div className="metric" style={{ "--metric-color": "var(--lime)" } as CSSProperties}><div className="metric-top"><span>Stores</span><Store size={15} /></div><div className="metric-value">{stores.filter((store) => store.status === "Connected").length}</div><div className="metric-note good">Connected</div></div>
+        <div className="metric" style={{ "--metric-color": "var(--cyan)" } as CSSProperties}><div className="metric-top"><span>Health</span><Activity size={15} /></div><div className="metric-value">{average}<small style={{ fontSize: 13, color: "var(--text-dim)" }}>/100</small></div><div className="metric-note good">+4.8 this week</div></div>
+        <div className="metric" style={{ "--metric-color": "var(--red)" } as CSSProperties}><div className="metric-top"><span>Issues</span><AlertCircle size={15} /></div><div className="metric-value">{openIssues}</div><div className="metric-note warn">Need review</div></div>
+        <div className="metric" style={{ "--metric-color": "var(--purple)" } as CSSProperties}><div className="metric-top"><span>Reports</span><FileBarChart size={15} /></div><div className="metric-value">{reports.length}</div><div className="metric-note">Ready</div></div>
       </div>
-      <section className="next-card">
-        <div className="section-intro"><div><span className="eyebrow">Next up</span><h2>What would you like to do?</h2></div><span className="time-chip">Takes a few minutes</span></div>
-        <div className="next-actions">
-          <button onClick={() => navigate("analysis")}><span className="action-bubble coral"><ScanIcon /></span><strong>Check my store</strong><small>Find quick wins</small><ArrowRight /></button>
-          <button onClick={() => navigate("issues")}><span className="action-bubble teal"><ShieldCheck /></span><strong>See open items</strong><small>{openIssues} things to review</small><ArrowRight /></button>
-          <button onClick={() => navigate("editor")}><span className="action-bubble purple"><Layers3 /></span><strong>Open my design</strong><small>Continue your draft</small><ArrowRight /></button>
-        </div>
-      </section>
-      <section className="stores-strip"><div className="section-intro"><div><span className="eyebrow">Your stores</span><h2>Switch storefront</h2></div><button className="btn ghost" onClick={() => navigate("stores")}>Manage <ArrowRight size={14} /></button></div><div className="store-pills">{stores.map((store) => <button className={`store-pill ${store.id === activeStoreId ? "active" : ""}`} key={store.id} onClick={() => { setActiveStoreId(store.id); setSelectedStoreDetail(store.id); navigate("stores"); }}><span className="store-mark">{initials(store.name)}</span><span><strong>{store.name}</strong><small>{store.health}/100 health</small></span><ChevronRight size={15} /></button>)}</div></section>
+      <div className="grid two-col">
+        <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Store health</span><h2>Northstar Supply</h2><p>Latest score by area.</p></div><button className="btn ghost" onClick={() => navigate("reports")}>Reports <ArrowRight size={14} /></button></div>
+          <div className="score-layout"><div className="score-ring"><div className="score-ring-inner"><strong>{average}</strong><span>health</span><small>↑ 4.8 pts</small></div></div><div className="bars">{[["Design", 88, "var(--purple)"], ["UX", 79, "var(--cyan)"], ["Mobile", 76, "var(--orange)"], ["Access", 91, "var(--lime)"], ["SEO", 84, "var(--cyan)"], ["Sales", 73, "var(--red)"]].map(([label, score, color]) => <div className="bar-row" key={String(label)}><span>{label}</span><div className="bar"><i style={{ width: `${Number(score)}%`, "--bar-color": color } as CSSProperties} /></div><b>{score}</b></div>)}</div></div>
+        </section>
+        <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Quick actions</span><h2>Move forward</h2></div></div><div className="action-grid">
+          <button className="action-card" onClick={() => navigate("analysis")}><ScanIcon /><span>Analyze store<small>Find quick wins</small></span></button>
+          <button className="action-card" onClick={() => navigate("redesign")}><Sparkles /><span>Try a redesign<small>Start a new draft</small></span></button>
+          <button className="action-card" onClick={() => navigate("issues")}><ShieldCheck /><span>Review issues<small>{openIssues} open</small></span></button>
+          <button className="action-card" onClick={() => navigate("editor")}><Layers3 /><span>Open studio<small>Continue editing</small></span></button>
+        </div></section>
+      </div>
+      <div className="grid two-col" style={{ marginTop: 16 }}>
+        <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Stores</span><h2>Your storefronts</h2></div><button className="btn ghost" onClick={() => navigate("stores")}>All <ArrowRight size={14} /></button></div><div className="grid" style={{ gap: 9 }}>{stores.map((store) => <button className="store-card action-card" key={store.id} onClick={() => { setActiveStoreId(store.id); setSelectedStoreDetail(store.id); navigate("stores"); }}><div className="store-mark">{initials(store.name)}</div><div className="store-info"><strong>{store.name}</strong><span>{store.platform}</span></div><div className="health-number">{store.health || "—"}<small>/100</small></div><ChevronRight size={15} /></button>)}</div></section>
+        <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Activity</span><h2>Recent changes</h2></div><button className="btn ghost" onClick={() => pushToast("Up to date")}>Refresh <RefreshCw size={13} /></button></div><div className="activity-list">{activity.slice(0, 3).map(([event, detail], index) => <div className="activity-item" key={`${event}-${index}`}><i className="activity-dot" /><div><strong>{event.replace("Storefront analysis completed", "Analysis complete").replace("AI proposal created", "Redesign ready").replace("Issue marked in progress", "Issue updated")}</strong><span>{detail}</span></div><ChevronRight size={14} color="var(--text-dim)" /></div>)}</div></section>
+      </div>
     </div>;
   }
   function Stores() {
