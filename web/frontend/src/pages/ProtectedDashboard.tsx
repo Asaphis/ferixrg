@@ -2,11 +2,17 @@ import { useEffect, useState } from "react";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useLocation } from "wouter";
 import Workspace from "./Workspace";
-import { apiUrl } from "../lib/apiBase";
 import { authPath } from "../lib/authRouting";
+import { workspaceClient } from "../lib/workspaceClient";
 import "./auth.css";
 
 type SessionState = "checking" | "authenticated" | "unauthenticated" | "unavailable";
+
+function isUnauthenticatedError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const data = (error as { data?: { code?: string; httpStatus?: number } }).data;
+  return data?.code === "UNAUTHORIZED" || data?.httpStatus === 401;
+}
 
 export default function ProtectedDashboard() {
   const [location, navigate] = useLocation();
@@ -15,13 +21,12 @@ export default function ProtectedDashboard() {
 
   useEffect(() => {
     let active = true;
-    fetch(apiUrl("/api/account/session"), { credentials: "include" })
-      .then(async response => ({ response, payload: await response.json().catch(() => ({ authenticated: false })) }))
-      .then(({ response, payload }) => {
+    workspaceClient.workspace.bootstrap.query()
+      .then(() => { if (active) setSessionState("authenticated"); })
+      .catch(error => {
         if (!active) return;
-        setSessionState(response.ok && payload.authenticated ? "authenticated" : "unauthenticated");
-      })
-      .catch(() => { if (active) setSessionState("unavailable"); });
+        setSessionState(isUnauthenticatedError(error) ? "unauthenticated" : "unavailable");
+      });
     return () => { active = false; };
   }, []);
 
