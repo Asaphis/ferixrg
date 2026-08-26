@@ -1,36 +1,41 @@
-import { useCallback, useEffect, useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Route, Switch } from "wouter";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import Auth from "./pages/Auth";
+import Home from "./pages/Home";
+import NotFound from "./pages/NotFound";
 import ProtectedDashboard from "./pages/ProtectedDashboard";
-import { authPath, isDashboardPath } from "./lib/authRouting";
+import { AboutPage, ContactPage, FeaturesPage, HowItWorksPage, PlatformsPage, PricingPage, ResourcesPage, SolutionsPage } from "./pages/PublicPages";
 
-function currentLocation() {
-  return `${window.location.pathname}${window.location.search}`;
+function Router() {
+  return <Switch>
+    <Route path="/" component={Home} />
+    <Route path="/features" component={FeaturesPage} />
+    <Route path="/how-it-works" component={HowItWorksPage} />
+    <Route path="/solutions" component={SolutionsPage} />
+    <Route path="/platforms" component={PlatformsPage} />
+    <Route path="/pricing" component={PricingPage} />
+    <Route path="/resources" component={ResourcesPage} />
+    <Route path="/about" component={AboutPage} />
+    <Route path="/contact" component={ContactPage} />
+    <Route path="/auth/:page" component={Auth} />
+    <Route path="/auth" component={Auth} />
+    <Route path="/app" component={ProtectedDashboard} />
+    <Route path="/app/:rest*" component={ProtectedDashboard} />
+    <Route path="/404" component={NotFound} />
+    <Route component={NotFound} />
+  </Switch>;
 }
 
 export default function App() {
-  const [location, setLocation] = useState(currentLocation);
-  const navigate = useCallback((path: string, replace = false) => {
-    window.history[replace ? "replaceState" : "pushState"]({}, "", path);
-    setLocation(currentLocation());
-  }, []);
-
-  useEffect(() => {
-    const onPopState = () => setLocation(currentLocation());
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
-  const [pathname, search = ""] = location.split("?");
-  const isKnownRoute = isDashboardPath(pathname) || pathname === "/auth/register" || pathname === "/auth/verify-email" || pathname === "/auth/login" || pathname === "/auth";
-
-  useEffect(() => {
-    if (!isKnownRoute) navigate(authPath("login"), true);
-  }, [isKnownRoute, navigate]);
-
-  if (isDashboardPath(pathname)) return <ProtectedDashboard returnPath={location} onNavigate={navigate} />;
-  if (pathname === "/auth/register") return <Auth route="register" search={search ? `?${search}` : ""} onNavigate={navigate} />;
-  if (pathname === "/auth/verify-email") return <Auth route="verify-email" search={search ? `?${search}` : ""} onNavigate={navigate} />;
-  if (pathname === "/auth/login" || pathname === "/auth") return <Auth route="login" search={search ? `?${search}` : ""} onNavigate={navigate} />;
-
-  return null;
+  return <ErrorBoundary>
+    <ThemeProvider defaultTheme="light">
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
+    </ThemeProvider>
+  </ErrorBoundary>;
 }
