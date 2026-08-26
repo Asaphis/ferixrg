@@ -11,9 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@trpc/client": "^11.18.0",
     "lucide-react": "^0.453.0",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "react-dom": "^19.2.1",
+    "superjson": "^1.13.3"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
