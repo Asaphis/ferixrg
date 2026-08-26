@@ -6,10 +6,10 @@ import { getSessionAuthorizationHeaders } from "./sessionAuth";
 const createUntypedClient = createTRPCProxyClient as unknown as (options: unknown) => any;
 
 export const workspaceClient = createUntypedClient({
-  transformer: superjson,
   links: [
     httpBatchLink({
       url: apiUrl("/api/trpc"),
+      transformer: superjson,
       headers() {
         return getSessionAuthorizationHeaders();
       },
