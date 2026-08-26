@@ -19,4 +19,15 @@ describe("approved premium dashboard overview", () => {
 
     expect(markup).not.toContain("Compatible sources appear next.</p><div class=\"analysis-tool-strip\"><button");
   });
+
+  it("keeps the Tools catalogue tool-first and exposes all 12 approved analyses", () => {
+    const markup = renderToStaticMarkup(<Workspace initialView="Tools" />);
+
+    expect(markup).toContain("Choose a tool first. Compatible sources appear next.");
+    expect(markup).not.toContain("Choose a supported source");
+
+    ["Design Analysis", "Responsive Analysis", "Structure Analysis", "UX Analysis", "Conversion Analysis", "SEO Analysis", "Performance Analysis", "Accessibility Analysis", "Security Analysis", "Content Analysis", "Asset Analysis", "Design System Analysis"].forEach(tool => {
+      expect(markup).toContain(tool);
+    });
+  });
 });
