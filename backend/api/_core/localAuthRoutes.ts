@@ -63,6 +63,16 @@ async function recordSuccessfulSignInAlert(account: { id: number; email: string 
 }
 
 export function registerLocalAuthRoutes(app: Express) {
+  app.get("/api/account/session", async (req: Request, res: Response) => {
+    try {
+      const account = await sdk.authenticateRequest(req);
+      if (!account) return res.status(401).json({ authenticated: false });
+      return res.json({ authenticated: true, user: { id: account.id, name: account.name ?? null, email: account.email ?? null } });
+    } catch {
+      return res.status(401).json({ authenticated: false });
+    }
+  });
+
   app.post("/api/account/register", async (req: Request, res: Response) => {
     const parsed = registrationInput.safeParse(req.body);
     if (!parsed.success || !isStrongPassword(parsed.data?.password ?? "")) return respondInvalidInput(res, "Use a stronger password.");
