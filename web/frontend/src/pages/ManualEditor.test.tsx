@@ -87,4 +87,15 @@ describe("ManualEditor", () => {
 
     expect(container.querySelector('[aria-label="wave bottom divider"]')).not.toBeNull();
   });
+
+  it("opens an independent local page document and adds visible content to that page canvas", () => {
+    render(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} initialPanel="Pages" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Product details" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Heading" }));
+
+    expect(screen.getAllByText("Your new heading").length).toBeGreaterThan(0);
+    expect(screen.getByText("Heading added locally")).toBeTruthy();
+  });
 });

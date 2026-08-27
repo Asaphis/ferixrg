@@ -146,6 +146,13 @@ const initialNodes: EditorNode[] = [
   { id: "footer", parentId: pageId, name: "Footer", kind: "section", visible: true, locked: false, style: { background: "#172039", padding: 25 } },
 ];
 
+function createLocalPageDocument(name: string): EditorDocument {
+  return {
+    nodes: initialNodes.map(node => node.id === pageId ? { ...node, name } : { ...node, responsive: node.responsive ? { ...node.responsive } : undefined, style: { ...node.style } }),
+    vectorPaths: [],
+  };
+}
+
 const elementGroups: { title: string; items: { label: string; kind: NodeKind; icon: typeof Type }[] }[] = [
   { title: "Layout", items: [{ label: "Section", kind: "section", icon: LayoutPanelTop }, { label: "Container", kind: "container", icon: Box }, { label: "Grid", kind: "container", icon: Grid2X2 }, { label: "Columns", kind: "container", icon: Columns3 }] },
   { title: "Content", items: [{ label: "Heading", kind: "text", icon: Type }, { label: "Text", kind: "text", icon: Clipboard }, { label: "Button", kind: "button", icon: Square }, { label: "Image", kind: "image", icon: ImageIcon }] },
@@ -203,6 +210,7 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [projectPages, setProjectPages] = useState(initialPages);
   const [activePage, setActivePage] = useState("Homepage");
+  const [pageDocuments, setPageDocuments] = useState<Record<string, EditorDocument>>(() => ({ Homepage: { nodes: initialNodes, vectorPaths: [] } }));
   const [assetItems, setAssetItems] = useState<{ id: string; name: string; url?: string; type: "generated" | "upload" }[]>(assets.map((name, index) => ({ id: `asset-${index}`, name, type: "generated" })));
   const [savedComponents, setSavedComponents] = useState<string[]>([]);
   const assetInputRef = useRef<HTMLInputElement>(null);
@@ -230,8 +238,8 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
   }, [addSearch]);
 
   useEffect(() => {
-    window.localStorage.setItem("ferixrg-manual-editor-draft", JSON.stringify({ nodes, vectorPaths, selectedId, device, updatedAt: Date.now() }));
-  }, [nodes, vectorPaths, selectedId, device]);
+    window.localStorage.setItem("ferixrg-manual-editor-draft", JSON.stringify({ activePage, pageDocuments, nodes, vectorPaths, selectedId, device, updatedAt: Date.now() }));
+  }, [activePage, pageDocuments, nodes, vectorPaths, selectedId, device]);
 
   useEffect(() => {
     if (!initializedDevice.current && isMobileViewport) {
@@ -245,6 +253,7 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
     const nextHistory = [...history.slice(0, historyIndex + 1), nextDocument];
     setNodes(nextNodes);
     setVectorPaths(nextVectorPaths);
+    setPageDocuments(current => ({ ...current, [activePage]: nextDocument }));
     setHistory(nextHistory);
     setHistoryIndex(nextHistory.length - 1);
     setSavedState(label);
@@ -260,7 +269,7 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
   const updateSelectedStyle = (style: Partial<EditorStyle>) => updateSelected({ style });
   const updateSectionDivider = (edge: "topDivider" | "bottomDivider", value: SectionDividerShape) => updateSelectedStyle({ [edge]: value });
   const addElement = (kind: NodeKind, label: string) => {
-    const parent = selected.kind === "page" || selected.kind === "section" || selected.kind === "container" ? selected.id : selectedSection;
+    const parent = selected.kind === "page" ? rootSections.find(section => section.id !== "header")?.id ?? rootSections[0]?.id ?? selected.id : selected.kind === "section" || selected.kind === "container" ? selected.id : selectedSection;
     const element = nodeTemplate(kind, label, parent);
     commit([...nodes, element], `${label} added locally`);
     setSelectedId(element.id);
@@ -303,10 +312,22 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
     setDraggedId(null);
     setNotice(`${dragged.name} moved into ${target.name}.`);
   };
-  const undo = () => { if (historyIndex === 0) return; const nextIndex = historyIndex - 1; const previous = history[nextIndex]!; setHistoryIndex(nextIndex); setNodes(previous.nodes); setVectorPaths(previous.vectorPaths); setSavedState("Draft restored from history"); };
-  const redo = () => { if (historyIndex >= history.length - 1) return; const nextIndex = historyIndex + 1; const following = history[nextIndex]!; setHistoryIndex(nextIndex); setNodes(following.nodes); setVectorPaths(following.vectorPaths); setSavedState("Draft restored from history"); };
+  const undo = () => { if (historyIndex === 0) return; const nextIndex = historyIndex - 1; const previous = history[nextIndex]!; setHistoryIndex(nextIndex); setNodes(previous.nodes); setVectorPaths(previous.vectorPaths); setPageDocuments(current => ({ ...current, [activePage]: previous })); setSavedState("Draft restored from history"); };
+  const redo = () => { if (historyIndex >= history.length - 1) return; const nextIndex = historyIndex + 1; const following = history[nextIndex]!; setHistoryIndex(nextIndex); setNodes(following.nodes); setVectorPaths(following.vectorPaths); setPageDocuments(current => ({ ...current, [activePage]: following })); setSavedState("Draft restored from history"); };
   const saveVersion = () => { const version = { id: `version-${Date.now()}`, label: `Version ${versions.length + 1}`, createdAt: "Saved just now", nodeCount: nodes.length }; setVersions([version, ...versions]); setSavedState("Version saved locally"); setNotice("A local version was created. It can be compared or restored when persistent project storage is connected."); };
-  const createPage = () => { const name = `New page ${projectPages.length + 1}`; setProjectPages(current => [...current, name]); setActivePage(name); setNotice(`${name} was created as a local project page.`); };
+  const selectPage = (name: string) => {
+    const document = pageDocuments[name] ?? createLocalPageDocument(name);
+    setActivePage(name);
+    setNodes(document.nodes);
+    setVectorPaths(document.vectorPaths);
+    setHistory([document]);
+    setHistoryIndex(0);
+    setSelectedId(pageId);
+    setPageDocuments(current => current[name] ? current : { ...current, [name]: document });
+    setSavedState(`${name} local draft loaded`);
+    setNotice(`${name} is open. Changes remain independent in this browser draft.`);
+  };
+  const createPage = () => { const name = `New page ${projectPages.length + 1}`; const document = createLocalPageDocument(name); setProjectPages(current => [...current, name]); setPageDocuments(current => ({ ...current, [name]: document })); setActivePage(name); setNodes(document.nodes); setVectorPaths(document.vectorPaths); setHistory([document]); setHistoryIndex(0); setSelectedId(pageId); setNotice(`${name} was created as an independent local project page.`); };
   const uploadAsset = (file: File | undefined) => { if (!file) return; const asset = { id: `upload-${Date.now()}`, name: file.name, url: URL.createObjectURL(file), type: "upload" as const }; setAssetItems(current => [asset, ...current]); setNotice(`${file.name} was added to this browser’s local asset library.`); };
   const saveSelectedAsComponent = () => { const componentName = `${selected.name} component`; if (savedComponents.includes(componentName)) { setNotice(`${componentName} is already in the local component library.`); return; } setSavedComponents(current => [componentName, ...current]); setNotice(`${componentName} was saved for reuse in this local project draft.`); };
   const pointFromEvent = (event: React.PointerEvent<SVGSVGElement>): Point => { const box = event.currentTarget.getBoundingClientRect(); return { x: Math.max(0, Math.min(860, ((event.clientX - box.left) / box.width) * 860)), y: Math.max(0, Math.min(525, ((event.clientY - box.top) / box.height) * 525)) }; };
@@ -355,8 +376,8 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
         <nav className="manual-panel-tabs" aria-label="Editor left panel">{([{ label: "Add", icon: Plus }, { label: "Layers", icon: Layers3 }, { label: "Pages", icon: FilePlus2 }, { label: "Assets", icon: ImageIcon }, { label: "Components", icon: Component }] as const).map(item => { const Icon = item.icon; return <button className={activePanel === item.label ? "active" : ""} onClick={() => setActivePanel(item.label)} key={item.label}><Icon size={16} /><span>{item.label}</span></button>; })}</nav>
         <div className="manual-left-content">
           {activePanel === "Add" && <><div className="manual-panel-heading"><div><span>Add to page</span><h2>Elements</h2></div><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close add panel"><XMark /></button></div><label className="manual-add-search"><Search size={14} /><input value={addSearch} onChange={event => setAddSearch(event.target.value)} placeholder="Search components" aria-label="Search components" /></label>{filteredElementGroups.length ? filteredElementGroups.map(group => <section className="manual-add-group" key={group.title}><h3>{group.title}</h3><div>{group.items.map(item => { const Icon = item.icon; return <button onClick={() => addElement(item.kind, item.label)} key={item.label}><Icon size={15} /><span>{item.label}</span><Plus size={13} /></button>; })}</div></section>) : <p className="manual-empty-search">No matching components. Try another search.</p>}</>}
-          {activePanel === "Layers" && <><div className="manual-panel-heading"><div><span>Document structure</span><h2>Layers</h2></div><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close layers panel"><XMark /></button></div><div className="manual-layer-root"><button className={selected.id === pageId ? "manual-layer-select selected root" : "manual-layer-select root"} onClick={() => setSelectedId(pageId)}><ChevronDown size={13} /><LayoutPanelTop size={13} /><span>Homepage</span></button>{renderLayerTree(pageId)}</div></>}
-          {activePanel === "Pages" && <><div className="manual-panel-heading"><div><span>Website pages</span><h2>Pages</h2></div><div className="manual-panel-heading-actions"><button className="manual-icon-button" onClick={createPage} aria-label="Create page"><Plus size={15} /></button><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close pages panel"><XMark /></button></div></div><div className="manual-page-list">{projectPages.map(page => <button className={page === activePage ? "active" : ""} onClick={() => { setActivePage(page); if (page === "Homepage") setSelectedId(pageId); else setNotice(`${page} is selected. Its independent page canvas will persist when project page storage is connected.`); }} key={page}><FilePlus2 size={15} /><span>{page}</span>{page === activePage && <Check size={14} />}</button>)}</div></>}
+          {activePanel === "Layers" && <><div className="manual-panel-heading"><div><span>Document structure</span><h2>Layers</h2></div><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close layers panel"><XMark /></button></div><div className="manual-layer-root"><button className={selected.id === pageId ? "manual-layer-select selected root" : "manual-layer-select root"} onClick={() => setSelectedId(pageId)}><ChevronDown size={13} /><LayoutPanelTop size={13} /><span>{activePage}</span></button>{renderLayerTree(pageId)}</div></>}
+          {activePanel === "Pages" && <><div className="manual-panel-heading"><div><span>Website pages</span><h2>Pages</h2></div><div className="manual-panel-heading-actions"><button className="manual-icon-button" onClick={createPage} aria-label="Create page"><Plus size={15} /></button><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close pages panel"><XMark /></button></div></div><div className="manual-page-list">{projectPages.map(page => <button className={page === activePage ? "active" : ""} onClick={() => selectPage(page)} key={page}><FilePlus2 size={15} /><span>{page}</span>{page === activePage && <Check size={14} />}</button>)}</div></>}
           {activePanel === "Assets" && <><input ref={assetInputRef} className="manual-file-input" type="file" accept="image/*,video/*,.svg,.pdf,.txt,.woff,.woff2" onChange={event => { uploadAsset(event.target.files?.[0]); event.currentTarget.value = ""; }} /><div className="manual-panel-heading"><div><span>Reusable files</span><h2>Assets</h2></div><div className="manual-panel-heading-actions"><button className="manual-icon-button" onClick={() => assetInputRef.current?.click()} aria-label="Upload asset"><Upload size={15} /></button><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close assets panel"><XMark /></button></div></div><button className="manual-upload-slot" onClick={() => assetInputRef.current?.click()}><Upload size={18} /><strong>Upload asset</strong><small>Image, video, SVG, font, or file</small></button><div className="manual-asset-grid">{assetItems.map((asset, index) => <button onClick={() => addElement("image", asset.name)} key={asset.id}>{asset.url ? <img src={asset.url} alt="" /> : <i className={`asset-shade shade-${index % 5}`} />}<span>{asset.name}</span></button>)}</div></>}
           {activePanel === "Components" && <><div className="manual-panel-heading"><div><span>Reusable building blocks</span><h2>Components</h2></div><div className="manual-panel-heading-actions"><button className="manual-icon-button" onClick={saveSelectedAsComponent} aria-label="Save selected component"><Plus size={15} /></button><button className="manual-mobile-panel-dismiss" onClick={closeMobileSheet} aria-label="Close components panel"><XMark /></button></div></div><button className="manual-save-component" onClick={saveSelectedAsComponent}><Component size={15} /><span><strong>Save selected layer</strong><small>Reuse {selected.name} in this project</small></span><Plus size={13} /></button><div className="manual-component-list">{[...savedComponents, ...componentItems].map((item, index) => <button onClick={() => addElement(index < 2 || /product/i.test(item) ? "product" : "section", item)} key={item}><Component size={15} /><span><strong>{item}</strong><small>{savedComponents.includes(item) ? "Saved local component" : index < 2 ? "Store-aware block" : "Reusable section"}</small></span><Plus size={13} /></button>)}</div></>}
         </div>
