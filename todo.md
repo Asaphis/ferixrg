@@ -701,3 +701,10 @@ Validation note: Vite still reports the existing optional analytics placeholders
 
 ## Production handoff
 - [x] Create `PRODUCTION_HANDOFF.md` with the exact environment contract, migration/build/start sequence, `/api/health` smoke test, Shopify development-store test sequence, rollback guidance, and explicit remaining provider/payment boundaries.
+
+## Manual Editor bounded viewport and live comparison
+- [x] Constrain the editable storefront to an independently scrollable canvas viewport so opening inspector panels never makes the full editor page excessively long.
+- [x] Preserve canvas position and editing context while local inspector, layer, asset, component, and comparison panels open or close.
+- [x] Add a live local before-and-after preview that shows the initial sample state beside or above the current edited state without claiming an external render.
+- [x] Provide deliberate desktop and mobile arrangements for the bounded editing viewport and comparison preview.
+- [x] Add regression coverage and verify desktop/mobile interaction; full frontend tests, TypeScript, and the production build pass before the focused local-only Manual Editor refinement is pushed.

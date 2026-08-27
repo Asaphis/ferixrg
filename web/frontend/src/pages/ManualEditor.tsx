@@ -3,6 +3,8 @@ import {
   ArrowLeft, Bot, Boxes, ChevronDown, ChevronLeft, ChevronRight, Circle, ClipboardCheck, Code2, Copy, Eye, FilePlus2, Grid2X2, Image, Layers3, LayoutPanelTop, Lightbulb, Menu, Monitor, MoreHorizontal, MousePointer2, Paintbrush, PanelLeft, Pencil, Plus, Redo2, RotateCcw, Save, Search, Settings2, ShieldCheck, Smartphone, Sparkles, Tablet, Trash2, Undo2, Upload, WandSparkles, X,
 } from "lucide-react";
 import "./manualEditor.css";
+import "./manualEditorViewport.css";
+import "./manualEditorComparison.css";
 
 type Device = "Desktop" | "Tablet" | "Mobile";
 type Panel = "Add" | "Layers" | "Pages" | "Assets" | "Components";
@@ -81,8 +83,9 @@ function resolveStyle<T extends { style: Style; overrides?: Partial<Record<Devic
 function css(style: Style): CSSProperties { return { color: style.color, background: style.background, fontSize: style.fontSize, borderRadius: style.radius, padding: style.padding, gap: style.gap, opacity: style.opacity, textAlign: style.align, boxShadow: style.shadow === "medium" ? "0 18px 28px rgba(26,36,57,.22)" : style.shadow === "soft" ? "0 7px 16px rgba(26,36,57,.14)" : undefined }; }
 
 export default function ManualEditor({ context, mode, onModeChange, onBack }: ManualEditorProps) {
-  const [document, setDocument] = useState<DocumentState>(() => ({ pages: starterPages(), activePageId: "home" }));
-  const [history, setHistory] = useState<DocumentState[]>(() => [{ pages: starterPages(), activePageId: "home" }]);
+  const [baselineDocument] = useState<DocumentState>(() => ({ pages: starterPages(), activePageId: "home" }));
+  const [document, setDocument] = useState<DocumentState>(() => clone(baselineDocument));
+  const [history, setHistory] = useState<DocumentState[]>(() => [clone(baselineDocument)]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selection, setSelection] = useState<Selection>({ scope: "element", pageId: "home", sectionId: "hero", elementId: "hero-heading" });
   const [device, setDevice] = useState<Device>(() => window.innerWidth <= 820 ? "Mobile" : "Desktop");
@@ -100,6 +103,7 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [checks, setChecks] = useState<Record<string, boolean>>({ content: false, responsive: false, access: false, permission: false });
   const [preview, setPreview] = useState(false);
+  const [comparisonSide, setComparisonSide] = useState<"before" | "after">("after");
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const activePage = document.pages.find(page => page.id === document.activePageId)!;
@@ -109,6 +113,7 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
   const selectedStyle = selected ? resolveStyle(selected, device) : {};
   const isMobile = device === "Mobile";
   const completedChecks = Object.values(checks).filter(Boolean).length;
+  const baselinePage = baselineDocument.pages.find(page => page.id === activePage.id);
 
   const commit = (next: DocumentState, message: string) => {
     const nextHistory = [...history.slice(0, historyIndex + 1), clone(next)];
@@ -164,7 +169,7 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
       <div className="brand"><button className="icon" onClick={onBack} aria-label="Back to workspace"><ArrowLeft size={17}/></button><div><strong>FERIX<span>RG</span></strong><small>MANUAL EDITOR</small></div><em>Local only</em></div>
       <div className="history"><button className="icon" aria-label="Undo" disabled={historyIndex === 0} onClick={undo}><Undo2 size={16}/></button><button className="icon" aria-label="Redo" disabled={historyIndex === history.length - 1} onClick={redo}><Redo2 size={16}/></button><button className="label-button" onClick={saveVersion}><RotateCcw size={15}/><span>Versions</span></button></div>
       <div className="device-switch" aria-label="Preview device">{([Monitor, Tablet, Smartphone] as const).map((Icon, index) => { const name = (["Desktop", "Tablet", "Mobile"] as Device[])[index]!; return <button key={name} className={device === name ? "active" : ""} aria-pressed={device === name} onClick={() => setDevice(name)}><Icon size={15}/><span>{name}</span></button>; })}</div>
-      <div className="top-actions"><button className="label-button" onClick={() => setPreview(!preview)}><Eye size={16}/><span>{preview ? "Edit" : "Preview"}</span></button><button className="label-button" onClick={() => setNotice("Draft saved locally in this prototype session")}><Save size={16}/><span>Save</span></button><button className="release" onClick={() => setReleaseOpen(true)}><ShieldCheck size={16}/><span>Release</span></button></div>
+      <div className="top-actions"><button className="label-button preview-toggle" onClick={() => setPreview(!preview)}><Eye size={16}/><span>{preview ? "Edit" : "Preview"}</span></button><button className="label-button" onClick={() => setNotice("Draft saved locally in this prototype session")}><Save size={16}/><span>Save</span></button><button className="release" onClick={() => setReleaseOpen(true)}><ShieldCheck size={16}/><span>Release</span></button></div>
     </header>
     <div className="context-bar"><span><WandSparkles size={14}/>{context.toolName}</span><span>{context.projectTitle} · local-only storefront</span><span>{notice}</span></div>
     <main className="studio-body">
@@ -173,13 +178,19 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
         <div className="panel-content"><button className="mobile-close" aria-label="Close panel" onClick={() => setMobileSheet("none")}><X size={17}/></button><SidePanel panel={panel} activePage={activePage} selection={selection} document={document} vectors={vectors} onSelectPage={selectPage} onSelectSection={selectSection} onSelectElement={selectElement} onAddSection={addSection} onAddElement={addElement} onAddPage={addPage} onAsset={(asset) => selectedElement ? updateSelected({ asset }) : setNotice("Select an image element before replacing its asset")} /></div>
       </aside>}
       <section className="canvas-column">
-        {!preview && <div className="canvas-toolbar"><div><span>EDIT MODE</span><strong>{activePage.name}</strong></div><div className="tool-row"><button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={14}/>Select</button><button className={tool === "pen" ? "active" : ""} onClick={() => setTool("pen")}><Paintbrush size={14}/>Pen</button><button className={tool === "pencil" ? "active" : ""} onClick={() => setTool("pencil")}><Pencil size={14}/>Pencil</button><button className={grid ? "active" : ""} onClick={() => setGrid(!grid)}><Grid2X2 size={14}/>Grid</button></div></div>}
-        <div className="canvas-stage"><div ref={canvasRef} onClick={startVector} className={`storefront device-${device.toLowerCase()} ${grid ? "grid-on" : ""}`} style={css(resolveStyle(activePage, device))}>
-          <div className="browser-bar"><i/><i/><i/><span>preview.your-store.com</span><b>{device}</b></div>
-          <StorefrontHeader page={activePage} selected={selection} device={device} onSelect={selectElement}/>
-          {activePage.sections.filter(section => section.visible).map(section => <StoreSection key={section.id} page={activePage} section={section} selection={selection} device={device} onSelectSection={selectSection} onSelectElement={selectElement} />)}
-          <VectorOverlay vectors={vectors.filter(path => path.pageId === activePage.id)} selectedSection={selection.sectionId} />
-        </div></div>
+        {preview ? <ComparisonWorkspace before={baselinePage} after={activePage} device={device} mobileSide={comparisonSide} onMobileSideChange={setComparisonSide} onEdit={() => setPreview(false)} /> : <>
+          <div className="canvas-toolbar"><div><span>EDIT MODE</span><strong>{activePage.name}</strong></div><div className="tool-row"><button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={14}/>Select</button><button className={tool === "pen" ? "active" : ""} onClick={() => setTool("pen")}><Paintbrush size={14}/>Pen</button><button className={tool === "pencil" ? "active" : ""} onClick={() => setTool("pencil")}><Pencil size={14}/>Pencil</button><button className={grid ? "active" : ""} onClick={() => setGrid(!grid)}><Grid2X2 size={14}/>Grid</button></div></div>
+          <div className="canvas-stage">
+            <div className="storefront-viewport" aria-label="Scrollable editable storefront" tabIndex={0}>
+              <div ref={canvasRef} onClick={startVector} className={`storefront device-${device.toLowerCase()} ${grid ? "grid-on" : ""}`} style={css(resolveStyle(activePage, device))}>
+                <div className="browser-bar"><i/><i/><i/><span>preview.your-store.com</span><b>{device}</b></div>
+                <StorefrontHeader page={activePage} selected={selection} device={device} onSelect={selectElement}/>
+                {activePage.sections.filter(section => section.visible).map(section => <StoreSection key={section.id} page={activePage} section={section} selection={selection} device={device} onSelectSection={selectSection} onSelectElement={selectElement} />)}
+                <VectorOverlay vectors={vectors.filter(path => path.pageId === activePage.id)} selectedSection={selection.sectionId} />
+              </div>
+            </div>
+          </div>
+        </>}
       </section>
       {!preview && <aside className={`inspector ${mobileSheet === "inspector" ? "show-mobile" : ""}`}>
         <div className="sheet-handle"/><div className="inspector-heading"><div><span>{selection.scope} selected</span><h2>{selected?.name ?? "No selection"}</h2></div><button className="mobile-close" aria-label="Close properties" onClick={() => setMobileSheet("none")}><X size={17}/></button></div>
@@ -201,6 +212,39 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
 }
 
 function setVersionsOpen(setNotice: (message: string) => void, count: number) { setNotice(`${count || 1} local version${count === 1 ? "" : "s"} available. Save a version from the top toolbar before restoring.`); }
+
+function ComparisonWorkspace({ before, after, device, mobileSide, onMobileSideChange, onEdit }: { before?: Page; after: Page; device: Device; mobileSide: "before" | "after"; onMobileSideChange: (side: "before" | "after") => void; onEdit: () => void }) {
+  return <section className="comparison-workspace" aria-label="Local before and after comparison">
+    <header className="comparison-header">
+      <div><span>LOCAL DRAFT COMPARISON</span><h2>Before and after</h2><p>Compare the starting sample with your current local edits.</p></div>
+      <button className="comparison-edit" onClick={onEdit}><MousePointer2 size={15}/>Return to editing</button>
+    </header>
+    <div className="comparison-mobile-switch" aria-label="Choose mobile comparison view">
+      <button className={mobileSide === "before" ? "active" : ""} aria-pressed={mobileSide === "before"} onClick={() => onMobileSideChange("before")}>Before</button>
+      <button className={mobileSide === "after" ? "active" : ""} aria-pressed={mobileSide === "after"} onClick={() => onMobileSideChange("after")}>After</button>
+    </div>
+    <div className="comparison-grid">
+      {before ? <ComparisonStorefront label="Before" page={before} device={device} active={mobileSide === "before"} /> : <article className={`comparison-empty ${mobileSide === "before" ? "active" : ""}`}><strong>Before unavailable</strong><span>This page was created in the local editor, so there is no starting sample state to compare.</span></article>}
+      <ComparisonStorefront label="After" page={after} device={device} active={mobileSide === "after"} />
+    </div>
+    <footer className="comparison-note">This is an in-browser local comparison. It does not create a connected-store preview, render, export, or publish action.</footer>
+  </section>;
+}
+
+function ComparisonStorefront({ label, page, device, active }: { label: "Before" | "After"; page: Page; device: Device; active: boolean }) {
+  const emptySelection: Selection = { scope: "page", pageId: page.id };
+  const noop = () => undefined;
+  return <article className={`comparison-card ${label.toLowerCase()} ${active ? "active" : ""}`}>
+    <header><strong>{label}</strong><span>{label === "Before" ? "Starting sample" : "Current local edits"}</span></header>
+    <div className="comparison-viewport" aria-label={`${label} storefront preview`} tabIndex={0}>
+      <div className={`storefront device-${device.toLowerCase()}`} style={css(resolveStyle(page, device))}>
+        <div className="browser-bar"><i/><i/><i/><span>preview.your-store.com</span><b>{label}</b></div>
+        <StorefrontHeader page={page} selected={emptySelection} device={device} onSelect={noop}/>
+        {page.sections.filter(section => section.visible).map(section => <StoreSection key={section.id} page={page} section={section} selection={emptySelection} device={device} onSelectSection={noop} onSelectElement={noop} />)}
+      </div>
+    </div>
+  </article>;
+}
 
 function SidePanel({ panel, activePage, selection, document, onSelectPage, onSelectSection, onSelectElement, onAddSection, onAddElement, onAddPage, onAsset }: { panel: Panel; activePage: Page; selection: Selection; document: DocumentState; vectors: Vector[]; onSelectPage: (id: string) => void; onSelectSection: (section: Section) => void; onSelectElement: (section: Section, element: ElementNode) => void; onAddSection: (type?: Section["type"]) => void; onAddElement: (kind: ElementNode["kind"], name: string) => void; onAddPage: () => void; onAsset: (asset: string) => void }) {
   if (panel === "Add") return <><PanelTitle eyebrow="Add to page" title="Elements"/><div className="add-groups"><AddGroup title="Layout" items={[["Section", () => onAddSection("blank")], ["Hero", () => onAddSection("hero")], ["Container", () => onAddElement("container", "Container")], ["Columns", () => onAddElement("card", "Columns")]]}/><AddGroup title="Content" items={[["Heading", () => onAddElement("text", "Heading")], ["Text", () => onAddElement("text", "Text")], ["Button", () => onAddElement("button", "Button")], ["Image", () => onAddElement("image", "Image")]]}/><AddGroup title="Commerce" items={[["Product grid", () => onAddElement("card", "Product grid")], ["Product card", () => onAddElement("card", "Product card")], ["Collection", () => onAddElement("card", "Collection")]]}/><AddGroup title="Draw & shape" items={[["Rectangle", () => onAddElement("shape", "Rectangle")], ["Ellipse", () => onAddElement("shape", "Ellipse")], ["Line", () => onAddElement("shape", "Line")], ["Vector", () => onAddElement("vector", "Vector path")]]}/></div></>;

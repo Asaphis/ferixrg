@@ -15,6 +15,27 @@ describe("local-only product Manual Editor", () => {
     expect(screen.getAllByText("A prototype change").length).toBeGreaterThan(0);
   });
 
+  it("keeps the editable storefront inside its own scrollable viewport", () => {
+    renderEditor();
+    const viewport = screen.getByLabelText("Scrollable editable storefront");
+    expect(viewport.classList.contains("storefront-viewport")).toBe(true);
+    expect(viewport.getAttribute("tabindex")).toBe("0");
+  });
+
+  it("shows the original sample and the current local edit together in the comparison workspace", () => {
+    renderEditor();
+    fireEvent.change(screen.getAllByRole("textbox")[0]!, { target: { value: "A live local change" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+    expect(screen.getByRole("region", { name: "Local before and after comparison" })).toBeTruthy();
+    expect(screen.getByText("Starting sample")).toBeTruthy();
+    expect(screen.getByText("Current local edits")).toBeTruthy();
+    expect(screen.getByText("A live local change")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Return to editing" }));
+    expect(screen.getByLabelText("Scrollable editable storefront")).toBeTruthy();
+  });
+
   it("adds a local section divider to the selected hero section", () => {
     renderEditor();
     fireEvent.click(screen.getAllByRole("button", { name: "Hero section" })[0]!);
