@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import Workspace from "./Workspace";
+
+afterEach(() => cleanup());
 
 describe("approved premium dashboard overview", () => {
   it("renders resume-work modules and lists all 12 tools before any source selection", () => {
@@ -33,5 +37,18 @@ describe("approved premium dashboard overview", () => {
     ["Design Analysis", "Responsive Analysis", "Structure Analysis", "UX Analysis", "Conversion Analysis", "SEO Analysis", "Performance Analysis", "Accessibility Analysis", "Security Analysis", "Content Analysis", "Asset Analysis", "Design System Analysis"].forEach(tool => {
       expect(markup).toContain(tool);
     });
+  });
+
+  it("opens the local-only Manual Editor from a visual tool result without a backend request", () => {
+    render(<Workspace initialView="Tools" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Design Analysis/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Run local analysis/ }));
+    fireEvent.click(screen.getByRole("button", { name: /View local result/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Manual Editor/ }));
+
+    expect(screen.getByText("MANUAL EDITOR")).toBeTruthy();
+    expect(screen.getByText("Local only")).toBeTruthy();
+    expect(screen.getByText("Design Analysis")).toBeTruthy();
   });
 });
