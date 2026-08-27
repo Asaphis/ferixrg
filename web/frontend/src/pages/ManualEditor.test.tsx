@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import ManualEditor from "./ManualEditor";
 
 const context = {
@@ -13,6 +15,11 @@ const context = {
 };
 
 describe("ManualEditor", () => {
+  beforeEach(() => {
+    cleanup();
+    window.localStorage.clear();
+    window.matchMedia = vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  });
   it("renders the complete editor shell and its contextual workspace areas", () => {
     const markup = renderToStaticMarkup(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} />);
 
@@ -60,5 +67,24 @@ describe("ManualEditor", () => {
     });
     expect(addMarkup).toContain("Search components");
     expect(markup).not.toContain("Publish now");
+  });
+
+  it("updates the selected text directly on the local canvas", () => {
+    render(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} initialInspectorTab="Content" />);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "A directly edited heading" } });
+
+    expect(screen.getAllByText("A directly edited heading").length).toBeGreaterThan(0);
+  });
+
+  it("renders an editable section-bottom divider immediately in the local canvas", () => {
+    const { container } = render(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} />);
+
+    fireEvent.click(container.querySelector(".canvas-hero")!);
+    const dividerSelects = Array.from(container.querySelectorAll("select")).filter(select => Array.from(select.options).some(option => option.value === "wave"));
+    expect(dividerSelects).toHaveLength(2);
+    fireEvent.change(dividerSelects[1]!, { target: { value: "wave" } });
+
+    expect(container.querySelector('[aria-label="wave bottom divider"]')).not.toBeNull();
   });
 });
