@@ -50,4 +50,15 @@ describe("ManualEditor", () => {
     expect(markup).toContain("Review changes before applying them.");
     expect(markup).toContain("Increase navigation spacing and preserve clear touch targets.");
   });
+
+  it("keeps mobile Studio navigation and contextual editing controls available without removing desktop inspector capabilities", () => {
+    const markup = renderToStaticMarkup(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} />);
+    const addMarkup = renderToStaticMarkup(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} initialPanel="Add" />);
+
+    ["Select", "Add", "Layers", "AI", "More", "Edit", "Style", "Move", "Duplicate", "Delete", "Layout", "Effects"].forEach(label => {
+      expect(markup).toContain(label);
+    });
+    expect(addMarkup).toContain("Search components");
+    expect(markup).not.toContain("Publish now");
+  });
 });
