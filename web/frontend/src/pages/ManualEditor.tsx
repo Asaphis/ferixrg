@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowDown,
@@ -63,6 +63,16 @@ type EditorPanel = "Add" | "Layers" | "Pages" | "Assets" | "Components";
 type InspectorTab = "Design" | "Responsive" | "Content" | "Advanced";
 type NodeKind = "page" | "section" | "container" | "text" | "button" | "image" | "product" | "shape" | "vector";
 
+type EditorStyle = {
+  color?: string;
+  background?: string;
+  fontSize?: number;
+  width?: string;
+  padding?: number;
+  radius?: number;
+  opacity?: number;
+};
+
 type EditorNode = {
   id: string;
   parentId: string | null;
@@ -71,15 +81,8 @@ type EditorNode = {
   visible: boolean;
   locked: boolean;
   content?: string;
-  style: {
-    color?: string;
-    background?: string;
-    fontSize?: number;
-    width?: string;
-    padding?: number;
-    radius?: number;
-    opacity?: number;
-  };
+  style: EditorStyle;
+  responsive?: Partial<Record<EditorDevice, Partial<EditorStyle>>>;
 };
 
 type Version = { id: string; label: string; createdAt: string; nodeCount: number };
@@ -99,6 +102,8 @@ type ManualEditorProps = {
   mode: "Manual" | "AI proposal";
   onModeChange: (mode: "Manual" | "AI proposal") => void;
   onBack: () => void;
+  initialPanel?: EditorPanel;
+  initialInspectorTab?: InspectorTab;
 };
 
 const pageId = "page-home";
@@ -128,7 +133,7 @@ const elementGroups: { title: string; items: { label: string; kind: NodeKind; ic
 
 const componentItems = ["Hero section", "Product card", "Collection feature", "Announcement bar", "Newsletter", "Trust block"];
 const assets = ["Palette swatch", "Product still", "Collection image", "Brand mark", "Editorial image"];
-const pages = ["Homepage", "Product details", "Collection", "Cart", "About"];
+const initialPages = ["Homepage", "Product details", "Collection", "Cart", "About"];
 
 function nodeIcon(kind: NodeKind) {
   if (kind === "section") return LayoutPanelTop;
@@ -153,13 +158,13 @@ function nodeTemplate(kind: NodeKind, name: string, parentId: string): EditorNod
   return base;
 }
 
-export default function ManualEditor({ context, mode, onModeChange, onBack }: ManualEditorProps) {
+export default function ManualEditor({ context, mode, onModeChange, onBack, initialPanel = "Layers", initialInspectorTab = "Design" }: ManualEditorProps) {
   const [nodes, setNodes] = useState<EditorNode[]>(initialNodes);
   const [history, setHistory] = useState<EditorNode[][]>([initialNodes]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedId, setSelectedId] = useState("hero-heading");
-  const [activePanel, setActivePanel] = useState<EditorPanel>("Layers");
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("Design");
+  const [activePanel, setActivePanel] = useState<EditorPanel>(initialPanel);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>(initialInspectorTab);
   const [device, setDevice] = useState<EditorDevice>("Desktop");
   const [zoom, setZoom] = useState(74);
   const [gridEnabled, setGridEnabled] = useState(true);
@@ -170,8 +175,14 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
   const [notice, setNotice] = useState("");
   const [mobileInspector, setMobileInspector] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [projectPages, setProjectPages] = useState(initialPages);
+  const [activePage, setActivePage] = useState("Homepage");
+  const [assetItems, setAssetItems] = useState<{ id: string; name: string; url?: string; type: "generated" | "upload" }[]>(assets.map((name, index) => ({ id: `asset-${index}`, name, type: "generated" })));
+  const [savedComponents, setSavedComponents] = useState<string[]>([]);
+  const assetInputRef = useRef<HTMLInputElement>(null);
 
   const selected = nodes.find(node => node.id === selectedId) ?? nodes[0]!;
+  const selectedStyle = { ...selected.style, ...(selected.responsive?.[device] ?? {}) };
   const byParent = useMemo(() => nodes.reduce<Record<string, EditorNode[]>>((map, node) => { if (node.parentId) (map[node.parentId] ??= []).push(node); return map; }, {}), [nodes]);
   const rootSections = byParent[pageId] ?? [];
   const selectedSection = selected.kind === "section" || selected.kind === "page" ? selected.id : selected.parentId ?? "hero";
@@ -191,6 +202,10 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
   const updateSelected = (patch: Partial<EditorNode> | { style: Partial<EditorNode["style"]> }) => {
     if (selected.locked) { setNotice("Unlock this layer before editing it."); return; }
     commit(nodes.map(node => node.id === selected.id ? { ...node, ...patch, style: "style" in patch ? { ...node.style, ...patch.style } : node.style } : node));
+  };
+  const updateCurrentDeviceStyle = (style: Partial<EditorStyle>) => {
+    if (selected.locked) { setNotice("Unlock this layer before editing it."); return; }
+    commit(nodes.map(node => node.id === selected.id ? { ...node, responsive: { ...node.responsive, [device]: { ...node.responsive?.[device], ...style } } } : node));
   };
   const addElement = (kind: NodeKind, label: string) => {
     const parent = selected.kind === "page" || selected.kind === "section" || selected.kind === "container" ? selected.id : selectedSection;
@@ -239,13 +254,16 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
   const undo = () => { if (historyIndex === 0) return; const nextIndex = historyIndex - 1; setHistoryIndex(nextIndex); setNodes(history[nextIndex]!); setSavedState("Draft restored from history"); };
   const redo = () => { if (historyIndex >= history.length - 1) return; const nextIndex = historyIndex + 1; setHistoryIndex(nextIndex); setNodes(history[nextIndex]!); setSavedState("Draft restored from history"); };
   const saveVersion = () => { const version = { id: `version-${Date.now()}`, label: `Version ${versions.length + 1}`, createdAt: "Saved just now", nodeCount: nodes.length }; setVersions([version, ...versions]); setSavedState("Version saved locally"); setNotice("A local version was created. It can be compared or restored when persistent project storage is connected."); };
+  const createPage = () => { const name = `New page ${projectPages.length + 1}`; setProjectPages(current => [...current, name]); setActivePage(name); setNotice(`${name} was created as a local project page.`); };
+  const uploadAsset = (file: File | undefined) => { if (!file) return; const asset = { id: `upload-${Date.now()}`, name: file.name, url: URL.createObjectURL(file), type: "upload" as const }; setAssetItems(current => [asset, ...current]); setNotice(`${file.name} was added to this browser’s local asset library.`); };
+  const saveSelectedAsComponent = () => { const componentName = `${selected.name} component`; if (savedComponents.includes(componentName)) { setNotice(`${componentName} is already in the local component library.`); return; } setSavedComponents(current => [componentName, ...current]); setNotice(`${componentName} was saved for reuse in this local project draft.`); };
 
   const renderLayerTree = (parentId: string, depth = 0) => children(parentId).map(node => {
     const Icon = nodeIcon(node.kind);
     return <div className={draggedId === node.id ? "manual-layer-row is-dragging" : "manual-layer-row"} key={node.id} style={{ paddingLeft: 12 + depth * 13 }} onDragOver={event => event.preventDefault()} onDrop={() => moveDraggedElement(node.id)}><button className={selected.id === node.id ? "manual-layer-select selected" : "manual-layer-select"} draggable={!node.locked} onDragStart={() => setDraggedId(node.id)} onDragEnd={() => setDraggedId(null)} onClick={() => setSelectedId(node.id)}><GripVertical size={12} /><Icon size={13} /><span>{node.name}</span>{!node.visible && <EyeOff size={12} />}{node.locked && <Lock size={11} />}</button>{children(node.id).length > 0 && <div className="manual-layer-children">{renderLayerTree(node.id, depth + 1)}</div>}</div>;
   });
 
-  const selectedTextStyle = { color: selected.style.color, fontSize: `${selected.style.fontSize ?? 14}px`, opacity: selected.style.opacity ?? 1 };
+  const selectedTextStyle = { color: selectedStyle.color, fontSize: `${selectedStyle.fontSize ?? 14}px`, opacity: selectedStyle.opacity ?? 1 };
   const canvasClass = `manual-canvas-frame device-${device.toLowerCase()} ${previewing ? "is-previewing" : ""} ${gridEnabled ? "show-grid" : ""}`;
 
   return <section className="manual-editor" aria-label="FerixRG Manual Editor">
@@ -264,9 +282,9 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
         <div className="manual-left-content">
           {activePanel === "Add" && <><div className="manual-panel-heading"><div><span>Add to page</span><h2>Elements</h2></div><button className="manual-icon-button"><Search size={15} /></button></div>{elementGroups.map(group => <section className="manual-add-group" key={group.title}><h3>{group.title}</h3><div>{group.items.map(item => { const Icon = item.icon; return <button onClick={() => addElement(item.kind, item.label)} key={item.label}><Icon size={15} /><span>{item.label}</span><Plus size={13} /></button>; })}</div></section>)}</>}
           {activePanel === "Layers" && <><div className="manual-panel-heading"><div><span>Document structure</span><h2>Layers</h2></div><button className="manual-icon-button" onClick={() => setSelectedId(pageId)}><MousePointer2 size={15} /></button></div><div className="manual-layer-root"><button className={selected.id === pageId ? "manual-layer-select selected root" : "manual-layer-select root"} onClick={() => setSelectedId(pageId)}><ChevronDown size={13} /><LayoutPanelTop size={13} /><span>Homepage</span></button>{renderLayerTree(pageId)}</div></>}
-          {activePanel === "Pages" && <><div className="manual-panel-heading"><div><span>Website pages</span><h2>Pages</h2></div><button className="manual-icon-button" onClick={() => setNotice("New page creation will be saved to the selected project when project persistence is connected.")}><Plus size={15} /></button></div><div className="manual-page-list">{pages.map((page, index) => <button className={index === 0 ? "active" : ""} onClick={() => index === 0 ? setSelectedId(pageId) : setNotice(`${page} page is available for project editing after page persistence is connected.`)} key={page}><FilePlus2 size={15} /><span>{page}</span>{index === 0 && <Check size={14} />}</button>)}</div></>}
-          {activePanel === "Assets" && <><div className="manual-panel-heading"><div><span>Reusable files</span><h2>Assets</h2></div><button className="manual-icon-button" onClick={() => setNotice("File upload opens here when the selected workspace has secure asset storage.")}><Upload size={15} /></button></div><button className="manual-upload-slot" onClick={() => setNotice("File upload is ready to connect to secure workspace storage.")}><Upload size={18} /><strong>Upload asset</strong><small>Image, video, SVG, font, or file</small></button><div className="manual-asset-grid">{assets.map((asset, index) => <button onClick={() => addElement("image", asset)} key={asset}><i className={`asset-shade shade-${index}`} /><span>{asset}</span></button>)}</div></>}
-          {activePanel === "Components" && <><div className="manual-panel-heading"><div><span>Reusable building blocks</span><h2>Components</h2></div><button className="manual-icon-button" onClick={() => setNotice("Select any section and save it as a reusable component.")}><Plus size={15} /></button></div><div className="manual-component-list">{componentItems.map((item, index) => <button onClick={() => addElement(index < 2 ? "product" : "section", item)} key={item}><Component size={15} /><span><strong>{item}</strong><small>{index < 2 ? "Store-aware block" : "Reusable section"}</small></span><Plus size={13} /></button>)}</div></>}
+          {activePanel === "Pages" && <><div className="manual-panel-heading"><div><span>Website pages</span><h2>Pages</h2></div><button className="manual-icon-button" onClick={createPage} aria-label="Create page"><Plus size={15} /></button></div><div className="manual-page-list">{projectPages.map(page => <button className={page === activePage ? "active" : ""} onClick={() => { setActivePage(page); if (page === "Homepage") setSelectedId(pageId); else setNotice(`${page} is selected. Its independent page canvas will persist when project page storage is connected.`); }} key={page}><FilePlus2 size={15} /><span>{page}</span>{page === activePage && <Check size={14} />}</button>)}</div></>}
+          {activePanel === "Assets" && <><input ref={assetInputRef} className="manual-file-input" type="file" accept="image/*,video/*,.svg,.pdf,.txt,.woff,.woff2" onChange={event => { uploadAsset(event.target.files?.[0]); event.currentTarget.value = ""; }} /><div className="manual-panel-heading"><div><span>Reusable files</span><h2>Assets</h2></div><button className="manual-icon-button" onClick={() => assetInputRef.current?.click()} aria-label="Upload asset"><Upload size={15} /></button></div><button className="manual-upload-slot" onClick={() => assetInputRef.current?.click()}><Upload size={18} /><strong>Upload asset</strong><small>Image, video, SVG, font, or file</small></button><div className="manual-asset-grid">{assetItems.map((asset, index) => <button onClick={() => addElement("image", asset.name)} key={asset.id}>{asset.url ? <img src={asset.url} alt="" /> : <i className={`asset-shade shade-${index % 5}`} />}<span>{asset.name}</span></button>)}</div></>}
+          {activePanel === "Components" && <><div className="manual-panel-heading"><div><span>Reusable building blocks</span><h2>Components</h2></div><button className="manual-icon-button" onClick={saveSelectedAsComponent} aria-label="Save selected component"><Plus size={15} /></button></div><button className="manual-save-component" onClick={saveSelectedAsComponent}><Component size={15} /><span><strong>Save selected layer</strong><small>Reuse {selected.name} in this project</small></span><Plus size={13} /></button><div className="manual-component-list">{[...savedComponents, ...componentItems].map((item, index) => <button onClick={() => addElement(index < 2 || /product/i.test(item) ? "product" : "section", item)} key={item}><Component size={15} /><span><strong>{item}</strong><small>{savedComponents.includes(item) ? "Saved local component" : index < 2 ? "Store-aware block" : "Reusable section"}</small></span><Plus size={13} /></button>)}</div></>}
         </div>
       </aside>
 
@@ -285,9 +303,9 @@ export default function ManualEditor({ context, mode, onModeChange, onBack }: Ma
         <div className="manual-inspector-heading"><div><span>{selected.kind === "page" ? "Page settings" : `${selected.kind} selected`}</span><h2>{selected.name}</h2></div><button className="manual-mobile-inspector-close" onClick={() => setMobileInspector(false)}><XMark /></button></div>
         <nav className="manual-inspector-tabs">{(["Design", "Responsive", "Content", "Advanced"] as InspectorTab[]).map(tab => <button className={inspectorTab === tab ? "active" : ""} onClick={() => setInspectorTab(tab)} key={tab}>{tab}</button>)}</nav>
         <div className="manual-inspector-content">
-          {inspectorTab === "Design" && <><InspectorSection title="Layout"><ControlRow label="Width" value={selected.style.width ?? "Auto"} control={<select value={selected.style.width ?? "Auto"} onChange={event => updateSelected({ style: { width: event.target.value } })}><option>Auto</option><option>Full width</option><option>Contained</option><option>Custom</option></select>} /><ControlRow label="Padding" value={`${selected.style.padding ?? 0}px`} control={<input type="range" min="0" max="96" value={selected.style.padding ?? 0} onChange={event => updateSelected({ style: { padding: Number(event.target.value) } })} />} /><ControlRow label="Radius" value={`${selected.style.radius ?? 0}px`} control={<input type="range" min="0" max="32" value={selected.style.radius ?? 0} onChange={event => updateSelected({ style: { radius: Number(event.target.value) } })} />} /></InspectorSection><InspectorSection title="Appearance"><ControlRow label="Fill" value={selected.style.background ?? "None"} control={<input type="color" value={colorValue(selected.style.background, "#173b8f")} onChange={event => updateSelected({ style: { background: event.target.value } })} />} /><ControlRow label="Text" value={selected.style.color ?? "Default"} control={<input type="color" value={colorValue(selected.style.color, "#172039")} onChange={event => updateSelected({ style: { color: event.target.value } })} />} /><ControlRow label="Opacity" value={`${Math.round((selected.style.opacity ?? 1) * 100)}%`} control={<input type="range" min="20" max="100" value={(selected.style.opacity ?? 1) * 100} onChange={event => updateSelected({ style: { opacity: Number(event.target.value) / 100 } })} />} /></InspectorSection></>}
+          {inspectorTab === "Design" && <><InspectorSection title="Layout"><ControlRow label="Width" value={selectedStyle.width ?? "Auto"} control={<select value={selectedStyle.width ?? "Auto"} onChange={event => updateCurrentDeviceStyle({ width: event.target.value })}><option>Auto</option><option>Full width</option><option>Contained</option><option>Custom</option></select>} /><ControlRow label="Padding" value={`${selectedStyle.padding ?? 0}px`} control={<input type="range" min="0" max="96" value={selectedStyle.padding ?? 0} onChange={event => updateCurrentDeviceStyle({ padding: Number(event.target.value) })} />} /><ControlRow label="Radius" value={`${selectedStyle.radius ?? 0}px`} control={<input type="range" min="0" max="32" value={selectedStyle.radius ?? 0} onChange={event => updateCurrentDeviceStyle({ radius: Number(event.target.value) })} />} /></InspectorSection><InspectorSection title={`Appearance · ${device}`}><ControlRow label="Fill" value={selectedStyle.background ?? "None"} control={<input type="color" value={colorValue(selectedStyle.background, "#173b8f")} onChange={event => updateCurrentDeviceStyle({ background: event.target.value })} />} /><ControlRow label="Text" value={selectedStyle.color ?? "Default"} control={<input type="color" value={colorValue(selectedStyle.color, "#172039")} onChange={event => updateCurrentDeviceStyle({ color: event.target.value })} />} /><ControlRow label="Opacity" value={`${Math.round((selectedStyle.opacity ?? 1) * 100)}%`} control={<input type="range" min="20" max="100" value={(selectedStyle.opacity ?? 1) * 100} onChange={event => updateCurrentDeviceStyle({ opacity: Number(event.target.value) / 100 })} />} /></InspectorSection></>}
           {inspectorTab === "Responsive" && <><InspectorSection title="Current breakpoint"><div className="manual-breakpoints">{(["Desktop", "Tablet", "Mobile"] as EditorDevice[]).map(item => <button className={device === item ? "active" : ""} onClick={() => setDevice(item)} key={item}>{item}</button>)}</div></InspectorSection><InspectorSection title="Visibility"><div className="manual-visibility-row"><span>Show on this device</span><button className={selected.visible ? "manual-toggle active" : "manual-toggle"} onClick={() => updateSelected({ visible: !selected.visible })}><i /></button></div><p className="manual-property-note">Breakpoint-specific values are stored with the selected element when the project persistence layer is connected.</p></InspectorSection><InspectorSection title="Viewport"><ControlRow label="Mode" value={device} control={<select value={device} onChange={event => setDevice(event.target.value as EditorDevice)}><option>Desktop</option><option>Tablet</option><option>Mobile</option></select>} /><ControlRow label="Custom" value="Add" control={<button className="manual-inline-action" onClick={() => setNotice("Custom breakpoints can be added to this project’s responsive profile.")}>Add breakpoint</button>} /></InspectorSection></>}
-          {inspectorTab === "Content" && <><InspectorSection title="Content"><label className="manual-field-label">{selected.kind === "text" ? "Text" : selected.kind === "button" ? "Button label" : "Element label"}<textarea value={selected.content ?? ""} onChange={event => updateSelected({ content: event.target.value })} disabled={selected.locked} /></label></InspectorSection><InspectorSection title="Typography"><ControlRow label="Size" value={`${selected.style.fontSize ?? 14}px`} control={<input type="range" min="10" max="72" value={selected.style.fontSize ?? 14} onChange={event => updateSelected({ style: { fontSize: Number(event.target.value) } })} />} /><ControlRow label="Font" value="Inter" control={<select><option>Inter</option><option>Space Grotesk</option><option>System serif</option></select>} /></InspectorSection><button className="manual-ai-inline" onClick={() => onModeChange("AI proposal")}><Sparkles size={15} /><span>Ask AI about this element</span><ChevronRight size={14} /></button></>}
+          {inspectorTab === "Content" && <><InspectorSection title="Content"><label className="manual-field-label">{selected.kind === "text" ? "Text" : selected.kind === "button" ? "Button label" : "Element label"}<textarea value={selected.content ?? ""} onChange={event => updateSelected({ content: event.target.value })} disabled={selected.locked} /></label></InspectorSection><InspectorSection title={`Typography · ${device}`}><ControlRow label="Size" value={`${selectedStyle.fontSize ?? 14}px`} control={<input type="range" min="10" max="72" value={selectedStyle.fontSize ?? 14} onChange={event => updateCurrentDeviceStyle({ fontSize: Number(event.target.value) })} />} /><ControlRow label="Font" value="Inter" control={<select><option>Inter</option><option>Space Grotesk</option><option>System serif</option></select>} /></InspectorSection><button className="manual-ai-inline" onClick={() => onModeChange("AI proposal")}><Sparkles size={15} /><span>Ask AI about this element</span><ChevronRight size={14} /></button></>}
           {inspectorTab === "Advanced" && <><InspectorSection title="Element"><ControlRow label="Position" value="Relative" control={<select><option>Static</option><option>Relative</option><option>Absolute</option><option>Fixed</option><option>Sticky</option></select>} /><ControlRow label="Layer" value="0" control={<input type="number" defaultValue="0" />} /></InspectorSection><InspectorSection title="Actions"><button className="manual-advanced-option"><Code2 size={14} /> Custom CSS <ChevronRight size={14} /></button><button className="manual-advanced-option"><ShieldCheck size={14} /> Accessibility <ChevronRight size={14} /></button><button className="manual-advanced-option"><Wand2 size={14} /> Interactions <ChevronRight size={14} /></button></InspectorSection></>}
         </div>
         <footer className="manual-layer-actions"><button onClick={() => updateSelected({ locked: !selected.locked })} aria-label={selected.locked ? "Unlock selected element" : "Lock selected element"}>{selected.locked ? <LockKeyhole size={15} /> : <Lock size={15} />}</button><button onClick={() => updateSelected({ visible: !selected.visible })} aria-label={selected.visible ? "Hide selected element" : "Show selected element"}>{selected.visible ? <Eye size={15} /> : <EyeOff size={15} />}</button><button onClick={duplicateSelected} aria-label="Duplicate selected element"><Copy size={15} /></button><button onClick={() => moveSelected("up")} aria-label="Move selected element up"><ArrowUp size={15} /></button><button onClick={() => moveSelected("down")} aria-label="Move selected element down"><ArrowDown size={15} /></button><button className="danger" onClick={deleteSelected} aria-label="Delete selected element"><Trash2 size={15} /></button></footer>
