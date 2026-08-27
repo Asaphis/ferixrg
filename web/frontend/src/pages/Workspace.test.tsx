@@ -12,6 +12,8 @@ describe("approved premium dashboard overview", () => {
     expect(markup).toContain("Active analyses");
     expect(markup).toContain("Release &amp; validation");
     expect(markup).toContain("Choose a tool first.");
+    expect(markup).not.toContain("Studio");
+    expect(markup).not.toContain("Manual Editor");
 
     ["Design", "Responsive", "Structure", "UX", "Conversion", "SEO", "Performance", "Accessibility", "Security", "Content", "Asset", "Design System"].forEach(tool => {
       expect(markup).toContain(`>${tool}</span>`);
@@ -25,6 +27,8 @@ describe("approved premium dashboard overview", () => {
 
     expect(markup).toContain("Choose a tool first. Compatible sources appear next.");
     expect(markup).not.toContain("Choose a supported source");
+    expect(markup).not.toContain("Manual Design Editor");
+    expect(markup).not.toContain("Responsive Editor");
 
     ["Design Analysis", "Responsive Analysis", "Structure Analysis", "UX Analysis", "Conversion Analysis", "SEO Analysis", "Performance Analysis", "Accessibility Analysis", "Security Analysis", "Content Analysis", "Asset Analysis", "Design System Analysis"].forEach(tool => {
       expect(markup).toContain(tool);
