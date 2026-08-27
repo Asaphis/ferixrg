@@ -36,6 +36,13 @@ describe("ManualEditor", () => {
     expect(content).toContain("Typography · Desktop");
   });
 
+  it("keeps vector drawing and release controls separate from automatic publishing", () => {
+    const markup = renderToStaticMarkup(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} />);
+
+    ["Select", "Pen", "Pencil", "Compare", "Validate", "Publish"].forEach(label => expect(markup).toContain(label));
+    expect(markup).not.toContain("Publish now");
+  });
+
   it("keeps AI changes in a reviewable proposal state", () => {
     const markup = renderToStaticMarkup(<ManualEditor context={context} mode="AI proposal" onModeChange={vi.fn()} onBack={vi.fn()} />);
 
