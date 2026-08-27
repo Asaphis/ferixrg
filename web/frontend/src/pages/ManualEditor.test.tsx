@@ -1,0 +1,32 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import ManualEditor from "./ManualEditor";
+
+const context = {
+  projectTitle: "Homepage mobile review",
+  toolName: "Responsive Analysis",
+  source: "Project / Saved Analysis",
+  finding: "Mobile navigation overlaps the primary action",
+  evidence: "375 px navigation and checkout visibility",
+  recommendation: "Increase navigation spacing and preserve clear touch targets.",
+  focusLabels: ["Visual hierarchy", "Mobile layout"],
+};
+
+describe("ManualEditor", () => {
+  it("renders the complete editor shell and its contextual workspace areas", () => {
+    const markup = renderToStaticMarkup(<ManualEditor context={context} mode="Manual" onModeChange={vi.fn()} onBack={vi.fn()} />);
+
+    ["Manual Editor", "Add", "Layers", "Pages", "Assets", "Components", "Homepage", "Hero heading", "Desktop", "Tablet", "Mobile", "Design", "Responsive", "Content", "Advanced", "Validate", "Publish"].forEach(label => {
+      expect(markup).toContain(label);
+    });
+    expect(markup).toContain("Mobile navigation overlaps the primary action");
+  });
+
+  it("keeps AI changes in a reviewable proposal state", () => {
+    const markup = renderToStaticMarkup(<ManualEditor context={context} mode="AI proposal" onModeChange={vi.fn()} onBack={vi.fn()} />);
+
+    expect(markup).toContain("AI proposal mode");
+    expect(markup).toContain("Review changes before applying them.");
+    expect(markup).toContain("Increase navigation spacing and preserve clear touch targets.");
+  });
+});
