@@ -89,6 +89,7 @@ type Version = { id: string; label: string; createdAt: string; nodeCount: number
 type Point = { x: number; y: number };
 type VectorPath = { id: string; label: string; points: Point[]; kind: "pen" | "pencil"; stroke: string; fill: string; closed?: boolean };
 type DrawingTool = "select" | "pen" | "pencil";
+type EditorDocument = { nodes: EditorNode[]; vectorPaths: VectorPath[] };
 
 export type ManualEditorContext = {
   projectTitle: string;
@@ -163,7 +164,7 @@ function nodeTemplate(kind: NodeKind, name: string, parentId: string): EditorNod
 
 export default function ManualEditor({ context, mode, onModeChange, onBack, initialPanel = "Layers", initialInspectorTab = "Design" }: ManualEditorProps) {
   const [nodes, setNodes] = useState<EditorNode[]>(initialNodes);
-  const [history, setHistory] = useState<EditorNode[][]>([initialNodes]);
+  const [history, setHistory] = useState<EditorDocument[]>([{ nodes: initialNodes, vectorPaths: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [selectedId, setSelectedId] = useState("hero-heading");
   const [activePanel, setActivePanel] = useState<EditorPanel>(initialPanel);
@@ -204,9 +205,11 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
     window.localStorage.setItem("ferixrg-manual-editor-draft", JSON.stringify({ nodes, vectorPaths, selectedId, device, updatedAt: Date.now() }));
   }, [nodes, vectorPaths, selectedId, device]);
 
-  const commit = (next: EditorNode[], label = "Draft updated") => {
-    const nextHistory = [...history.slice(0, historyIndex + 1), next];
-    setNodes(next);
+  const commit = (nextNodes: EditorNode[], label = "Draft updated", nextVectorPaths = vectorPaths) => {
+    const nextDocument = { nodes: nextNodes, vectorPaths: nextVectorPaths };
+    const nextHistory = [...history.slice(0, historyIndex + 1), nextDocument];
+    setNodes(nextNodes);
+    setVectorPaths(nextVectorPaths);
     setHistory(nextHistory);
     setHistoryIndex(nextHistory.length - 1);
     setSavedState(label);
@@ -263,8 +266,8 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
     setDraggedId(null);
     setNotice(`${dragged.name} moved into ${target.name}.`);
   };
-  const undo = () => { if (historyIndex === 0) return; const nextIndex = historyIndex - 1; setHistoryIndex(nextIndex); setNodes(history[nextIndex]!); setSavedState("Draft restored from history"); };
-  const redo = () => { if (historyIndex >= history.length - 1) return; const nextIndex = historyIndex + 1; setHistoryIndex(nextIndex); setNodes(history[nextIndex]!); setSavedState("Draft restored from history"); };
+  const undo = () => { if (historyIndex === 0) return; const nextIndex = historyIndex - 1; const previous = history[nextIndex]!; setHistoryIndex(nextIndex); setNodes(previous.nodes); setVectorPaths(previous.vectorPaths); setSavedState("Draft restored from history"); };
+  const redo = () => { if (historyIndex >= history.length - 1) return; const nextIndex = historyIndex + 1; const following = history[nextIndex]!; setHistoryIndex(nextIndex); setNodes(following.nodes); setVectorPaths(following.vectorPaths); setSavedState("Draft restored from history"); };
   const saveVersion = () => { const version = { id: `version-${Date.now()}`, label: `Version ${versions.length + 1}`, createdAt: "Saved just now", nodeCount: nodes.length }; setVersions([version, ...versions]); setSavedState("Version saved locally"); setNotice("A local version was created. It can be compared or restored when persistent project storage is connected."); };
   const createPage = () => { const name = `New page ${projectPages.length + 1}`; setProjectPages(current => [...current, name]); setActivePage(name); setNotice(`${name} was created as a local project page.`); };
   const uploadAsset = (file: File | undefined) => { if (!file) return; const asset = { id: `upload-${Date.now()}`, name: file.name, url: URL.createObjectURL(file), type: "upload" as const }; setAssetItems(current => [asset, ...current]); setNotice(`${file.name} was added to this browser’s local asset library.`); };
@@ -273,13 +276,13 @@ export default function ManualEditor({ context, mode, onModeChange, onBack, init
   const startDrawing = (event: React.PointerEvent<SVGSVGElement>) => { if (drawingTool === "select") return; const point = pointFromEvent(event); if (drawingTool === "pen") { setDraftPoints(current => [...current, point]); return; } setDraftPoints([point]); setIsDrawing(true); event.currentTarget.setPointerCapture(event.pointerId); };
   const continueDrawing = (event: React.PointerEvent<SVGSVGElement>) => { if (!isDrawing || drawingTool !== "pencil") return; const point = pointFromEvent(event); setDraftPoints(current => { const previous = current[current.length - 1]; return previous && Math.hypot(previous.x - point.x, previous.y - point.y) < 2 ? current : [...current, point]; }); };
   const finishDrawing = () => { if (!isDrawing || drawingTool !== "pencil") return; setIsDrawing(false); if (draftPoints.length > 1) saveVectorPath(draftPoints, "pencil"); };
-  const saveVectorPath = (points: Point[], kind: "pen" | "pencil") => { if (points.length < 2) { setNotice("Add at least two nodes to create a path."); return; } const id = `vector-${Date.now()}`; const path = { id, label: `${kind === "pen" ? "Pen" : "Pencil"} path ${vectorPaths.length + 1}`, points, kind, stroke: "#315fc0", fill: "transparent" } satisfies VectorPath; setVectorPaths(current => [...current, path]); commit([...nodes, { id, parentId: "hero", name: path.label, kind: "vector", visible: true, locked: false, content: "Custom vector path", style: { background: path.stroke } }], "Vector path added locally"); setSelectedId(id); setDraftPoints([]); setDrawingTool("select"); setNotice(`${path.label} was added to the canvas and Layers.`); };
+  const saveVectorPath = (points: Point[], kind: "pen" | "pencil") => { if (points.length < 2) { setNotice("Add at least two nodes to create a path."); return; } const id = `vector-${Date.now()}`; const path = { id, label: `${kind === "pen" ? "Pen" : "Pencil"} path ${vectorPaths.length + 1}`, points, kind, stroke: "#315fc0", fill: "transparent" } satisfies VectorPath; commit([...nodes, { id, parentId: "hero", name: path.label, kind: "vector", visible: true, locked: false, content: "Custom vector path", style: { background: path.stroke } }], "Vector path added locally", [...vectorPaths, path]); setSelectedId(id); setDraftPoints([]); setDrawingTool("select"); setNotice(`${path.label} was added to the canvas and Layers.`); };
   const finishPenPath = () => { if (drawingTool !== "pen") return; saveVectorPath(draftPoints, "pen"); };
-  const updateVectorPoint = (axis: "x" | "y", value: number) => { if (selected.kind !== "vector" || selectedVectorPoint === null) return; setVectorPaths(current => current.map(path => path.id !== selected.id ? path : { ...path, points: path.points.map((point, index) => index === selectedVectorPoint ? { ...point, [axis]: value } : point) })); };
-  const removeVectorPoint = () => { if (selected.kind !== "vector" || selectedVectorPoint === null) return; setVectorPaths(current => current.map(path => path.id !== selected.id ? path : { ...path, points: path.points.filter((_, index) => index !== selectedVectorPoint) })); setSelectedVectorPoint(null); setNotice("Vector node removed. The change remains in your local draft history."); };
-  const updateVectorPath = (patch: Partial<VectorPath>) => { if (selected.kind !== "vector") return; setVectorPaths(current => current.map(path => path.id === selected.id ? { ...path, ...patch } : path)); };
-  const duplicateVectorPath = () => { const path = vectorPaths.find(item => item.id === selected.id); if (!path) return; const id = `vector-${Date.now()}`; const duplicate = { ...path, id, label: `${path.label} copy`, points: path.points.map(point => ({ x: Math.min(850, point.x + 14), y: Math.min(515, point.y + 14) })) }; setVectorPaths(current => [...current, duplicate]); commit([...nodes, { id, parentId: "hero", name: duplicate.label, kind: "vector", visible: true, locked: false, content: "Custom vector path", style: { background: duplicate.stroke } }], "Vector path duplicated locally"); setSelectedId(id); setNotice(`${duplicate.label} was added as an editable copy.`); };
-  const deleteVectorPath = () => { if (selected.kind !== "vector") return; setVectorPaths(current => current.filter(path => path.id !== selected.id)); deleteSelected(); setNotice("Custom vector graphic removed from the local draft."); };
+  const updateVectorPoint = (axis: "x" | "y", value: number) => { if (selected.kind !== "vector" || selectedVectorPoint === null) return; const nextPaths = vectorPaths.map(path => path.id !== selected.id ? path : { ...path, points: path.points.map((point, index) => index === selectedVectorPoint ? { ...point, [axis]: value } : point) }); commit(nodes, "Vector node updated locally", nextPaths); };
+  const removeVectorPoint = () => { if (selected.kind !== "vector" || selectedVectorPoint === null) return; const nextPaths = vectorPaths.map(path => path.id !== selected.id ? path : { ...path, points: path.points.filter((_, index) => index !== selectedVectorPoint) }); commit(nodes, "Vector node removed locally", nextPaths); setSelectedVectorPoint(null); setNotice("Vector node removed. The change remains in your local draft history."); };
+  const updateVectorPath = (patch: Partial<VectorPath>) => { if (selected.kind !== "vector") return; commit(nodes, "Vector path updated locally", vectorPaths.map(path => path.id === selected.id ? { ...path, ...patch } : path)); };
+  const duplicateVectorPath = () => { const path = vectorPaths.find(item => item.id === selected.id); if (!path) return; const id = `vector-${Date.now()}`; const duplicate = { ...path, id, label: `${path.label} copy`, points: path.points.map(point => ({ x: Math.min(850, point.x + 14), y: Math.min(515, point.y + 14) })) }; commit([...nodes, { id, parentId: "hero", name: duplicate.label, kind: "vector", visible: true, locked: false, content: "Custom vector path", style: { background: duplicate.stroke } }], "Vector path duplicated locally", [...vectorPaths, duplicate]); setSelectedId(id); setNotice(`${duplicate.label} was added as an editable copy.`); };
+  const deleteVectorPath = () => { if (selected.kind !== "vector") return; commit(nodes.filter(node => node.id !== selected.id), "Custom vector graphic removed locally", vectorPaths.filter(path => path.id !== selected.id)); setSelectedId("hero"); setSelectedVectorPoint(null); setNotice("Custom vector graphic removed from the local draft."); };
   const saveVectorGraphic = () => { const path = vectorPaths.find(item => item.id === selected.id); if (!path) return; const graphicName = `${path.label} graphic`; if (!savedComponents.includes(graphicName)) setSavedComponents(current => [graphicName, ...current]); setNotice(`${graphicName} was saved to the reusable local component library.`); };
 
   const renderLayerTree = (parentId: string, depth = 0) => children(parentId).map(node => {
